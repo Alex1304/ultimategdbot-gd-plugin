@@ -8,6 +8,7 @@ import java.util.function.BiConsumer;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
+import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
@@ -20,10 +21,12 @@ public class ProfileCommand implements Command {
 	
 	private final AuthenticatedGDClient gdClient;
 	private final SpriteFactory spriteFactory;
+	private final Map<GDUserIconSet, String[]> iconsCache;
 
-	public ProfileCommand(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory) {
+	public ProfileCommand(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache) {
 		this.gdClient = Objects.requireNonNull(gdClient);
 		this.spriteFactory = Objects.requireNonNull(spriteFactory);
+		this.iconsCache = Objects.requireNonNull(iconsCache);
 	}
 
 	@Override
@@ -33,7 +36,7 @@ public class ProfileCommand implements Command {
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
 		return gdClient.searchUser(input)
-				.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory)
+				.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory, iconsCache)
 						.flatMap(urls -> ctx.reply(GDUtils.profileEmbed(ctx, user, urls[0], urls[1]))))
 				.then();
 	}
@@ -72,5 +75,4 @@ public class ProfileCommand implements Command {
 	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
 		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
 	}
-
 }

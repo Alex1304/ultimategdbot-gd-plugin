@@ -104,8 +104,12 @@ public final class GDUtils {
 		return String.format("`% 6d`", stat).replaceAll(" ", "‌‌ ");
 	}
 	
-	public static Mono<String[]> makeIconSet(Context ctx, GDUser user, SpriteFactory sf) {
+	public static Mono<String[]> makeIconSet(Context ctx, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
 		var iconSet = new GDUserIconSet(user, sf);
+		var cached = iconsCache.get(iconSet);
+		if (cached != null) {
+			return Mono.just(cached);
+		}
 		var mainIcon = iconSet.generateIcon(user.getMainIconType());
 		var icons = new ArrayList<BufferedImage>();
 		for (var iconType : IconType.values()) {
@@ -129,6 +133,7 @@ public final class GDUtils {
 			for (var a : msg.getAttachments()) {
 				urls[a.getFilename().endsWith("Main.png") ? 0 : 1] = a.getUrl();
 			}
+			iconsCache.put(iconSet, urls);
 			return urls;
 		});
 	}
@@ -139,7 +144,7 @@ public final class GDUtils {
 			ImageIO.write(img, "png", os);
 			return new ByteArrayInputStream(os.toByteArray());
 		} catch (IOException e) {
-			throw new UncheckedIOException(e);
+			throw new UncheckedIOException(e); // Should never happen
 		}
 	}
 }
