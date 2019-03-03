@@ -175,7 +175,7 @@ public final class GDUtils {
 		final var eLike = ctx.getBot().getEmoji("like");
 		final var eLength = ctx.getBot().getEmoji("length");
 		return embed -> {
-			embed.setTitle("Search results for \"" + searchQuery + "\" (page " + (paginator.getPageNumber() + 1) + ")");
+			embed.setTitle("Search results for \"" + searchQuery + "\"");
 			var i = 1;
 			for (var level : paginator) {
 				var coins = GDUtils.coinsToEmoji(ctx, level.getCoinCount(), level.hasCoinsVerified(), true);

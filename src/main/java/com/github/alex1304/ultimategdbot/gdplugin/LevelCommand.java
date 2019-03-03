@@ -78,6 +78,7 @@ public class LevelCommand implements Command {
 					}
 				});
 			}
+			rb.setHeader("Page " + (paginator.getPageNumber() + 1));
 			return rb.build(null, GDUtils.levelPaginatorView(ctx, paginator)).then();
 		}).then();
 	}
