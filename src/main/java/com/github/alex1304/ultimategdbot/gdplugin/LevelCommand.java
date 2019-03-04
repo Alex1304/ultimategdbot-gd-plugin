@@ -23,9 +23,11 @@ import reactor.core.publisher.Mono;
 public class LevelCommand implements Command {
 	
 	private final AuthenticatedGDClient gdClient;
+	private final boolean byUser;
 
-	public LevelCommand(AuthenticatedGDClient gdClient) {
+	public LevelCommand(AuthenticatedGDClient gdClient, boolean byUser) {
 		this.gdClient = Objects.requireNonNull(gdClient);
+		this.byUser = byUser;
 	}
 
 	@Override
@@ -37,55 +39,58 @@ public class LevelCommand implements Command {
 		@SuppressWarnings("unchecked")
 		var paginatorMono = (Mono<GDPaginator<GDLevel>>) ctx.getVar("paginator", Mono.class);
 		if (paginatorMono == null) {
-			ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
+			if (byUser) {
+				ctx.setVar("paginator", gdClient.searchUser(input)
+						.flatMap(user -> {
+							ctx.setVar("creatorName", user.getName());
+							return gdClient.getLevelsByUser(user, 0);
+						}));
+			} else {
+				ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
+			}
 			Command.invoke(this, ctx);
 			return Mono.empty();
 		}
 		return paginatorMono.flatMap(paginator -> {
+			if (!paginator.hasPreviousPage() && paginator.getPageSize() == 1) {
+				ctx.setVar("canGoBack", false);
+				return showLevelDetail(ctx, paginator.asList().get(0));
+			}
 			var rb = new ReplyMenuBuilder(ctx, true, false);
-			if (paginator.hasNextPage()) {
-				rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
-					ctx.setVar("paginator", paginator.goToNextPage());
+			rb.addItem("select", "To view details on a specific level, type `select <result_number>`, e.g `select 2`", ctx0 -> {
+				if (ctx0.getArgs().size() == 1 || !ctx0.getArgs().get(1).matches("[0-9]+")) {
 					Command.invoke(this, ctx);
-					return Mono.empty();
-				});
-			}
-			if (paginator.hasPreviousPage()) {
-				rb.addItem("prev", "To go to previous page, type `prev`", ctx0 -> {
-					ctx.setVar("paginator", paginator.hasPreviousPage());
+					return Mono.error(new CommandFailedException("Invalid input"));
+				}
+				var selected = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
+				if (selected >= paginator.getPageSize()) {
 					Command.invoke(this, ctx);
-					return Mono.empty();
-				});
-			}
-			if (paginator.getTotalNumberOfPages() > 1) {
-				rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
-					if (ctx0.getArgs().size() == 1) {
-						Command.invoke(this, ctx);
-						return Mono.error(new CommandFailedException("Please specify a page number"));
-					}
-					try {
-						var page = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-						if (page < 0 || page >= paginator.getTotalNumberOfPages()) {
-							Command.invoke(this, ctx);
-							return Mono.error(new CommandFailedException("Page number out of range"));
-						}
-						ctx.setVar("paginator", paginator.goTo(page));
-						Command.invoke(this, ctx);
-						return Mono.empty();
-					} catch (NumberFormatException e) {
-						Command.invoke(this, ctx);
-						return Mono.error(new CommandFailedException("Please specify a valid page number"));
-					}
-				});
-			}
-			rb.setHeader("Page " + (paginator.getPageNumber() + 1));
-			return rb.build(null, GDUtils.levelPaginatorView(ctx, paginator)).then();
+					return Mono.error(new CommandFailedException("Number out of range"));
+				}
+				ctx.setVar("canGoBack", true);
+				return showLevelDetail(ctx, paginator.asList().get(selected));
+			});
+			GDUtils.addPaginatorItems(rb, this, ctx, paginator);
+			var creatorName = ctx.getVarOrDefault("creatorName", "(unknown)");
+			return rb.build(null, GDUtils.levelPaginatorView(ctx, paginator,
+					byUser ? creatorName + "'s levels" : "Search results for \"" + input + "\"")).then();
 		}).then();
+	}
+	
+	private Mono<Void> showLevelDetail(Context ctx, GDLevel level) {
+		var rb = new ReplyMenuBuilder(ctx, true, false);
+		if (ctx.getVar("canGoBack", Boolean.class)) {
+			rb.addItem("back", "To go back to search results, type `back`", ctx0 -> {
+				Command.invoke(this, ctx);
+				return Mono.empty();
+			});
+		}
+		return rb.build(null, GDUtils.levelView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")).then();
 	}
 
 	@Override
 	public Set<String> getAliases() {
-		return Set.of("level");
+		return Set.of(byUser ? "levelsby" : "level");
 	}
 
 	@Override
@@ -95,12 +100,12 @@ public class LevelCommand implements Command {
 
 	@Override
 	public String getDescription() {
-		return "Searches for online levels in Geometry Dash.";
+		return byUser ? "Browse levels from a specific player in Geometry Dash." : "Searches for online levels in Geometry Dash.";
 	}
 
 	@Override
 	public String getSyntax() {
-		return "<name_or_ID>";
+		return byUser ? "<username_or_playerID>" : "<name_or_ID>";
 	}
 
 	@Override
@@ -117,5 +122,4 @@ public class LevelCommand implements Command {
 	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
 		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
 	}
-
 }

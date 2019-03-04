@@ -47,7 +47,7 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<Command> getProvidedCommands() {
-		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient));
+		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false));
 	}
 
 	@Override
