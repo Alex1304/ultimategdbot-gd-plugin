@@ -72,8 +72,9 @@ public class LevelCommand implements Command {
 			});
 			GDUtils.addPaginatorItems(rb, this, ctx, paginator);
 			var creatorName = ctx.getVarOrDefault("creatorName", "(unknown)");
-			return rb.build(null, GDUtils.levelPaginatorView(ctx, paginator,
-					byUser ? creatorName + "'s levels" : "Search results for \"" + input + "\"")).then();
+			return GDUtils.levelPaginatorView(ctx, paginator, byUser ? creatorName + "'s levels" : "Search results for \"" + input + "\"")
+					.flatMap(embed -> rb.build(null, embed))
+					.then();
 		}).then();
 	}
 	
@@ -85,7 +86,9 @@ public class LevelCommand implements Command {
 				return Mono.empty();
 			});
 		}
-		return rb.build(null, GDUtils.levelView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")).then();
+		return GDUtils.levelView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")
+				.flatMap(embed -> rb.build(null, embed))
+				.then();
 	}
 
 	@Override

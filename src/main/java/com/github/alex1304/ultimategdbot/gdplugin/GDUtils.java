@@ -24,7 +24,6 @@ import com.github.alex1304.jdash.entity.IconType;
 import com.github.alex1304.jdash.entity.Role;
 import com.github.alex1304.jdash.exception.BadResponseException;
 import com.github.alex1304.jdash.exception.CorruptedResponseContentException;
-import com.github.alex1304.jdash.exception.GDClientException;
 import com.github.alex1304.jdash.exception.MissingAccessException;
 import com.github.alex1304.jdash.exception.SongNotAllowedForUseException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
@@ -39,7 +38,10 @@ import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 public final class GDUtils {
 	private GDUtils() {
@@ -52,19 +54,19 @@ public final class GDUtils {
 	private static Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> defaultGDErrorActions() {
 		var map = new HashMap<Class<? extends Throwable>, BiConsumer<Throwable, Context>>();
 		map.put(MissingAccessException.class, (error, ctx) -> {
-			ctx.reply(ctx.getBot().getEmoji("cross") + " Nothing found.").doOnError(__ -> {}).subscribe();
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Nothing found.")).doOnError(__ -> {}).subscribe();
 		});
 		map.put(BadResponseException.class, (error, ctx) -> {
 			BadResponseException e = (BadResponseException) error;
 			var status = e.getResponse().status();
-			ctx.reply(ctx.getBot().getEmoji("cross") + " Geometry Dash server returned a `" + status.code() + " "
-							+ status.reasonPhrase() + "` error. Try again later.")
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned a `" + status.code() + " "
+							+ status.reasonPhrase() + "` error. Try again later."))
 					.doOnError(__ -> {})
 					.subscribe();
 		});
 		map.put(CorruptedResponseContentException.class, (error, ctx) -> {
-			ctx.reply(ctx.getBot().getEmoji("cross") + " Geometry Dash server returned an invalid response."
-							+ " Unable to show the information you requested. Sorry for the inconvenience.")
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned an invalid response."
+							+ " Unable to show the information you requested. Sorry for the inconvenience."))
 					.doOnError(__ -> {})
 					.subscribe();
 			ctx.getBot().log(":warning: Geometry Dash server returned an invalid response upon executing `" + ctx.getEvent().getMessage().getContent().get() + "`.")
@@ -114,54 +116,46 @@ public final class GDUtils {
 	
 	// ------------ USER PROFILE UTILS ------------ //
 	
-	public static Consumer<MessageCreateSpec> userProfileView(Context ctx, GDUser user, String iconUrl, String iconSetUrl) {
-		return mcs -> {
-			final var author = ctx.getEvent().getMessage().getAuthor();
-			if (author.isPresent()) {
-				mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
-			}
-			mcs.setEmbed(embed -> {
-				embed.setAuthor("User profile", null, "https://i.imgur.com/ppg4HqJ.png");
-				final var eStar = ctx.getBot().getEmoji("star");
-				final var eDiamond = ctx.getBot().getEmoji("diamond");
-				final var eUserCoin = ctx.getBot().getEmoji("user_coin");
-				final var eSecretCoin = ctx.getBot().getEmoji("secret_coin");
-				final var eDemon = ctx.getBot().getEmoji("demon");
-				final var eCreatorPoints = ctx.getBot().getEmoji("creator_points");
-				final var eMod = ctx.getBot().getEmoji("mod");
-				final var eElder = ctx.getBot().getEmoji("elder_mod");
-				final var eGlobalRank = ctx.getBot().getEmoji("global_rank");
-				final var eYoutube = ctx.getBot().getEmoji("youtube");
-				final var eTwitter = ctx.getBot().getEmoji("twitter");
-				final var eTwitch = ctx.getBot().getEmoji("twitch");
-//				final var eDiscord = ctx.getBot().getEmoji("discord");
-//				final var eBlank = ctx.getBot().getEmoji("blank");
-				embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", eStar + "  " + formatStat(user.getStars()) + "\n"
-						+ eDiamond + "  " + formatStat(user.getDiamonds()) + "\n"
-						+ eUserCoin + "  " + formatStat(user.getUserCoins()) + "\n"
-						+ eSecretCoin + "  " + formatStat(user.getSecretCoins()) + "\n"
-						+ eDemon + "  " + formatStat(user.getDemons()) + "\n"
-						+ eCreatorPoints + "  " + formatStat(user.getCreatorPoints()) + "\n", false);
-				final var badge = user.getRole() == Role.ELDER_MODERATOR ? eElder : eMod;
-				final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
-				embed.addField("────────", (user.getRole() != Role.USER ? mod : "")
-						+ eGlobalRank + "  **Global Rank:** "
-						+ (user.getGlobalRank() == 0 ? "*Unranked*" : user.getGlobalRank()) + "\n"
-						+ eYoutube + "  **Youtube:** "
-							+ (user.getYoutube().isEmpty() ? "*not provided*" : "[Open link](https://www.youtube.com/channel/"
-							+ Utils.urlEncode(user.getYoutube()) + ")") + "\n"
-						+ eTwitch + "  **Twitch:** "
-							+ (user.getTwitch().isEmpty() ? "*not provided*" : "["  + user.getTwitch()
-							+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
-						+ eTwitter + "  **Twitter:** "
-							+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
-							+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
-						+ "", false);
-				embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
-				embed.setThumbnail(iconUrl);
-				embed.setImage(iconSetUrl);
-			});
-		};
+	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Context ctx, GDUser user, String iconUrl, String iconSetUrl) {
+		return Mono.zip(o -> o, ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("diamond"), ctx.getBot().getEmoji("user_coin"),
+				ctx.getBot().getEmoji("secret_coin"), ctx.getBot().getEmoji("demon"), ctx.getBot().getEmoji("creator_points"),
+				ctx.getBot().getEmoji("mod"), ctx.getBot().getEmoji("elder_mod"), ctx.getBot().getEmoji("global_rank"),
+				ctx.getBot().getEmoji("youtube"), ctx.getBot().getEmoji("twitter"), ctx.getBot().getEmoji("twitch"))
+				.map(emojis -> mcs -> {
+						final var author = ctx.getEvent().getMessage().getAuthor();
+						if (author.isPresent()) {
+							mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
+						}
+						mcs.setEmbed(embed -> {
+							embed.setAuthor("User profile", null, "https://i.imgur.com/ppg4HqJ.png");
+//							final var eDiscord = ctx.getBot().getEmoji("discord");
+//							final var eBlank = ctx.getBot().getEmoji("blank");
+							embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", emojis[0] + "  " + formatStat(user.getStars()) + "\n"
+									+ emojis[1] + "  " + formatStat(user.getDiamonds()) + "\n"
+									+ emojis[2] + "  " + formatStat(user.getUserCoins()) + "\n"
+									+ emojis[3] + "  " + formatStat(user.getSecretCoins()) + "\n"
+									+ emojis[4] + "  " + formatStat(user.getDemons()) + "\n"
+									+ emojis[5] + "  " + formatStat(user.getCreatorPoints()) + "\n", false);
+							final var badge = user.getRole() == Role.ELDER_MODERATOR ? emojis[7] : emojis[6];
+							final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
+							embed.addField("────────", (user.getRole() != Role.USER ? mod : "")
+									+ emojis[8] + "  **Global Rank:** "
+									+ (user.getGlobalRank() == 0 ? "*Unranked*" : user.getGlobalRank()) + "\n"
+									+ emojis[9] + "  **Youtube:** "
+										+ (user.getYoutube().isEmpty() ? "*not provided*" : "[Open link](https://www.youtube.com/channel/"
+										+ Utils.urlEncode(user.getYoutube()) + ")") + "\n"
+									+ emojis[11] + "  **Twitch:** "
+										+ (user.getTwitch().isEmpty() ? "*not provided*" : "["  + user.getTwitch()
+										+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
+									+ emojis[10] + "  **Twitter:** "
+										+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
+										+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
+									+ "", false);
+							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
+							embed.setThumbnail(iconUrl);
+							embed.setImage(iconSetUrl);
+						});
+				});
 	}
 	
 	private static String formatStat(int stat) {
@@ -215,90 +209,100 @@ public final class GDUtils {
 
 	// ------------ LEVEL UTILS ------------ //
 	
-	public static Consumer<EmbedCreateSpec> levelPaginatorView(Context ctx, GDPaginator<GDLevel> paginator, String title) {
-		final var eCopy = ctx.getBot().getEmoji("copy");
-		final var eObjectOverflow = ctx.getBot().getEmoji("object_overflow");
-		final var eDownloads = ctx.getBot().getEmoji("downloads");
-		final var eLike = ctx.getBot().getEmoji("like");
-		final var eLength = ctx.getBot().getEmoji("length");
-		return embed -> {
-			embed.setTitle(title);
-			var i = 1;
-			for (var level : paginator) {
-				var coins = GDUtils.coinsToEmoji(ctx, level.getCoinCount(), level.hasCoinsVerified(), true);
-				embed.addField(String.format("`%02d` - %s%s | __**%s**__ by **%s** %s%s",
-						i,
-						GDUtils.difficultyToEmoji(ctx, level),
-						coins.equals("None") ? "" : " " + coins,
-						level.getName(),
-						level.getCreatorName(),
-						level.getOriginalLevelID() > 0 ? eCopy : "",
-						level.getObjectCount() > 40000 ? eObjectOverflow : ""),
-						String.format("%s %d \t\t %s %d \t\t %s %s\n"
-						+ ":musical_note:  **%s**\n _ _",
-						String.valueOf(eDownloads),
-						level.getDownloads(),
-						String.valueOf(eLike),
-						level.getLikes(),
-						String.valueOf(eLength),
-						String.valueOf(level.getLength()),
-						GDUtils.formatSongPrimaryMetadata(level.getSong())
-				), false);
-				i++;
-			}
-		};
+	public static Mono<Consumer<EmbedCreateSpec>> levelPaginatorView(Context ctx, GDPaginator<GDLevel> paginator, String title) {
+		return Mono.zip(o -> o, ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"), ctx.getBot().getEmoji("downloads"),
+				ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"), ctx.getBot().getEmoji("user_coin"),
+				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"))
+				.zipWith(getLevelDifficultyAndSongFromPaginator(ctx, paginator))
+				.map(tuple -> {
+					var emojis = tuple.getT1();
+					var map = tuple.getT2();
+					return embed -> {
+						embed.setTitle(title);
+						var i = 1;
+						for (var level : paginator) {
+							var coins = coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 5 : 6], level.getCoinCount(), true);
+							var difficultyEmoji = map.get(level).getT1();
+							var song = map.get(level).getT2();
+							embed.addField(String.format("`%02d` - %s %s | __**%s**__ by **%s** %s%s",
+									i,
+									difficultyEmoji + (level.getStars() > 0 ? " " + emojis[7] + " x" + level.getStars() : ""),
+									coins.equals("None") ? "" : " " + coins,
+									level.getName(),
+									level.getCreatorName(),
+									level.getOriginalLevelID() > 0 ? emojis[0] : "",
+									level.getObjectCount() > 40000 ? emojis[1] : ""),
+									String.format("%s %d \t\t %s %d \t\t %s %s\n"
+									+ ":musical_note:  **%s**\n _ _",
+									"" + emojis[2],
+									level.getDownloads(),
+									"" + emojis[3],
+									level.getLikes(),
+									"" + emojis[4],
+									"" + level.getLength(),
+									song), false);
+							i++;
+						}
+					};
+				});
 	}
 	
-	public static Consumer<EmbedCreateSpec> levelView(Context ctx, GDLevel level, String authorName, String authorIconUrl) {
-		return embed -> {
-			embed.setAuthor(authorName, null, authorIconUrl);
-			embed.setThumbnail(getDifficultyImageForLevel(level));
-			var title = ctx.getBot().getEmoji("play") + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
-			var description = "**Description:** " + (level.getDescription().isEmpty() ? "*(No description provided)*"
-					: escapeMarkdown(level.getDescription()));
-			var coins = "Coins: " + coinsToEmoji(ctx, level.getCoinCount(), level.hasCoinsVerified(), false);
-			var downloadLikesLength = ctx.getBot().getEmoji("downloads") + " " + level.getDownloads() + ctx.getBot().getEmoji("blank")
-					+ (level.getLikes() < 0 ? ctx.getBot().getEmoji("dislike") + " " : ctx.getBot().getEmoji("like") + " ")
-					+ level.getLikes() + ctx.getBot().getEmoji("blank") + ctx.getBot().getEmoji("length") + " " + level.getLength().toString().toUpperCase();
-			var songInfo = ":musical_note:   " + formatSongPrimaryMetadata(level.getSong());
-			var songInfo2 = formatSongSecondaryMetadata(ctx, level.getSong());
-			var objCount = "**Object count:** ";
-			if (level.getObjectCount() > 0 || level.getLevelVersion() >= 21) {
-				if (level.getObjectCount() == 65535)
-					objCount += ">";
-				objCount += level.getObjectCount();
-			} else
-				objCount += "_Unknown_";
-			objCount += "\n";
-			var extraInfo = new StringBuilder();
-			extraInfo.append("**Level ID:** " + level.getId() + "\n");
-			extraInfo.append("**Level version:** " + level.getLevelVersion() + "\n");
-			extraInfo.append("**Minimum GD version required to play this level:** " + formatGameVersion(level.getGameVersion()) + "\n");
-			extraInfo.append(objCount);
-			try {
-				var data = level.download().block();
-				String pass = "";
-				if (data.getPass() == -2)
-					pass = "Yes, no passcode required";
-				else if (data.getPass() == -1)
-					pass = "No";
-				else
-					pass = "Yes, " + ctx.getBot().getEmoji("lock") + " passcode: " + String.format("||%06d||", data.getPass());
-				extraInfo.append("**Copyable:** " + pass + "\n");
-				extraInfo.append("**Uploaded:** " + data.getUploadTimestamp() + " ago\n");
-				extraInfo.append("**Last updated:** " + data.getLastUpdatedTimestamp() + " ago\n");
-				data = level.download().block();
-			} catch (GDClientException e) {
-				extraInfo.append(":warning: Failed to download level data. Information such as copyable state/passcode or upload date is not available.\n");
-			}
-			if (level.getOriginalLevelID() > 0)
-				extraInfo.append(ctx.getBot().getEmoji("copy") + " **Original:** " + level.getOriginalLevelID() + "\n");
-			if (level.getObjectCount() > 40000)
-				extraInfo.append(ctx.getBot().getEmoji("object_overflow") + " **This level may lag on low end devices**\n");
-			embed.addField(title, description, false);
-			embed.addField(coins, downloadLikesLength + "\n_ _", false);
-			embed.addField(songInfo, songInfo2 + "\n_ _\n" + extraInfo, false);
-		};
+	public static Mono<Consumer<EmbedCreateSpec>> levelView(Context ctx, GDLevel level, String authorName, String authorIconUrl) {
+		return Mono.zip(o -> o, ctx.getBot().getEmoji("play"), ctx.getBot().getEmoji("downloads"), ctx.getBot().getEmoji("blank"),
+				ctx.getBot().getEmoji("dislike"), ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"),
+				ctx.getBot().getEmoji("lock"), ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"),
+				ctx.getBot().getEmoji("user_coin"), ctx.getBot().getEmoji("user_coin_unverified"))
+				.zipWith(level.download())
+				.zipWith(formatSongPrimaryMetadata(level.getSong()))
+				.zipWith(formatSongSecondaryMetadata(ctx, level.getSong()))
+				.map(tuple -> {
+					final var emojis = tuple.getT1().getT1().getT1();
+					final var data = tuple.getT1().getT1().getT2();
+					final var songInfo = ":musical_note:   " + tuple.getT1().getT2();
+					final var songInfo2 = tuple.getT2();
+					return embed -> {
+						embed.setAuthor(authorName, null, authorIconUrl);
+						embed.setThumbnail(getDifficultyImageForLevel(level));
+						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
+						var description = "**Description:** " + (level.getDescription().isEmpty() ? "*(No description provided)*"
+								: escapeMarkdown(level.getDescription()));
+						var coins = "Coins: " + coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 9 : 10], level.getCoinCount(), false);
+						var downloadLikesLength = emojis[1] + " " + level.getDownloads() + emojis[2]
+								+ (level.getLikes() < 0 ? emojis[3] + " " : emojis[4] + " ")
+								+ level.getLikes() + emojis[2] + emojis[5] + " " + level.getLength().toString().toUpperCase();
+						var objCount = "**Object count:** ";
+						if (level.getObjectCount() > 0 || level.getLevelVersion() >= 21) {
+							if (level.getObjectCount() == 65535)
+								objCount += ">";
+							objCount += level.getObjectCount();
+						} else
+							objCount += "_Unknown_";
+						objCount += "\n";
+						var extraInfo = new StringBuilder();
+						extraInfo.append("**Level ID:** " + level.getId() + "\n");
+						extraInfo.append("**Level version:** " + level.getLevelVersion() + "\n");
+						extraInfo.append("**Minimum GD version required to play this level:** " + formatGameVersion(level.getGameVersion()) + "\n");
+						extraInfo.append(objCount);
+						var pass = "";
+						if (data.getPass() == -2)
+							pass = "Yes, no passcode required";
+						else if (data.getPass() == -1)
+							pass = "No";
+						else
+							pass = "Yes, " + emojis[6] + " passcode: " + String.format("||%06d||", data.getPass());
+						extraInfo.append("**Copyable:** " + pass + "\n");
+						extraInfo.append("**Uploaded:** " + data.getUploadTimestamp() + " ago\n");
+						extraInfo.append("**Last updated:** " + data.getLastUpdatedTimestamp() + " ago\n");
+						if (level.getOriginalLevelID() > 0)
+							extraInfo.append(emojis[7] + " **Original:** " + level.getOriginalLevelID() + "\n");
+						if (level.getObjectCount() > 40000)
+							extraInfo.append(emojis[8] + " **This level may lag on low end devices**\n");
+						embed.addField(title, description, false);
+						embed.addField(coins, downloadLikesLength + "\n_ _", false);
+						embed.addField(songInfo, songInfo2 + "\n_ _\n" + extraInfo, false);
+					};
+				})
+				;
 	}
 	
 	private static String getDifficultyImageForLevel(GDLevel level) {
@@ -330,8 +334,7 @@ public final class GDUtils {
 		return vStr.substring(0, vStr.length() - 1) + "." + vStr.charAt(vStr.length() - 1);
 	}
 	
-	private static String coinsToEmoji(Context ctx, int n, boolean verified, boolean shorten) {
-		final var emoji = ctx.getBot().getEmoji("user_coin" + (verified ? "" : "_unverified"));
+	private static String coinsToEmoji(String emoji, int n, boolean shorten) {
 		final var output = new StringBuilder();
 		if (shorten) {
 			if (n <= 0)
@@ -352,39 +355,48 @@ public final class GDUtils {
 		return output.toString();
 	}
 	
-	private static String difficultyToEmoji(Context ctx, GDLevel level) {
-		var difficulty = "icon_";
-		if (level.isDemon())
-			difficulty += "demon_" + level.getDemonDifficulty().toString();
-		else if (level.isAuto())
-			difficulty += "auto";
-		else
-			difficulty += level.getDifficulty().toString();
-		if (level.isEpic())
-			difficulty += "_epic";
-		else if (level.getFeaturedScore() > 0)
-			difficulty += "_featured";
-		var output = ctx.getBot().getEmoji(difficulty);
-		if (level.getStars() > 0)
-			output += ctx.getBot().getEmoji("star") + " x" + level.getStars();
-		return output;
+	private static Mono<Map<GDLevel, Tuple2<String, String>>> getLevelDifficultyAndSongFromPaginator(Context ctx, GDPaginator<GDLevel> levels) {
+		return ctx.getBot().getEmoji("star")
+				.flatMap(starEmoji -> Flux.fromIterable(levels)
+						.flatMap(level -> {
+							var difficulty = new StringBuilder("icon_");
+							if (level.isDemon())
+								difficulty.append("demon_").append(level.getDemonDifficulty().toString());
+							else if (level.isAuto())
+								difficulty.append("auto");
+							else
+								difficulty.append(level.getDifficulty().toString());
+							if (level.isEpic())
+								difficulty.append("_epic");
+							else if (level.getFeaturedScore() > 0)
+								difficulty.append("_featured");
+							return formatSongPrimaryMetadata(level.getSong())
+									.map(songFormat -> Tuples.of(level, Tuples.of(difficulty.toString(), songFormat)));
+									
+						})
+						
+						.flatMap(tuple -> ctx.getBot().getEmoji(tuple.getT2().getT1())
+								.map(emoji -> Tuples.of(tuple.getT1(), Tuples.of(emoji, tuple.getT2().getT2()))))
+						.collectMap(Tuple2::getT1, Tuple2::getT2));
 	}
 	
-	public static String formatSongPrimaryMetadata(Mono<GDSong> monoSong) {
+	public static Mono<String> formatSongPrimaryMetadata(Mono<GDSong> monoSong) {
 		return monoSong.map(song -> "__" + song.getSongTitle() + "__ by " + song.getSongAuthorName())
 				.onErrorReturn(SongNotAllowedForUseException.class, ":warning: Song is not allowed for use")
-				.onErrorReturn(":warning: Unknown song")
-				.block();
+				.onErrorReturn(":warning: Unknown song");
 	}
 
-	public static String formatSongSecondaryMetadata(Context ctx, Mono<GDSong> monoSong) {
-		final var ePlay = ctx.getBot().getEmoji("play");
-		final var eDlSong = ctx.getBot().getEmoji("download_song");
-		return monoSong.map(song -> song.isCustom()
-				? "SongID: " + song.getId() + " - Size: " + song.getSongSize() + "MB\n" + ePlay
-						+ " [Play on Newgrounds](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
-						+ eDlSong + " [Download MP3](" + song.getDownloadURL() + ")"
-				: "Geometry Dash native audio track").onErrorReturn("Song info unavailable").block();
+	public static Mono<String> formatSongSecondaryMetadata(Context ctx, Mono<GDSong> monoSong) {
+		return Mono.zip(ctx.getBot().getEmoji("play"), ctx.getBot().getEmoji("download_song"))
+				.flatMap(emojis -> {
+					final var ePlay = emojis.getT1();
+					final var eDlSong = emojis.getT2();
+					return monoSong.map(song -> song.isCustom()
+							? "SongID: " + song.getId() + " - Size: " + song.getSongSize() + "MB\n" + ePlay
+									+ " [Play on Newgrounds](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
+									+ eDlSong + " [Download MP3](" + song.getDownloadURL() + ")"
+							: "Geometry Dash native audio track").onErrorReturn("Song info unavailable");
+				});
 	}
 	
 	// =============================================================

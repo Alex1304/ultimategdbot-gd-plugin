@@ -37,7 +37,8 @@ public class ProfileCommand implements Command {
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
 		return gdClient.searchUser(input)
 				.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory, iconsCache)
-						.flatMap(urls -> ctx.reply(GDUtils.userProfileView(ctx, user, urls[0], urls[1]))))
+						.flatMap(urls -> GDUtils.userProfileView(ctx, user, urls[0], urls[1])
+								.flatMap(view -> ctx.reply(view))))
 				.then();
 	}
 
