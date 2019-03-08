@@ -90,7 +90,7 @@ public final class GDUtils {
 				return Mono.empty();
 			});
 		}
-		if (paginator.getTotalNumberOfPages() > 1) {
+		if (paginator.getTotalNumberOfPages() == 0 || paginator.getTotalNumberOfPages() > 1) {
 			rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
 				if (ctx0.getArgs().size() == 1) {
 					Command.invoke(cmd, ctx);
@@ -98,7 +98,7 @@ public final class GDUtils {
 				}
 				try {
 					var page = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-					if (page < 0 || page >= paginator.getTotalNumberOfPages()) {
+					if (page < 0 || (paginator.getTotalNumberOfPages() > 0 && page >= paginator.getTotalNumberOfPages())) {
 						Command.invoke(cmd, ctx);
 						return Mono.error(new CommandFailedException("Page number out of range"));
 					}
