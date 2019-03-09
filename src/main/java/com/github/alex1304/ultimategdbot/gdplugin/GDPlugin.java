@@ -48,7 +48,7 @@ public class GDPlugin implements Plugin {
 	@Override
 	public Set<Command> getProvidedCommands() {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
-				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false));
+				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient));
 	}
 
 	@Override
@@ -58,7 +58,7 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<String> getDatabaseMappingResources() {
-		return Set.of();
+		return Set.of("/GDLinkedUsers.hbm.xml");
 	}
 
 	@Override

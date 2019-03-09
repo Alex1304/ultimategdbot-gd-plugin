@@ -30,9 +30,6 @@ public class TimelyCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getEvent().getMessage().getAuthor().isEmpty()) {
-			return Mono.empty();
-		}
 		var rb = new ReplyMenuBuilder(ctx, true, false);
 		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
 		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
