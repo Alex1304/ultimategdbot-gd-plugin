@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.StringJoiner;
@@ -448,6 +449,43 @@ public final class GDUtils {
 						.flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
 						.take(1));
 	}
+
+	public static Mono<Consumer<EmbedCreateSpec>> leaderboardView(Context ctx, List<LeaderboardEntry> subList, int page,
+			int elementsPerPage, int size) {
+		var highlighted = ctx.getVar("highlighted", String.class);
+		return ctx.getEvent().getGuild().map(guild -> embed -> {
+			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");
+			if (size == 0) {
+				embed.setDescription("No entries.");
+				return;
+			}
+			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n"
+					+ "Note that members of this server must have linked their Geometry Dash account with "
+					+ "`u!account` in order to be displayed on this leaderboard.");
+			var sb = new StringBuilder();
+			for (var i = 1 ; i <= subList.size() ; i++) {
+				var entry = subList.get(i - 1);
+				var isHighlighted = entry.getGdUser().getName().equalsIgnoreCase(highlighted);
+				var rank = page * elementsPerPage + i;
+				var rankWidth = Math.max((int) Math.ceil(Math.log10(size)), 1);
+				if (isHighlighted) {
+					sb.append("**");
+				}
+				sb.append(String.format("`#% " + rankWidth + "d` | %s %s - %s (%s)",
+						rank,
+						entry.getEmoji(),
+						formatCode(entry.getValue(), 8),
+						entry.getGdUser().getName(),
+						BotUtils.formatDiscordUsername(entry.getDiscordUser())))
+						.append("\n");
+				if (isHighlighted) {
+					sb.append("**");
+				}
+			}
+			embed.addField("Page " + (page + 1) + "/" + (size / elementsPerPage + 1), sb.toString(), false);
+		});
+	}
+	
 	// =============================================================
 	
 	private static Map<Integer, String> gameVersions() {
