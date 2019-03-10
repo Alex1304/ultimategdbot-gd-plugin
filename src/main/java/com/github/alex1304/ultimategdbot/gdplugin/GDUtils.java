@@ -1,7 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import static com.github.alex1304.ultimategdbot.api.utils.Utils.escapeMarkdown;
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -13,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -31,12 +30,16 @@ import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Utils;
+import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.User;
+import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
@@ -121,8 +124,13 @@ public final class GDUtils {
 		return Mono.zip(o -> o, ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("diamond"), ctx.getBot().getEmoji("user_coin"),
 				ctx.getBot().getEmoji("secret_coin"), ctx.getBot().getEmoji("demon"), ctx.getBot().getEmoji("creator_points"),
 				ctx.getBot().getEmoji("mod"), ctx.getBot().getEmoji("elder_mod"), ctx.getBot().getEmoji("global_rank"),
-				ctx.getBot().getEmoji("youtube"), ctx.getBot().getEmoji("twitter"), ctx.getBot().getEmoji("twitch"))
-				.map(emojis -> mcs -> {
+				ctx.getBot().getEmoji("youtube"), ctx.getBot().getEmoji("twitter"), ctx.getBot().getEmoji("twitch"),
+				ctx.getBot().getEmoji("discord"))
+				.zipWith(getDiscordAccountsForGDUser(ctx.getBot(), user).collectList())
+				.map(tuple -> {
+					var emojis = tuple.getT1();
+					var linkedAccounts = tuple.getT2();
+					return mcs -> {
 						final var author = ctx.getEvent().getMessage().getAuthor();
 						final var statWidth = 8;
 						if (author.isPresent()) {
@@ -130,8 +138,6 @@ public final class GDUtils {
 						}
 						mcs.setEmbed(embed -> {
 							embed.setAuthor("User profile", null, "https://i.imgur.com/ppg4HqJ.png");
-//							final var eDiscord = ctx.getBot().getEmoji("discord");
-//							final var eBlank = ctx.getBot().getEmoji("blank");
 							embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", emojis[0] + "  " + formatCode(user.getStars(), statWidth) + "\n"
 									+ emojis[1] + "  " + formatCode(user.getDiamonds(), statWidth) + "\n"
 									+ emojis[2] + "  " + formatCode(user.getUserCoins(), statWidth) + "\n"
@@ -152,11 +158,14 @@ public final class GDUtils {
 									+ emojis[10] + "  **Twitter:** "
 										+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
 										+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
+									+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? "*unknown*" : linkedAccounts.stream()
+											.reduce(new StringJoiner(", "), (sj, l) -> sj.add(BotUtils.formatDiscordUsername(l)), (a, b) -> a).toString())
 									+ "", false);
 							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
 							embed.setThumbnail(iconUrl);
 							embed.setImage(iconSetUrl);
 						});
+					};
 				});
 	}
 	
@@ -195,7 +204,7 @@ public final class GDUtils {
 			mcs.addFile(user.getId() + "-Main.png", istreamMain);
 			mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet);
 		})).map(msg -> {
-			String[] urls = new String[2];
+			var urls = new String[2];
 			for (var a : msg.getAttachments()) {
 				urls[a.getFilename().endsWith("Main.png") ? 0 : 1] = a.getUrl();
 			}
@@ -272,7 +281,7 @@ public final class GDUtils {
 						embed.setThumbnail(getDifficultyImageForLevel(level));
 						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
 						var description = "**Description:** " + (level.getDescription().isEmpty() ? "*(No description provided)*"
-								: escapeMarkdown(level.getDescription()));
+								: BotUtils.escapeMarkdown(level.getDescription()));
 						var coins = "Coins: " + coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 8 : 9], level.getCoinCount(), false);
 						var downloadLikesLength = emojis[1] + " " + formatCode(level.getDownloads(), dlWidth) + "\n"
 								+ (level.getLikes() < 0 ? emojis[2] + " " : emojis[3] + " ") + formatCode(level.getLikes(), dlWidth) + "\n"
@@ -432,6 +441,13 @@ public final class GDUtils {
 		return new String(result);
 	}
 	
+	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, GDUser gdUser) {
+		return bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers linkedUser where linkedUser.gdAccountId = ?0 "
+				+ "and linkedUser.isLinkActivated = 1", gdUser.getAccountId())
+				.flatMap(linkedUser -> bot.getDiscordClients()
+						.flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
+						.take(1));
+	}
 	// =============================================================
 	
 	private static Map<Integer, String> gameVersions() {

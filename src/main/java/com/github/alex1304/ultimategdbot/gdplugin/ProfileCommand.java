@@ -7,11 +7,12 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
+import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Command;
+import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 
 import discord4j.core.object.entity.Channel.Type;
@@ -31,14 +32,23 @@ public class ProfileCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() < 2) {
-			return Mono.error(new InvalidSyntaxException(this));
+		if (ctx.getArgs().size() == 1) {
+			final var authorId = ctx.getEvent().getMessage().getAuthor().get().getId().asLong();
+			return ctx.getEffectivePrefix().flatMap(prefix -> ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
+					.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to show your own profile, "
+							+ "link your Geometry Dash account using `" + prefix + "account` and retry this command. Otherwise, you "
+									+ "need to specify a user like so: `" + prefix + "profile <gd_username>`.")))
+					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId()))));
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
-		return gdClient.searchUser(input)
-				.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory, iconsCache)
-						.flatMap(urls -> GDUtils.userProfileView(ctx, user, urls[0], urls[1])
-								.flatMap(view -> ctx.reply(view))))
+		return showProfile(ctx, gdClient.searchUser(input));
+				
+	}
+	
+	public Mono<Void> showProfile(Context ctx, Mono<GDUser> userMono) {
+		return userMono.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory, iconsCache)
+				.flatMap(urls -> GDUtils.userProfileView(ctx, user, urls[0], urls[1])
+						.flatMap(view -> ctx.reply(view))))
 				.then();
 	}
 

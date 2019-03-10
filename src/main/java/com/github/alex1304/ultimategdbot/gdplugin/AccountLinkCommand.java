@@ -9,6 +9,7 @@ import java.util.function.BiConsumer;
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDMessage;
 import com.github.alex1304.jdash.entity.GDUser;
+import com.github.alex1304.jdash.exception.GDClientException;
 import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
@@ -56,7 +57,7 @@ public class AccountLinkCommand implements Command {
 											+ "` (:warning: case sensitive)\n");
 									menuEmbedContent.append("Step 6: Send the message, then go back to Discord in this channel and type `done`. "
 											+ "If the command has timed out, just re-run the account command and type `done`\n");
-									var rb = new ReplyMenuBuilder(ctx, false, true);
+									var rb = new ReplyMenuBuilder(ctx, true, true);
 									rb.addItem("done", menuEmbedContent.toString(), ctx0 -> handleDone(ctx, linkedUser, user, botUser));
 									rb.setHeader("Steps to confirm your account");
 									return rb.build("You have requested to link your Discord account with the Geometry Dash "
@@ -69,23 +70,27 @@ public class AccountLinkCommand implements Command {
 	}
 	
 	private Mono<Void> handleDone(Context ctx, GDLinkedUsers linkedUser, GDUser user, GDUser botUser) {
-		return gdClient.getPrivateMessages(0).flatMapMany(Flux::fromIterable)
-				.filter(message -> message.getSubject().equalsIgnoreCase("confirm"))
-				.filter(message -> message.getSenderID() == user.getAccountId())
-				.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find your confirmation message in Geometry Dash. "
-						+ "Have you sent it? Read and follow the steps again and retry.")))
-				.next()
-				.flatMap(GDMessage::getBody)
-				.filter(linkedUser.getConfirmationToken()::equals)
-				.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
-						+ "Make sure you have typed it correctly and try again. Note that it's case sensitive.")))
-				.doOnNext(__ -> linkedUser.setConfirmationToken(null))
-				.doOnNext(__ -> linkedUser.setIsLinkActivated(true))
-				.thenEmpty(ctx.getBot().getDatabase().save(linkedUser))
-				.then(ctx.getBot().getEmoji("success")
-						.flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to Geometry Dash account **" + user.getName() + "**!")))
-				.doOnError(e -> Command.invoke(this, ctx))
-				.then();
+		return ctx.reply("Checking messages, please wait...")
+				.flatMap(waitMessage -> gdClient.getPrivateMessages(0)
+						.flatMapMany(Flux::fromIterable)
+						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
+						.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find your confirmation message in Geometry Dash. "
+								+ "Have you sent it? Read and follow the steps again and retry.")))
+						.next()
+						.flatMap(GDMessage::getBody)
+						.filter(linkedUser.getConfirmationToken()::equals)
+						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
+								+ "Make sure you have typed it correctly and try again. Note that it's case sensitive.")))
+						.doOnNext(__ -> linkedUser.setConfirmationToken(null))
+						.doOnNext(__ -> linkedUser.setIsLinkActivated(true))
+						.thenEmpty(ctx.getBot().getDatabase().save(linkedUser))
+						.then(ctx.getBot().getEmoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
+								+ "Geometry Dash account **" + user.getName() + "**!")))
+						.doOnError(e -> Command.invoke(this, ctx))
+						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
+								+ "Retry later."))
+						.doOnSuccessOrError((m, e) -> waitMessage.delete().subscribe())
+						.then());
 	}
 
 	@Override
