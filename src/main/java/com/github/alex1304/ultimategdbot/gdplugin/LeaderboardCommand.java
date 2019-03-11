@@ -21,6 +21,7 @@ import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 
 public class LeaderboardCommand implements Command {
@@ -147,22 +148,22 @@ public class LeaderboardCommand implements Command {
 				return Mono.error(new InvalidSyntaxException(this));
 		}
 		
-		return ctx.reply("Building leaderboard, this might take a while...").flatMap(message -> emojiMono
-		                                .flatMap(emoji -> ctx.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
-					                                                .flatMap(linkedUser -> ctx.getEvent().getGuild()
-										                                                                .flatMap(guild -> guild.getMembers().filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId()).next())
-																                                                                .flatMap(member -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
-																							                                                                                .onErrorContinue((__, __0) -> {})
-																															                                                                                .map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser), gdUser, member))))
-									                                                .collectList()
-													                                                .map(list -> new ArrayList<>(new TreeSet<>(list)))
-																	                                                .flatMap(list -> {
-																						                                                        ctx.setVar("leaderboard", list);
-																											                                                        ctx.setVar("page", 0);
-																																                                                        Command.invoke(this, ctx);
-																																					                                                        return Mono.<Void>empty();
-																																										                                                }))
-				                                                .doOnSuccessOrError((__, e) -> message.delete().subscribe()));
+		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
+				.flatMap(message -> emojiMono.flatMap(emoji -> ctx.getBot().getDatabase()
+						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
+								.filterWhen(linkedUser -> guild.getMembers().any(m -> m.getId().asLong() == linkedUser.getDiscordUserId()))
+								.flatMap(linkedUser -> ctx.getBot().getDiscordClients()
+										.flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
+										.flatMap(user -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
+												.onErrorContinue((__, __0) -> {})
+												.map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser),
+														gdUser, user)))).log()
+								.collectList().map(list -> new ArrayList<>(new TreeSet<>(list))).flatMap(list -> {
+									ctx.setVar("leaderboard", list);
+									ctx.setVar("page", 0);
+									Command.invoke(this, ctx);
+									return Mono.<Void>empty();
+								})).doOnSuccessOrError((__, e) -> message.delete().subscribe())));
 
 	}
 
