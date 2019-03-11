@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +22,9 @@ import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
-import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuples;
 
 public class LeaderboardCommand implements Command {
 	
@@ -85,7 +87,7 @@ public class LeaderboardCommand implements Command {
 					}
 					try {
 						var requestedPage = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-						if (requestedPage < 0 || requestedPage >= maxPage) {
+						if (requestedPage < 0 || requestedPage > maxPage) {
 							Command.invoke(this, ctx);
 							return Mono.error(new CommandFailedException("Page number out of range"));
 						}
@@ -151,15 +153,16 @@ public class LeaderboardCommand implements Command {
 		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
 				.flatMap(message -> emojiMono.flatMap(emoji -> ctx.getBot().getDatabase()
 						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
-								.filterWhen(linkedUser -> guild.getMembers().any(m -> m.getId().asLong() == linkedUser.getDiscordUserId()))
-								.flatMap(linkedUser -> ctx.getBot().getDiscordClients()
-										.flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
-										.flatMap(user -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
-												.onErrorContinue((__, __0) -> {})
-												.map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser),
-														gdUser, user)))).log()
-								.collectList().map(list -> new ArrayList<>(new TreeSet<>(list))).flatMap(list -> {
-									ctx.setVar("leaderboard", list);
+								.parallel().runOn(Schedulers.parallel())
+								.flatMap(linkedUser -> guild.getMembers()
+										.filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId())
+										.map(m -> Tuples.of(linkedUser, m)))
+								.flatMap(tuple -> gdClient.getUserByAccountId(tuple.getT1().getGdAccountId())
+										.onErrorContinue((__, __0) -> {})
+										.map(gdUser -> Tuples.of(tuple.getT2(), gdUser)))
+								.map(tuple -> new LeaderboardEntry(emoji, stat.applyAsInt(tuple.getT2()), tuple.getT2(), tuple.getT1()))
+								.collectSortedList(Comparator.naturalOrder()).flatMap(list -> {
+									ctx.setVar("leaderboard", new ArrayList<>(new TreeSet<>(list)));
 									ctx.setVar("page", 0);
 									Command.invoke(this, ctx);
 									return Mono.<Void>empty();

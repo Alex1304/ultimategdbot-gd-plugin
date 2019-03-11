@@ -133,7 +133,7 @@ public final class GDUtils {
 					var linkedAccounts = tuple.getT2();
 					return mcs -> {
 						final var author = ctx.getEvent().getMessage().getAuthor();
-						final var statWidth = 8;
+						final var statWidth = 10;
 						if (author.isPresent()) {
 							mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
 						}
@@ -463,18 +463,18 @@ public final class GDUtils {
 					+ "Note that members of this server must have linked their Geometry Dash account with "
 					+ "`u!account` in order to be displayed on this leaderboard.");
 			var sb = new StringBuilder();
+			var rankWidth = (int) Math.log10(size) + 1;
 			for (var i = 1 ; i <= subList.size() ; i++) {
 				var entry = subList.get(i - 1);
 				var isHighlighted = entry.getGdUser().getName().equalsIgnoreCase(highlighted);
 				var rank = page * elementsPerPage + i;
-				var rankWidth = Math.max((int) Math.ceil(Math.log10(size)), 1);
 				if (isHighlighted) {
 					sb.append("**");
 				}
-				sb.append(String.format("`#% " + rankWidth + "d` | %s %s - %s (%s)",
-						rank,
+				sb.append(String.format("%s | %s %s - %s (%s)",
+						String.format("`#% " + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
 						entry.getEmoji(),
-						formatCode(entry.getValue(), 8),
+						formatCode(entry.getValue(), 10),
 						entry.getGdUser().getName(),
 						BotUtils.formatDiscordUsername(entry.getDiscordUser())))
 						.append("\n");
