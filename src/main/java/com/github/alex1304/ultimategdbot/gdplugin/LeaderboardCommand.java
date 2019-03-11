@@ -56,7 +56,7 @@ public class LeaderboardCommand implements Command {
 		var entryList = (List<LeaderboardEntry>) ctx.getVar("leaderboard", List.class);
 		var page = ctx.getVarOrDefault("page", 0);
 		if (entryList != null) {
-			final var elementsPerPage = 20;
+			final var elementsPerPage = 10;
 			final var size = entryList.size();
 			final var maxPage = size / elementsPerPage;
 			final var offset = page * elementsPerPage;
@@ -77,7 +77,7 @@ public class LeaderboardCommand implements Command {
 				});
 			}
 			if (maxPage > 0) {
-				rb.addItem("prev", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
+				rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
 					if (ctx0.getArgs().size() == 1) {
 						Command.invoke(this, ctx);
 						return Mono.error(new CommandFailedException("Please specify a page number"));
@@ -148,20 +148,22 @@ public class LeaderboardCommand implements Command {
 		}
 		
 		return ctx.reply("Building leaderboard, this might take a while...").flatMap(message -> emojiMono
-				.flatMap(emoji -> ctx.getEvent().getGuild().flatMap(guild -> guild.getMembers()
-						.flatMap(member -> ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, member.getId().asLong())
-								.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
-								.onErrorContinue((__, __0) -> {})
-								.map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser), gdUser, member)))
-						.collectList()
-						.map(list -> new ArrayList<>(new TreeSet<>(list)))
-						.flatMap(list -> {
-							ctx.setVar("leaderboard", list);
-							ctx.setVar("page", 0);
-							Command.invoke(this, ctx);
-							return Mono.<Void>empty();
-						})))
-						.doOnSuccessOrError((__, e) -> message.delete().subscribe()));
+		                                .flatMap(emoji -> ctx.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
+					                                                .flatMap(linkedUser -> ctx.getEvent().getGuild()
+										                                                                .flatMap(guild -> guild.getMembers().filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId()).next())
+																                                                                .flatMap(member -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
+																							                                                                                .onErrorContinue((__, __0) -> {})
+																															                                                                                .map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser), gdUser, member))))
+									                                                .collectList()
+													                                                .map(list -> new ArrayList<>(new TreeSet<>(list)))
+																	                                                .flatMap(list -> {
+																						                                                        ctx.setVar("leaderboard", list);
+																											                                                        ctx.setVar("page", 0);
+																																                                                        Command.invoke(this, ctx);
+																																					                                                        return Mono.<Void>empty();
+																																										                                                }))
+				                                                .doOnSuccessOrError((__, e) -> message.delete().subscribe()));
+
 	}
 
 	@Override

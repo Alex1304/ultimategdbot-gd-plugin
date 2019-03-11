@@ -37,6 +37,6 @@ public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 
 	@Override
 	public int compareTo(LeaderboardEntry o) {
-		return value == o.value ? gdUser.getName().compareToIgnoreCase(o.gdUser.getName()) : value - o.value;
+		return value == o.value ? gdUser.getName().compareToIgnoreCase(o.gdUser.getName()) : o.value - value;
 	}
 }
