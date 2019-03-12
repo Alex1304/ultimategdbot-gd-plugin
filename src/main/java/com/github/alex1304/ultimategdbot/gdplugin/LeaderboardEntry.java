@@ -4,15 +4,13 @@ import java.util.Objects;
 
 import com.github.alex1304.jdash.entity.GDUser;
 
-import discord4j.core.object.entity.User;
-
 public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 	private final String emoji;
 	private final int value;
 	private final GDUser gdUser;
-	private final User discordUser;
+	private final String discordUser;
 	
-	public LeaderboardEntry(String emoji, int value, GDUser gdUser, User discordUser) {
+	public LeaderboardEntry(String emoji, int value, GDUser gdUser, String discordUser) {
 		this.emoji = Objects.requireNonNull(emoji);
 		this.value = value;
 		this.gdUser = Objects.requireNonNull(gdUser);
@@ -31,12 +29,17 @@ public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 		return gdUser;
 	}
 
-	public User getDiscordUser() {
+	public String getDiscordUser() {
 		return discordUser;
 	}
 
 	@Override
 	public int compareTo(LeaderboardEntry o) {
 		return value == o.value ? gdUser.getName().compareToIgnoreCase(o.gdUser.getName()) : o.value - value;
+	}
+
+	@Override
+	public String toString() {
+		return "LeaderboardEntry{" + gdUser.getName() + ": " + value + " " + emoji + "}";
 	}
 }

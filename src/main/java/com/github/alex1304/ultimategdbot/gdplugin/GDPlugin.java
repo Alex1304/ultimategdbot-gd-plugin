@@ -28,11 +28,14 @@ public class GDPlugin implements Plugin {
 		var username = parser.parseAsString("gdplugin.username");
 		var password = parser.parseAsString("gdplugin.password");
 		var host = parser.parseAsStringOrDefault("gdplugin.host", Routes.BASE_URL);
-		var cacheLifetime = parser.parseAsLongOrDefault("gdplugin.cache_lifetime", GDClientBuilder.DEFAULT_CACHE_LIFETIME);
+		var cacheTtl = parser.parseAsLongOrDefault("gdplugin.cache_ttl", GDClientBuilder.DEFAULT_CACHE_TTL);
+		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
+		System.out.println("Max connections: " + maxConnections);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
-					.withCacheLifetime(cacheLifetime)
+					.withCacheTtl(cacheTtl)
+					.withMaxConnections(maxConnections)
 					.buildAuthenticated(username, password);
 		} catch (GDLoginFailedException e) {
 			throw new RuntimeException("Failed to login with the given Geometry Dash credentials", e);

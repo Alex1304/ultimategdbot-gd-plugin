@@ -459,11 +459,9 @@ public final class GDUtils {
 				embed.setDescription("No entries.");
 				return;
 			}
-			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n"
-					+ "Note that members of this server must have linked their Geometry Dash account with "
-					+ "`u!account` in order to be displayed on this leaderboard.");
 			var sb = new StringBuilder();
 			var rankWidth = (int) Math.log10(size) + 1;
+			final var maxTagLength = 24;
 			for (var i = 1 ; i <= subList.size() ; i++) {
 				var entry = subList.get(i - 1);
 				var isHighlighted = entry.getGdUser().getName().equalsIgnoreCase(highlighted);
@@ -471,18 +469,21 @@ public final class GDUtils {
 				if (isHighlighted) {
 					sb.append("**");
 				}
-				sb.append(String.format("%s | %s %s - %s (%s)",
+				sb.append(String.format("%s | %s %s - %s (%s%s)",
 						String.format("`#% " + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
 						entry.getEmoji(),
-						formatCode(entry.getValue(), 10),
+						formatCode(entry.getValue(), entry.getEmoji().contains("creator_points") ? 4 : 10),
 						entry.getGdUser().getName(),
-						BotUtils.formatDiscordUsername(entry.getDiscordUser())))
+						entry.getDiscordUser().length() > maxTagLength ? entry.getDiscordUser().substring(0, maxTagLength - 3) : entry.getDiscordUser(),
+						entry.getDiscordUser().length() > maxTagLength ? "..." : ""))
 						.append("\n");
 				if (isHighlighted) {
 					sb.append("**");
 				}
 			}
-			embed.addField("Page " + (page + 1) + "/" + (size / elementsPerPage + 1), sb.toString(), false);
+			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n\n" + sb.toString());
+			embed.addField(" ‌‌", "Note that members of this server must have linked their Geometry Dash account with "
+					+ "`u!account` in order to be displayed on this leaderboard.", false);
 		});
 	}
 	

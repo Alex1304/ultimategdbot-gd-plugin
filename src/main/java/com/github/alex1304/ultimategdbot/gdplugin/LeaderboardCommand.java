@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -19,9 +18,11 @@ import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
@@ -59,7 +60,7 @@ public class LeaderboardCommand implements Command {
 		var entryList = (List<LeaderboardEntry>) ctx.getVar("leaderboard", List.class);
 		var page = ctx.getVarOrDefault("page", 0);
 		if (entryList != null) {
-			final var elementsPerPage = 10;
+			final var elementsPerPage = 20;
 			final var size = entryList.size();
 			final var maxPage = size / elementsPerPage;
 			final var offset = page * elementsPerPage;
@@ -117,6 +118,7 @@ public class LeaderboardCommand implements Command {
 				Command.invoke(this, ctx);
 				return Mono.empty();
 			});
+			rb.setHeader("Page " + (page + 1) + "/" + (size / elementsPerPage + 1));
 			return GDUtils.leaderboardView(ctx, subList, page, elementsPerPage, size).flatMap(embed -> rb.build(null, embed)).then();
 		}
 		ToIntFunction<GDUser> stat;
@@ -149,24 +151,58 @@ public class LeaderboardCommand implements Command {
 			default:
 				return Mono.error(new InvalidSyntaxException(this));
 		}
-		
 		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
-				.flatMap(message -> emojiMono.flatMap(emoji -> ctx.getBot().getDatabase()
+				.flatMap(message -> Mono.zip(emojiMono, ctx.getBot().getDatabase()
 						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
+						.collectList(), guild.getMembers().collectList())
+						.map(tuple -> {
+							// Filter out from database results (T2) users that aren't in the guild. Guild member list is stored in T3
+							var ids = new TreeSet<Long>(tuple.getT2().stream().map(GDLinkedUsers::getDiscordUserId).collect(Collectors.toSet()));
+							ids.retainAll(tuple.getT3().stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
+							tuple.getT2().removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
+							tuple.getT3().removeIf(member -> !ids.contains(member.getId().asLong()));
+							var discordTags = tuple.getT3().stream().collect(Collectors.groupingBy(m -> m.getId().asLong(),
+									Collectors.mapping(m -> BotUtils.formatDiscordUsername(m), Collectors.joining())));
+							return Tuples.of(tuple.getT1(), tuple.getT2(), discordTags);
+						})
+						.flatMapMany(tuple -> Flux.fromIterable(tuple.getT2())
 								.parallel().runOn(Schedulers.parallel())
-								.flatMap(linkedUser -> guild.getMembers()
-										.filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId())
-										.map(m -> Tuples.of(linkedUser, m)))
-								.flatMap(tuple -> gdClient.getUserByAccountId(tuple.getT1().getGdAccountId())
-										.onErrorContinue((__, __0) -> {})
-										.map(gdUser -> Tuples.of(tuple.getT2(), gdUser)))
-								.map(tuple -> new LeaderboardEntry(emoji, stat.applyAsInt(tuple.getT2()), tuple.getT2(), tuple.getT1()))
-								.collectSortedList(Comparator.naturalOrder()).flatMap(list -> {
-									ctx.setVar("leaderboard", new ArrayList<>(new TreeSet<>(list)));
-									ctx.setVar("page", 0);
-									Command.invoke(this, ctx);
-									return Mono.<Void>empty();
-								})).doOnSuccessOrError((__, e) -> message.delete().subscribe())));
+								.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
+										.onErrorResume(e -> Mono.empty()) // Just skip if unable to fetch user
+										.map(gdUser -> new LeaderboardEntry(tuple.getT1(), stat.applyAsInt(gdUser),
+												gdUser, tuple.getT3().get(linkedUser.getDiscordUserId())))))
+						.distinct(LeaderboardEntry::getGdUser)
+						.collectSortedList(Comparator.naturalOrder())
+						.flatMap(list -> {
+							ctx.setVar("leaderboard", list);
+							ctx.setVar("page", 0);
+							Command.invoke(this, ctx);
+							return Mono.<Void>empty();
+						})
+						.doOnSuccessOrError((__, e) -> message.delete().subscribe())));
+				
+//		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
+//				.flatMap(message -> emojiMono.flatMap(emoji -> ctx.getBot().getDatabase()
+//						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
+//								.parallel().runOn(Schedulers.parallel())
+//								.flatMap(linkedUser -> guild.getMembers()
+//										.filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId())
+//										.map(m -> Tuples.of(linkedUser, m)))
+//								.buffer()
+//								.flatMap(list -> Flux.fromIterable(list).flatMap(tuple -> gdClient.getUserByAccountId(tuple.getT1().getGdAccountId())
+//										.onErrorContinue((__, __0) -> {})
+//										.map(gdUser -> Tuples.of(tuple.getT2(), gdUser))))
+//								.map(tuple -> new LeaderboardEntry(emoji, stat.applyAsInt(tuple.getT2()), tuple.getT2(), tuple.getT1()))
+//								.doOnNext(System.out::println)
+//								.sequential()
+//								.distinct(LeaderboardEntry::getGdUser)
+//								.collectSortedList(Comparator.naturalOrder())
+//								.flatMap(list -> {
+//									ctx.setVar("leaderboard", list);
+//									ctx.setVar("page", 0);
+//									Command.invoke(this, ctx);
+//									return Mono.<Void>empty();
+//								})).doOnSuccessOrError((__, e) -> message.delete().subscribe())));
 
 	}
 
