@@ -30,7 +30,6 @@ public class GDPlugin implements Plugin {
 		var host = parser.parseAsStringOrDefault("gdplugin.host", Routes.BASE_URL);
 		var cacheTtl = parser.parseAsLongOrDefault("gdplugin.cache_ttl", GDClientBuilder.DEFAULT_CACHE_TTL);
 		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
-		System.out.println("Max connections: " + maxConnections);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)

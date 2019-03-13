@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -157,7 +156,7 @@ public class LeaderboardCommand implements Command {
 						.collectList(), guild.getMembers().collectList())
 						.map(tuple -> {
 							// Filter out from database results (T2) users that aren't in the guild. Guild member list is stored in T3
-							var ids = new TreeSet<Long>(tuple.getT2().stream().map(GDLinkedUsers::getDiscordUserId).collect(Collectors.toSet()));
+							var ids = tuple.getT2().stream().map(GDLinkedUsers::getDiscordUserId).collect(Collectors.toSet());
 							ids.retainAll(tuple.getT3().stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
 							tuple.getT2().removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
 							tuple.getT3().removeIf(member -> !ids.contains(member.getId().asLong()));
@@ -166,8 +165,8 @@ public class LeaderboardCommand implements Command {
 							return Tuples.of(tuple.getT1(), tuple.getT2(), discordTags);
 						})
 						.flatMapMany(tuple -> Flux.fromIterable(tuple.getT2())
-								.parallel().runOn(Schedulers.parallel())
 								.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
+										.subscribeOn(Schedulers.parallel())
 										.onErrorResume(e -> Mono.empty()) // Just skip if unable to fetch user
 										.map(gdUser -> new LeaderboardEntry(tuple.getT1(), stat.applyAsInt(gdUser),
 												gdUser, tuple.getT3().get(linkedUser.getDiscordUserId())))))

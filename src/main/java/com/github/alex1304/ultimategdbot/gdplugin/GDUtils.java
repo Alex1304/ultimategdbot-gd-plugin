@@ -172,7 +172,7 @@ public final class GDUtils {
 	
 	private static String formatCode(Object val, int n) {
 		var sb = new StringBuilder("" + val);
-		for (var i = sb.length() ; i < n ; i++) {
+		for (var i = sb.length() ; i <= n ; i++) {
 			sb.insert(0, " ‌‌");
 		}
 		sb.insert(0, '`').append('`');
@@ -276,7 +276,7 @@ public final class GDUtils {
 					final var data = tuple.getT2().getT1();
 					final var songInfo = ":musical_note:   " + tuple.getT2().getT2();
 					final var songInfo2 = tuple.getT2().getT3();
-					final var dlWidth = 11;
+					final var dlWidth = 9;
 					return embed -> {
 						embed.setAuthor(authorName, null, authorIconUrl);
 						embed.setThumbnail(getDifficultyImageForLevel(level));
@@ -461,7 +461,8 @@ public final class GDUtils {
 			}
 			var sb = new StringBuilder();
 			var rankWidth = (int) Math.log10(size) + 1;
-			final var maxTagLength = 24;
+			var statWidth = (int) Math.log10(subList.get(0).getValue()) + 1;
+			final var maxRowLength = 100;
 			for (var i = 1 ; i <= subList.size() ; i++) {
 				var entry = subList.get(i - 1);
 				var isHighlighted = entry.getGdUser().getName().equalsIgnoreCase(highlighted);
@@ -469,14 +470,16 @@ public final class GDUtils {
 				if (isHighlighted) {
 					sb.append("**");
 				}
-				sb.append(String.format("%s | %s %s - %s (%s%s)",
-						String.format("`#% " + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
+				var row = String.format("%s | %s %s | %s (%s)",
+						String.format("`#%" + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
 						entry.getEmoji(),
-						formatCode(entry.getValue(), entry.getEmoji().contains("creator_points") ? 4 : 10),
+						formatCode(entry.getValue(), statWidth),
 						entry.getGdUser().getName(),
-						entry.getDiscordUser().length() > maxTagLength ? entry.getDiscordUser().substring(0, maxTagLength - 3) : entry.getDiscordUser(),
-						entry.getDiscordUser().length() > maxTagLength ? "..." : ""))
-						.append("\n");
+						entry.getDiscordUser());
+				if (row.length() > maxRowLength) {
+					row = row.substring(0, maxRowLength - 3) + "...";
+				}
+				sb.append(row).append("\n");
 				if (isHighlighted) {
 					sb.append("**");
 				}
