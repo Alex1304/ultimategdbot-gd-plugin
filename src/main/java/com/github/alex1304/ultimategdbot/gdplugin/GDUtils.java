@@ -84,34 +84,31 @@ public final class GDUtils {
 		if (paginator.hasNextPage()) {
 			rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
 				ctx.setVar("paginator", paginator.goToNextPage());
-				Command.invoke(cmd, ctx);
+				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
 				return Mono.empty();
 			});
 		}
 		if (paginator.hasPreviousPage()) {
 			rb.addItem("prev", "To go to previous page, type `prev`", ctx0 -> {
 				ctx.setVar("paginator", paginator.hasPreviousPage());
-				Command.invoke(cmd, ctx);
+				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
 				return Mono.empty();
 			});
 		}
 		if (paginator.getTotalSize() == 0 || paginator.getTotalNumberOfPages() > 1) {
 			rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
 				if (ctx0.getArgs().size() == 1) {
-					Command.invoke(cmd, ctx);
 					return Mono.error(new CommandFailedException("Please specify a page number"));
 				}
 				try {
 					var page = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
 					if (page < 0 || (paginator.getTotalSize() > 0 && page >= paginator.getTotalNumberOfPages())) {
-						Command.invoke(cmd, ctx);
 						return Mono.error(new CommandFailedException("Page number out of range"));
 					}
 					ctx.setVar("paginator", paginator.goTo(page));
-					Command.invoke(cmd, ctx);
+					ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
 					return Mono.empty();
 				} catch (NumberFormatException e) {
-					Command.invoke(cmd, ctx);
 					return Mono.error(new CommandFailedException("Please specify a valid page number"));
 				}
 			});

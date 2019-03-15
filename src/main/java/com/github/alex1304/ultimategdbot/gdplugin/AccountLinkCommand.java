@@ -86,7 +86,7 @@ public class AccountLinkCommand implements Command {
 						.thenEmpty(ctx.getBot().getDatabase().save(linkedUser))
 						.then(ctx.getBot().getEmoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
 								+ "Geometry Dash account **" + user.getName() + "**!")))
-						.doOnError(e -> Command.invoke(this, ctx))
+						.doOnError(e -> ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe())
 						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
 								+ "Retry later."))
 						.doOnSuccessOrError((m, e) -> waitMessage.delete().subscribe())

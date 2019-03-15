@@ -34,7 +34,7 @@ public class AccountCommand implements Command {
 		final var alias = BotUtils.joinAliases(getAliases());
 		final var linksubalias = BotUtils.joinAliases(linkSubcmd.getAliases());
 		final var unlinksubalias = BotUtils.joinAliases(unlinkSubcmd.getAliases());
-		return ctx.getEffectivePrefix().flatMap(prefix -> ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
+		return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
 				.filter(GDLinkedUsers::getIsLinkActivated)
 				.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
 				.map(user -> Tuples.of(true, "You are currently linked to the Geometry Dash account **" + user.getName() + "**!"))
@@ -44,8 +44,8 @@ public class AccountCommand implements Command {
 						+ "command without arguments to display your own info, let others easily access your "
 						+ "profile by mentionning you, or appear in server-wide Geometry Dash leaderboards.\n\n"
 						+ tuple.getT2() + "\n"
-						+ (tuple.getT1() ? "If you want to unlink your account, run `" + prefix + alias + " " + unlinksubalias + "`"
-								: "To start linking your account, run `" + prefix + alias + " " + linksubalias + " <your_gd_username>`"))))
+						+ (tuple.getT1() ? "If you want to unlink your account, run `" + ctx.getPrefixUsed() + alias + " " + unlinksubalias + "`"
+								: "To start linking your account, run `" + ctx.getPrefixUsed() + alias + " " + linksubalias + " <your_gd_username>`")))
 				.then();
 	}
 

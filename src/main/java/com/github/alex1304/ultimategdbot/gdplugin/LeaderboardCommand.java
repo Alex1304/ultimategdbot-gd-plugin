@@ -43,16 +43,16 @@ public class LeaderboardCommand implements Command {
 		var demonEmoji = ctx.getBot().getEmoji("demon");
 		var cpEmoji = ctx.getBot().getEmoji("creator_points");
 		if (ctx.getArgs().size() == 1) {
-			return Mono.zip(ctx.getEffectivePrefix(), starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
+			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
 					.flatMap(tuple -> ctx.reply("**Compare your stats with other players in this server by "
 							+ "showing a server-wide Geometry Dash leaderboard!**\n"
 							+ "__To get started, select which type of leaderboard you want to show:__\n"
-							+ "To view " + tuple.getT2() + " Stars leaderboard, run `" + tuple.getT1() + "leaderboard stars`\n"
-							+ "To view " + tuple.getT3() + " Diamonds leaderboard, run `" + tuple.getT1() + "leaderboard diamonds`\n"
-							+ "To view " + tuple.getT4() + " User Coins leaderboard, run `" + tuple.getT1() + "leaderboard ucoins`\n"
-							+ "To view " + tuple.getT5() + " Secret Coins leaderboard, run `" + tuple.getT1() + "leaderboard scoins`\n"
-							+ "To view " + tuple.getT6() + " Demons leaderboard, run `" + tuple.getT1() + "leaderboard demons`\n"
-							+ "To view " + tuple.getT7() + " Creator Points leaderboard, run `" + tuple.getT1() + "leaderboard cp`\n"))
+							+ "To view " + tuple.getT1() + " Stars leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard stars`\n"
+							+ "To view " + tuple.getT2() + " Diamonds leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard diamonds`\n"
+							+ "To view " + tuple.getT3() + " User Coins leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard ucoins`\n"
+							+ "To view " + tuple.getT4() + " Secret Coins leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard scoins`\n"
+							+ "To view " + tuple.getT5() + " Demons leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard demons`\n"
+							+ "To view " + tuple.getT6() + " Creator Points leaderboard, run `" + ctx.getPrefixUsed() + "leaderboard cp`\n"))
 					.then();
 		}
 		@SuppressWarnings("unchecked")
@@ -68,53 +68,48 @@ public class LeaderboardCommand implements Command {
 			if (page < maxPage) {
 				rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
 					ctx.setVar("page", page + 1);
-					Command.invoke(this, ctx);
+					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 					return Mono.empty();
 				});
 			}
 			if (page > 0) {
 				rb.addItem("prev", "To go to previous page, type `prev`", ctx0 -> {
 					ctx.setVar("page", page - 1);
-					Command.invoke(this, ctx);
+					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 					return Mono.empty();
 				});
 			}
 			if (maxPage > 0) {
 				rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
 					if (ctx0.getArgs().size() == 1) {
-						Command.invoke(this, ctx);
 						return Mono.error(new CommandFailedException("Please specify a page number"));
 					}
 					try {
 						var requestedPage = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
 						if (requestedPage < 0 || requestedPage > maxPage) {
-							Command.invoke(this, ctx);
 							return Mono.error(new CommandFailedException("Page number out of range"));
 						}
 						ctx.setVar("page", requestedPage);
-						Command.invoke(this, ctx);
+						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 						return Mono.empty();
 					} catch (NumberFormatException e) {
-						Command.invoke(this, ctx);
 						return Mono.error(new CommandFailedException("Please specify a valid page number"));
 					}
 				});
 			}
 			rb.addItem("finduser", "To jump to the page where a specific user is, type `finduser <GD_username>`", ctx0 -> {
 				if (ctx0.getArgs().size() == 1) {
-					Command.invoke(this, ctx);
 					return Mono.error(new CommandFailedException("Please specify a user"));
 				}
 				final var names = entryList.stream().map(entry -> entry.getGdUser().getName()).map(String::toLowerCase).collect(Collectors.toList());
 				final var rank = names.indexOf(ctx0.getArgs().get(1).toLowerCase());
 				if (rank == -1) {
-					Command.invoke(this, ctx);
 					return Mono.error(new CommandFailedException("This user wasn't found on this leaderboard."));
 				}
 				final var jumpTo = rank / elementsPerPage;
 				ctx.setVar("page", jumpTo);
 				ctx.setVar("highlighted", ctx0.getArgs().get(1));
-				Command.invoke(this, ctx);
+				ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 				return Mono.empty();
 			});
 			rb.setHeader("Page " + (page + 1) + "/" + (size / elementsPerPage + 1));
@@ -175,7 +170,7 @@ public class LeaderboardCommand implements Command {
 						.flatMap(list -> {
 							ctx.setVar("leaderboard", list);
 							ctx.setVar("page", 0);
-							Command.invoke(this, ctx);
+							ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 							return Mono.<Void>empty();
 						})
 						.doOnSuccessOrError((__, e) -> message.delete().subscribe())));

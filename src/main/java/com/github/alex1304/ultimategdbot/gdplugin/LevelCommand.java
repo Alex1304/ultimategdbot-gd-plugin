@@ -48,7 +48,7 @@ public class LevelCommand implements Command {
 			} else {
 				ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
 			}
-			Command.invoke(this, ctx);
+			ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 			return Mono.empty();
 		}
 		return paginatorMono.flatMap(paginator -> {
@@ -59,12 +59,10 @@ public class LevelCommand implements Command {
 			var rb = new ReplyMenuBuilder(ctx, true, false);
 			rb.addItem("select", "To view details on a specific level, type `select <result_number>`, e.g `select 2`", ctx0 -> {
 				if (ctx0.getArgs().size() == 1 || !ctx0.getArgs().get(1).matches("[0-9]+")) {
-					Command.invoke(this, ctx);
 					return Mono.error(new CommandFailedException("Invalid input"));
 				}
 				var selected = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
 				if (selected >= paginator.getPageSize()) {
-					Command.invoke(this, ctx);
 					return Mono.error(new CommandFailedException("Number out of range"));
 				}
 				ctx.setVar("canGoBack", true);
@@ -82,7 +80,7 @@ public class LevelCommand implements Command {
 		var rb = new ReplyMenuBuilder(ctx, true, false);
 		if (ctx.getVar("canGoBack", Boolean.class)) {
 			rb.addItem("back", "To go back to search results, type `back`", ctx0 -> {
-				Command.invoke(this, ctx);
+				ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 				return Mono.empty();
 			});
 		}

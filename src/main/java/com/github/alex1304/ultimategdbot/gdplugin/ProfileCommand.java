@@ -34,11 +34,11 @@ public class ProfileCommand implements Command {
 	public Mono<Void> execute(Context ctx) {
 		if (ctx.getArgs().size() == 1) {
 			final var authorId = ctx.getEvent().getMessage().getAuthor().get().getId().asLong();
-			return ctx.getEffectivePrefix().flatMap(prefix -> ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
+			return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
 					.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to show your own profile, "
-							+ "link your Geometry Dash account using `" + prefix + "account` and retry this command. Otherwise, you "
-									+ "need to specify a user like so: `" + prefix + "profile <gd_username>`.")))
-					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId()))));
+							+ "link your Geometry Dash account using `" + ctx.getPrefixUsed() + "account` and retry this command. Otherwise, you "
+									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))
+					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
 		return showProfile(ctx, gdClient.searchUser(input));
