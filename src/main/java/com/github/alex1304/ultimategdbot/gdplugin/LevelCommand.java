@@ -77,16 +77,16 @@ public class LevelCommand implements Command {
 	}
 	
 	private Mono<Void> showLevelDetail(Context ctx, GDLevel level) {
-		var rb = new ReplyMenuBuilder(ctx, true, false);
+		var view = GDUtils.levelView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png");
 		if (ctx.getVar("canGoBack", Boolean.class)) {
+			var rb = new ReplyMenuBuilder(ctx, true, false);
 			rb.addItem("back", "To go back to search results, type `back`", ctx0 -> {
 				ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 				return Mono.empty();
 			});
+			return view.flatMap(embed -> rb.build(null, embed)).then();
 		}
-		return GDUtils.levelView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")
-				.flatMap(embed -> rb.build(null, embed))
-				.then();
+		return view.flatMap(embed -> ctx.reply(mcs -> mcs.setEmbed(embed))).then();
 	}
 
 	@Override

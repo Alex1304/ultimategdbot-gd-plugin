@@ -1,0 +1,54 @@
+package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
+import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
+
+import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.Role;
+import discord4j.core.spec.MessageCreateSpec;
+import reactor.core.publisher.Mono;
+
+public class TimelyLevelChangedEventSubscriber extends GDEventSubscriber<TimelyLevelChangedEvent> {
+
+	public TimelyLevelChangedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
+		super(bot, broadcastedMessages);
+	}
+
+	@Override
+	String logText(TimelyLevelChangedEvent event) {
+		return "**Timely Level Changed** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId();
+	}
+
+	@Override
+	String databaseField() {
+		return "channelTimelyLevelsId";
+	}
+
+	@Override
+	Mono<Message> sendOne(TimelyLevelChangedEvent event, MessageChannel channel, Optional<Role> roleToTag) {
+		var isWeekly = event.getTimelyLevel().getType() == TimelyType.WEEKLY;
+		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
+		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
+		return event.getTimelyLevel().getLevel()
+				.flatMap(level -> GDUtils.shortLevelView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
+						.<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+							mcs.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
+									+ "There is a new " + headerTitle + " on Geometry Dash!!!");
+							mcs.setEmbed(embed);
+						}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty()));
+	}
+
+	@Override
+	long getBroadcastKey(TimelyLevelChangedEvent event) {
+		return event.getTimelyLevel().getId();
+	}
+
+}

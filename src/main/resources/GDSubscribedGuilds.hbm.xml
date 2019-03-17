@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping default-lazy="false">
+	<class name="com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds" table="gd_subscribed_guilds">
+		<cache usage="read-write" />
+		<id name="guildId" type="long" column="guild_id">
+			<generator class="assigned" />
+		</id>
+		<property name="channelAwardedLevelsId" type="long" column="channel_awarded_levels_id" />
+		<property name="channelTimelyLevelsId" type="long" column="channel_timely_levels_id" />
+		<property name="channelGdModeratorsId" type="long" column="channel_gd_moderators_id" />
+		<property name="channelChangelogId" type="long" column="channel_changelog_id" />
+		<property name="roleAwardedLevelsId" type="long" column="role_awarded_levels_id" />
+		<property name="roleTimelyLevelsId" type="long" column="role_timely_levels_id" />
+		<property name="roleGdModeratorsId" type="long" column="role_gd_moderators_id" />
+	</class>
+</hibernate-mapping>

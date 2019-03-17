@@ -319,6 +319,32 @@ public final class GDUtils {
 				;
 	}
 	
+	public static Mono<Consumer<EmbedCreateSpec>> shortLevelView(Bot bot, GDLevel level, String authorName, String authorIconUrl) {
+		return Mono.zip(o -> o, bot.getEmoji("play"), bot.getEmoji("downloads"), bot.getEmoji("dislike"),
+				bot.getEmoji("like"), bot.getEmoji("length"), bot.getEmoji("copy"),
+				bot.getEmoji("object_overflow"), bot.getEmoji("user_coin"), bot.getEmoji("user_coin_unverified"))
+				.zipWith(formatSongPrimaryMetadata(level.getSong()))
+				.map(tuple -> {
+					final var emojis = tuple.getT1();
+					final var songInfo = ":musical_note:   " + tuple.getT2();
+					final var dlWidth = 9;
+					return embed -> {
+						embed.setAuthor(authorName, null, authorIconUrl);
+						embed.setThumbnail(getDifficultyImageForLevel(level));
+						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "" +
+								(level.getOriginalLevelID() > 0 ? " " + emojis[5] : "") +
+								(level.getObjectCount() > 40_000 ? " " + emojis[6] : "");
+						var coins = "Coins: " + coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 7 : 8], level.getCoinCount(), false);
+						var downloadLikesLength = emojis[1] + " " + formatCode(level.getDownloads(), dlWidth) + "\n"
+								+ (level.getLikes() < 0 ? emojis[2] + " " : emojis[3] + " ") + formatCode(level.getLikes(), dlWidth) + "\n"
+								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
+						embed.addField(title, downloadLikesLength, false);
+						embed.addField(coins, songInfo, false);
+						embed.setFooter("LevelID: " + level.getId(), null);
+					};
+				});
+	}
+	
 	private static String getDifficultyImageForLevel(GDLevel level) {
 		var difficulty = new StringBuilder();
 		difficulty.append(level.getStars()).append("-");
@@ -411,6 +437,10 @@ public final class GDUtils {
 									+ eDlSong + " [Download MP3](" + song.getDownloadURL() + ")"
 							: "Geometry Dash native audio track").onErrorReturn("Song info unavailable");
 				});
+	}
+	
+	public static String levelToString(GDLevel level) {
+		return "__"+ level.getName() + "__ by " + level.getCreatorName() + " (" + level.getId() + ")";
 	}
 	
 	// ============ ACCOUNT LINKING ==============

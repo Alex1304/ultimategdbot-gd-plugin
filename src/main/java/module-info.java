@@ -6,11 +6,14 @@ module ultimategdbot.gdplugin {
 	requires reactor.core;
 	requires transitive ultimategdbot.api;
 	requires transitive jdash;
+	requires transitive jdash.events;
 	requires reactor.netty;
 	requires io.netty.codec.http;
 	requires java.desktop;
+	requires transitive org.reactivestreams;
 	
 	exports com.github.alex1304.ultimategdbot.gdplugin;
+	exports com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 	
 	provides Plugin with GDPlugin;
 }
