@@ -1,14 +1,11 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
@@ -16,48 +13,51 @@ import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 
 import discord4j.core.object.entity.Channel.Type;
-import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
 
-public class GDEventsCommand implements Command {
+public class GDEventsScannerLoopCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	private final GDEventDispatcher gdEventDispatcher;
 	private final GDEventScannerLoop scannerLoop;
-	private final Map<Long, List<Message>> broadcastedLevels;
 
-	public GDEventsCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher, GDEventScannerLoop scannerLoop,
-			Map<Long, List<Message>> broadcastedLevels) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
+	public GDEventsScannerLoopCommand(GDEventScannerLoop scannerLoop) {
 		this.scannerLoop = Objects.requireNonNull(scannerLoop);
-		this.broadcastedLevels = Objects.requireNonNull(broadcastedLevels);
 	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		return Mono.error(new InvalidSyntaxException(this));
+		if (ctx.getArgs().size() == 1) {
+			return Mono.error(new InvalidSyntaxException(this));
+		}
+		switch (ctx.getArgs().get(1)) {
+			case "start":
+				scannerLoop.start();
+				return ctx.reply("GD event scanner loop has been started.").then();
+			case "stop":
+				scannerLoop.stop();
+				return ctx.reply("GD event scanner loop has been stopped.").then();
+			default:
+				return Mono.error(new InvalidSyntaxException(this));
+		}
 	}
 
 	@Override
 	public Set<String> getAliases() {
-		return Set.of("gdevents");
+		return Set.of("scanner_loop");
 	}
 
 	@Override
 	public Set<Command> getSubcommands() {
-		return Set.of(new GDEventsDispatchCommand(gdClient, gdEventDispatcher), new GDEventsScannerLoopCommand(scannerLoop),
-				new GDEventsBroadcastResultsCommand(broadcastedLevels));
+		return Set.of();
 	}
 
 	@Override
 	public String getDescription() {
-		return "Allows the bot owner to manage the GD event dispatcher.";
+		return "Starts or stops the GD event scanner loop. If stopped, GD events won't be dispatched automatically when they happen in game.";
 	}
 
 	@Override
 	public String getSyntax() {
-		return "";
+		return "start|stop";
 	}
 
 	@Override

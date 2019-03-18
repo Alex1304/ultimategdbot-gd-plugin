@@ -60,7 +60,7 @@ public class TimelyCommand implements Command {
 
 	@Override
 	public String getDescription() {
-		return "Displays info on the current Daily level.";
+		return "Displays info on the current " + (isWeekly ? "Weekly Demon" : "Daily level") + ".";
 	}
 
 	@Override

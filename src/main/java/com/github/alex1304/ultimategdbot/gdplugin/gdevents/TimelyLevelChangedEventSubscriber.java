@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
@@ -24,7 +25,8 @@ public class TimelyLevelChangedEventSubscriber extends GDEventSubscriber<TimelyL
 
 	@Override
 	String logText(TimelyLevelChangedEvent event) {
-		return "**Timely Level Changed** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId();
+		return "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed" : "Daily Level Changed")
+				+ "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId();
 	}
 
 	@Override
@@ -40,15 +42,25 @@ public class TimelyLevelChangedEventSubscriber extends GDEventSubscriber<TimelyL
 		return event.getTimelyLevel().getLevel()
 				.flatMap(level -> GDUtils.shortLevelView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
 						.<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
-							mcs.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
+							mcs.setContent((event instanceof LateTimelyLevelChangedEvent
+									? "[Late announcement] "
+									: roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 									+ "There is a new " + headerTitle + " on Geometry Dash!!!");
 							mcs.setEmbed(embed);
 						}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty()));
 	}
 
 	@Override
-	long getBroadcastKey(TimelyLevelChangedEvent event) {
-		return event.getTimelyLevel().getId();
+	void onBroadcastSuccess(TimelyLevelChangedEvent event, List<Message> broadcastResult) {
 	}
 
+	@Override
+	long entityFieldChannel(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getChannelTimelyLevelsId();
+	}
+
+	@Override
+	long entityFieldRole(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getRoleTimelyLevelsId();
+	}
 }

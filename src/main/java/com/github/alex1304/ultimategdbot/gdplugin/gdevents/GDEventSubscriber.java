@@ -30,7 +30,7 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 	static final Random RANDOM_GENERATOR = new Random();
 	
 	final Bot bot;
-	private final Map<Long, List<Message>> broadcastedLevels;
+	final Map<Long, List<Message>> broadcastedLevels;
 	private Optional<Subscription> subscription;
 	
 	public GDEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
@@ -65,7 +65,7 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 											+ (time.toSecondsPart() > 0 ? time.toSecondsPart() + "s " : "")
 											+ (time.toMillisPart() > 0 ? time.toMillisPart() + "ms " : "");
 									var messageList = tupleOfTimeAndMessageList.getT2();
-									broadcastedLevels.put(getBroadcastKey(t), messageList);
+									onBroadcastSuccess(t, messageList);
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
 											+ "Successfully notified " + messageList.size() + " guilds!\n"
 											+ "**Execution time: " + formattedTime + "**").onErrorResume(e -> Mono.empty());
@@ -76,11 +76,13 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 	
 	abstract String logText(E event);
 	abstract String databaseField();
+	abstract long entityFieldChannel(GDSubscribedGuilds subscribedGuild);
+	abstract long entityFieldRole(GDSubscribedGuilds subscribedGuild);
 	abstract Mono<Message> sendOne(E event, MessageChannel channel, Optional<Role> roleToTag);
-	abstract long getBroadcastKey(E event);
+	abstract void onBroadcastSuccess(E event, List<Message> broadcastResult);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return bot.getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(subscribedGuild.getChannelAwardedLevelsId()))
+		return bot.getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.ofType(MessageChannel.class))
 				.next()
 				.map(channel -> Tuples.of(subscribedGuild, channel)).onErrorResume(e -> Mono.empty());
@@ -90,7 +92,7 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 		var subscribedGuild = tuple.getT1();
 		var channel = tuple.getT2();
 		return bot.getDiscordClients().flatMap(client -> client.getRoleById(Snowflake.of(subscribedGuild.getGuildId()),
-						Snowflake.of(subscribedGuild.getRoleAwardedLevelsId())))
+						Snowflake.of(entityFieldRole(subscribedGuild))))
 				.next()
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())

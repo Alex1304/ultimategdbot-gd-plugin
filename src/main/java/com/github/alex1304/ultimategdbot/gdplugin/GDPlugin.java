@@ -8,9 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+
+import org.reactivestreams.Subscriber;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
+import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.exception.GDLoginFailedException;
 import com.github.alex1304.jdash.exception.SpriteLoadException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
@@ -20,6 +24,8 @@ import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
+import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
+import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.jdashevents.scanner.AwardedSectionScanner;
 import com.github.alex1304.jdashevents.scanner.DailyLevelScanner;
@@ -33,6 +39,7 @@ import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelRemovedEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelUpdatedEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TimelyLevelChangedEventSubscriber;
 
 import discord4j.core.object.entity.Message;
@@ -89,21 +96,23 @@ public class GDPlugin implements Plugin {
 	}
 
 	private void initGDEventSubscribers() {
-		gdEventDispatcher.on(AwardedLevelAddedEvent.class)
+		subscribeToGDEvent(AwardedLevelAddedEvent.class, event -> "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel()),
+				new AwardedLevelAddedEventSubscriber(bot, broadcastedLevels));
+		subscribeToGDEvent(AwardedLevelRemovedEvent.class, event -> "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getRemovedLevel()),
+				new AwardedLevelRemovedEventSubscriber(bot, broadcastedLevels));
+		subscribeToGDEvent(AwardedLevelUpdatedEvent.class, event -> "**Awarded Level Updated** for level " + GDUtils.levelToString(event.getNewLevel()),
+				new AwardedLevelUpdatedEventSubscriber(bot, broadcastedLevels));
+		subscribeToGDEvent(TimelyLevelChangedEvent.class, event -> "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed"
+						: "Daily Level Changed") + "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId(),
+				new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels));
+	}
+	
+	private <E extends GDEvent> void subscribeToGDEvent(Class<E> clazz, Function<E, String> logText, Subscriber<E> instance) {
+		gdEventDispatcher.on(clazz)
 				.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the GD event dispatcher "
-						+ "has rejected event **Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel()) + "\n"
+						+ "has rejected event " + logText.apply(event) + "\n"
 						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
-				.subscribe(new AwardedLevelAddedEventSubscriber(bot, broadcastedLevels));
-		gdEventDispatcher.on(AwardedLevelRemovedEvent.class)
-				.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the GD event dispatcher "
-						+ "has rejected event **Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel()) + "\n"
-						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
-				.subscribe(new AwardedLevelRemovedEventSubscriber(bot, broadcastedLevels));
-		gdEventDispatcher.on(TimelyLevelChangedEvent.class)
-				.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the GD event dispatcher "
-						+ "has rejected event **Awarded Level Added** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId() + "\n"
-						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
-				.subscribe(new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels));
+				.subscribe(instance);
 	}
 	
 	@Override

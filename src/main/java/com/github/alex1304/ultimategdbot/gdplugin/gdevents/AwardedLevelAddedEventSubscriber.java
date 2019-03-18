@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
@@ -45,14 +46,24 @@ public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedL
 				"Roses are red. Violets are blue. This newly awarded level is waiting for you."
 		};
 		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
-			mcs.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
+			mcs.setContent((event instanceof LateAwardedLevelAddedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]);
 			mcs.setEmbed(embed);
 		}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty());
 	}
 
 	@Override
-	long getBroadcastKey(AwardedLevelAddedEvent event) {
-		return event.getAddedLevel().getId();
+	void onBroadcastSuccess(AwardedLevelAddedEvent event, List<Message> broadcastResult) {
+		broadcastedLevels.put(event.getAddedLevel().getId(), broadcastResult);
+	}
+
+	@Override
+	long entityFieldChannel(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getChannelAwardedLevelsId();
+	}
+
+	@Override
+	long entityFieldRole(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getRoleAwardedLevelsId();
 	}
 }

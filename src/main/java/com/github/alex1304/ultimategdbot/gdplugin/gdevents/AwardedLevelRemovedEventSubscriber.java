@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
@@ -23,7 +24,7 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 
 	@Override
 	String logText(AwardedLevelRemovedEvent event) {
-		return "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getAddedLevel());
+		return "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getRemovedLevel());
 	}
 
 	@Override
@@ -40,16 +41,25 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 				"Sad news. This level is no longer rated...",
 				"NOOOOOOO I liked this level... No more stars :'("
 		};
-		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
-			mcs.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
+		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]);
 			mcs.setEmbed(embed);
 		}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty());
 	}
 
 	@Override
-	long getBroadcastKey(AwardedLevelRemovedEvent event) {
-		return event.getAddedLevel().getId();
+	void onBroadcastSuccess(AwardedLevelRemovedEvent event, List<Message> broadcastResult) {
+		broadcastedLevels.put(event.getRemovedLevel().getId(), broadcastResult);
 	}
 
+	@Override
+	long entityFieldChannel(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getChannelAwardedLevelsId();
+	}
+
+	@Override
+	long entityFieldRole(GDSubscribedGuilds subscribedGuild) {
+		return subscribedGuild.getRoleAwardedLevelsId();
+	}
 }
