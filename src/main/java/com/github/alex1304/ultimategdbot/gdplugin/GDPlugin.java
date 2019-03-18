@@ -135,7 +135,7 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<String> getDatabaseMappingResources() {
-		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml");
+		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml");
 	}
 
 	@Override
