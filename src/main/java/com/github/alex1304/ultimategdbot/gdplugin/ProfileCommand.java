@@ -42,12 +42,12 @@ public class ProfileCommand implements Command {
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
 		return showProfile(ctx, gdClient.searchUser(input));
-				
 	}
 	
 	public Mono<Void> showProfile(Context ctx, Mono<GDUser> userMono) {
-		return userMono.flatMap(user -> GDUtils.makeIconSet(ctx, user, spriteFactory, iconsCache)
-				.flatMap(urls -> GDUtils.userProfileView(ctx, user, urls[0], urls[1])
+		return userMono.flatMap(user -> GDUtils.makeIconSet(ctx.getBot(), user, spriteFactory, iconsCache)
+				.flatMap(urls -> GDUtils.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
+								"User profile", "https://i.imgur.com/ppg4HqJ.png", urls[0], urls[1])
 						.flatMap(view -> ctx.reply(view))))
 				.then();
 	}

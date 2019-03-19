@@ -67,10 +67,10 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 									var messageList = tupleOfTimeAndMessageList.getT2();
 									onBroadcastSuccess(t, messageList);
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
-											+ "Successfully notified " + messageList.size() + " guilds!\n"
+											+ "Successfully notified **" + messageList.size() + "** guilds!\n"
 											+ "**Execution time: " + formattedTime + "**").onErrorResume(e -> Mono.empty());
 								})))
-				.doAfterTerminate(() -> subscription.get().request(1))
+				.doAfterTerminate(() -> subscription.ifPresent(s -> s.request(1)))
 				.subscribe();
 	}
 	
@@ -85,7 +85,8 @@ abstract class GDEventSubscriber<E extends GDEvent> implements Subscriber<E> {
 		return bot.getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.ofType(MessageChannel.class))
 				.next()
-				.map(channel -> Tuples.of(subscribedGuild, channel)).onErrorResume(e -> Mono.empty());
+				.map(channel -> Tuples.of(subscribedGuild, channel))
+				.onErrorResume(e -> Mono.empty());
 	}
 	
 	private Mono<Tuple3<GDSubscribedGuilds, MessageChannel, Optional<Role>>> findRole(Tuple2<GDSubscribedGuilds, MessageChannel> tuple) {

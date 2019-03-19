@@ -47,7 +47,7 @@ public class TimelyLevelChangedEventSubscriber extends GDEventSubscriber<TimelyL
 									: roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 									+ "There is a new " + headerTitle + " on Geometry Dash!!!");
 							mcs.setEmbed(embed);
-						}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty()));
+						}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty()));
 	}
 
 	@Override

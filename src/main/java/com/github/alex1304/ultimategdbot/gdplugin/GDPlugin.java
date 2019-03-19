@@ -2,12 +2,12 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.reactivestreams.Subscriber;
@@ -41,6 +41,15 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEven
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelRemovedEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelUpdatedEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TimelyLevelChangedEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEventSubscriber;
 
 import discord4j.core.object.entity.Message;
 
@@ -63,7 +72,7 @@ public class GDPlugin implements Plugin {
 		var host = parser.parseAsStringOrDefault("gdplugin.host", Routes.BASE_URL);
 		var cacheTtl = parser.parseAsLongOrDefault("gdplugin.cache_ttl", GDClientBuilder.DEFAULT_CACHE_TTL);
 		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
-		var scannerLoopInterval = parser.parseOrDefault("gdplugin.scanner_loop_interval", v -> Duration.ofSeconds(Integer.parseInt(v)), Duration.ofSeconds(10));
+		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		var eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		try {
 			this.gdClient = GDClientBuilder.create()
@@ -88,11 +97,7 @@ public class GDPlugin implements Plugin {
 	}
 
 	private Collection<? extends GDEventScanner> initScanners() {
-		var scanners = new HashSet<GDEventScanner>();
-		scanners.add(new AwardedSectionScanner());
-		scanners.add(new DailyLevelScanner());
-		scanners.add(new WeeklyDemonScanner());
-		return scanners;
+		return Set.of(new AwardedSectionScanner(), new DailyLevelScanner(), new WeeklyDemonScanner());
 	}
 
 	private void initGDEventSubscribers() {
@@ -105,6 +110,17 @@ public class GDPlugin implements Plugin {
 		subscribeToGDEvent(TimelyLevelChangedEvent.class, event -> "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed"
 						: "Daily Level Changed") + "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId(),
 				new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels));
+		// GD mods
+		BiFunction<UserEvent, String, String> logTextMod = (event, name) -> "**" + name + "** for user **"
+				+ event.getUser().getName() + "** (" + event.getUser().getAccountId() + ")";
+		subscribeToGDEvent(UserPromotedToModEvent.class, event -> logTextMod.apply(event, "User Promoted To Mod"),
+				new UserPromotedToModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+		subscribeToGDEvent(UserPromotedToElderEvent.class, event -> logTextMod.apply(event, "User Promoted To Elder"),
+				new UserPromotedToElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+		subscribeToGDEvent(UserDemotedFromModEvent.class, event -> logTextMod.apply(event, "User Demoted From Mod"),
+				new UserDemotedFromModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+		subscribeToGDEvent(UserDemotedFromElderEvent.class, event -> logTextMod.apply(event, "User Demoted From Elder"),
+				new UserDemotedFromElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
 	}
 	
 	private <E extends GDEvent> void subscribeToGDEvent(Class<E> clazz, Function<E, String> logText, Subscriber<E> instance) {
@@ -118,14 +134,14 @@ public class GDPlugin implements Plugin {
 	@Override
 	public void onBotReady() {
 		scannerLoop.start();
-		System.out.println("[GDPlugin] Started GD event scanner loop");
 	}
 
 	@Override
 	public Set<Command> getProvidedCommands() {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
-				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels));
+				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
+				new ModListCommand());
 	}
 
 	@Override
@@ -140,7 +156,7 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Map<String, GuildSettingsEntry<?, ?>> getGuildConfigurationEntries() {
-		var map = new HashMap<String, GuildSettingsEntry<?, ?>>();
+		var map = new LinkedHashMap<String, GuildSettingsEntry<?, ?>>();
 		var valueConverter = new GuildSettingsValueConverter(bot);
 		map.put("channel_awarded_levels", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,

@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.StringJoiner;
 import java.util.function.BiConsumer;
@@ -118,24 +119,24 @@ public final class GDUtils {
 	
 	// ------------ USER PROFILE UTILS ------------ //
 	
-	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Context ctx, GDUser user, String iconUrl, String iconSetUrl) {
-		return Mono.zip(o -> o, ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("diamond"), ctx.getBot().getEmoji("user_coin"),
-				ctx.getBot().getEmoji("secret_coin"), ctx.getBot().getEmoji("demon"), ctx.getBot().getEmoji("creator_points"),
-				ctx.getBot().getEmoji("mod"), ctx.getBot().getEmoji("elder_mod"), ctx.getBot().getEmoji("global_rank"),
-				ctx.getBot().getEmoji("youtube"), ctx.getBot().getEmoji("twitter"), ctx.getBot().getEmoji("twitch"),
-				ctx.getBot().getEmoji("discord"))
-				.zipWith(getDiscordAccountsForGDUser(ctx.getBot(), user).collectList())
+	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Bot bot, Optional<User> author, GDUser user, 
+			String authorName, String authorIconUrl, String iconUrl, String iconSetUrl) {
+		return Mono.zip(o -> o, bot.getEmoji("star"), bot.getEmoji("diamond"), bot.getEmoji("user_coin"),
+				bot.getEmoji("secret_coin"), bot.getEmoji("demon"), bot.getEmoji("creator_points"),
+				bot.getEmoji("mod"), bot.getEmoji("elder_mod"), bot.getEmoji("global_rank"),
+				bot.getEmoji("youtube"), bot.getEmoji("twitter"), bot.getEmoji("twitch"),
+				bot.getEmoji("discord"))
+				.zipWith(getDiscordAccountsForGDUser(bot, user).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
 					var linkedAccounts = tuple.getT2();
 					return mcs -> {
-						final var author = ctx.getEvent().getMessage().getAuthor();
 						final var statWidth = 10;
 						if (author.isPresent()) {
 							mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
 						}
 						mcs.setEmbed(embed -> {
-							embed.setAuthor("User profile", null, "https://i.imgur.com/ppg4HqJ.png");
+							embed.setAuthor(authorName, null, authorIconUrl);
 							embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", emojis[0] + "  " + formatCode(user.getStars(), statWidth) + "\n"
 									+ emojis[1] + "  " + formatCode(user.getDiamonds(), statWidth) + "\n"
 									+ emojis[2] + "  " + formatCode(user.getUserCoins(), statWidth) + "\n"
@@ -176,7 +177,7 @@ public final class GDUtils {
 		return sb.toString();
 	}
 	
-	public static Mono<String[]> makeIconSet(Context ctx, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
+	public static Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
 		final var iconSet = new GDUserIconSet(user, sf);
 		final var cached = iconsCache.get(iconSet);
 		if (cached != null) {
@@ -198,7 +199,7 @@ public final class GDUtils {
 		final var istreamMain = imageToInputStream(mainIcon);
 		final var istreamIconSet = imageToInputStream(iconSetImg);
 		
-		return ctx.getBot().getAttachmentsChannel().ofType(MessageChannel.class).flatMap(c -> c.createMessage(mcs -> {
+		return bot.getAttachmentsChannel().ofType(MessageChannel.class).flatMap(c -> c.createMessage(mcs -> {
 			mcs.addFile(user.getId() + "-Main.png", istreamMain);
 			mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet);
 		})).map(msg -> {

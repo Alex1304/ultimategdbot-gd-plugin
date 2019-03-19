@@ -61,11 +61,12 @@ public class AwardedLevelUpdatedEventSubscriber implements Subscriber<AwardedLev
 											+ (time.toMinutesPart() > 0 ? time.toMinutesPart() + "min " : "")
 											+ (time.toSecondsPart() > 0 ? time.toSecondsPart() + "s " : "")
 											+ (time.toMillisPart() > 0 ? time.toMillisPart() + "ms " : "");
-									broadcastedLevels.put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
+									var oldList = broadcastedLevels.put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
+											+ "Successfully edited **" + messageList.size() + "/" + oldList.size() + "** messages!\n"
 											+ "**Execution time: " + formattedTime + "**").onErrorResume(e -> Mono.empty());
 								})))
-				.doAfterTerminate(() -> subscription.get().request(1))
+				.doAfterTerminate(() -> subscription.ifPresent(s -> s.request(1)))
 				.subscribe();
 	}
 

@@ -45,7 +45,7 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]);
 			mcs.setEmbed(embed);
-		}).flatMap(spec -> channel.createMessage(spec)).onErrorResume(e -> Mono.empty());
+		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}
 
 	@Override
