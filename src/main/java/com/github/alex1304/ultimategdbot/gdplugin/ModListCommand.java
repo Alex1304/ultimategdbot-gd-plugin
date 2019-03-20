@@ -20,7 +20,7 @@ public class ModListCommand implements Command {
 		return Mono.zip(ctx.getBot().getEmoji("elder_mod"), ctx.getBot().getEmoji("mod"), 
 						ctx.getBot().getDatabase().query(GDModList.class, "from GDModList order by isElder desc, name").collectList())
 				.flatMap(tuple -> {
-					var rb = new PaginatedReplyMenuBuilder(this, ctx, true, false);
+					var rb = new PaginatedReplyMenuBuilder(this, ctx, true, false, 800);
 					var sb = new StringBuilder("**__Geometry Dash Moderator List:__\n**");
 					sb.append("This list is automatically updated when the `")
 						.append(ctx.getPrefixUsed())
@@ -55,7 +55,7 @@ public class ModListCommand implements Command {
 
 	@Override
 	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.BOT_OWNER;
+		return PermissionLevel.PUBLIC;
 	}
 
 	@Override
