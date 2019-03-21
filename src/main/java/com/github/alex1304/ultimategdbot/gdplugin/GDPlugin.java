@@ -102,25 +102,25 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		subscribeToGDEvent(AwardedLevelAddedEvent.class, event -> "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel()),
-				new AwardedLevelAddedEventSubscriber(bot, broadcastedLevels));
+				new AwardedLevelAddedEventSubscriber(bot, broadcastedLevels, gdClient));
 		subscribeToGDEvent(AwardedLevelRemovedEvent.class, event -> "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getRemovedLevel()),
-				new AwardedLevelRemovedEventSubscriber(bot, broadcastedLevels));
+				new AwardedLevelRemovedEventSubscriber(bot, broadcastedLevels, gdClient));
 		subscribeToGDEvent(AwardedLevelUpdatedEvent.class, event -> "**Awarded Level Updated** for level " + GDUtils.levelToString(event.getNewLevel()),
 				new AwardedLevelUpdatedEventSubscriber(bot, broadcastedLevels));
 		subscribeToGDEvent(TimelyLevelChangedEvent.class, event -> "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed"
 						: "Daily Level Changed") + "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId(),
-				new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels));
+				new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels, gdClient));
 		// GD mods
 		BiFunction<UserEvent, String, String> logTextMod = (event, name) -> "**" + name + "** for user **"
 				+ event.getUser().getName() + "** (" + event.getUser().getAccountId() + ")";
 		subscribeToGDEvent(UserPromotedToModEvent.class, event -> logTextMod.apply(event, "User Promoted To Mod"),
-				new UserPromotedToModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+				new UserPromotedToModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		subscribeToGDEvent(UserPromotedToElderEvent.class, event -> logTextMod.apply(event, "User Promoted To Elder"),
-				new UserPromotedToElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+				new UserPromotedToElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		subscribeToGDEvent(UserDemotedFromModEvent.class, event -> logTextMod.apply(event, "User Demoted From Mod"),
-				new UserDemotedFromModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+				new UserDemotedFromModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		subscribeToGDEvent(UserDemotedFromElderEvent.class, event -> logTextMod.apply(event, "User Demoted From Elder"),
-				new UserDemotedFromElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache));
+				new UserDemotedFromElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 	}
 	
 	private <E extends GDEvent> void subscribeToGDEvent(Class<E> clazz, Function<E, String> logText, Subscriber<E> instance) {

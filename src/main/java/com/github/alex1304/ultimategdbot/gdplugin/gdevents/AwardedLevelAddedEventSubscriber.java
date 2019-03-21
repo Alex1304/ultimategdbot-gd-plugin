@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import com.github.alex1304.jdash.client.AuthenticatedGDClient;
+import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
@@ -12,14 +14,16 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.Role;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
 public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedLevelAddedEvent> {
 
-	public AwardedLevelAddedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
-		super(bot, broadcastedMessages);
+	public AwardedLevelAddedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+			AuthenticatedGDClient gdClient) {
+		super(bot, broadcastedMessages, gdClient);
 	}
 
 	@Override
@@ -47,7 +51,8 @@ public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedL
 		};
 		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelAddedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
-					+ randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]);
+					+ (channel instanceof PrivateChannel ? "Congratulations for getting your level rated!"
+							: randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
 			mcs.setEmbed(embed);
 		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}
@@ -65,5 +70,10 @@ public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedL
 	@Override
 	long entityFieldRole(GDSubscribedGuilds subscribedGuild) {
 		return subscribedGuild.getRoleAwardedLevelsId();
+	}
+
+	@Override
+	Mono<Long> accountIdGetter(AwardedLevelAddedEvent event) {
+		return gdClient.searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId);
 	}
 }

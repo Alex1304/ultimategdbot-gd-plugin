@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Bot;
@@ -13,6 +14,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.Role;
 import reactor.core.publisher.Mono;
 
@@ -21,8 +23,9 @@ abstract class UserEventSubscriber<E extends UserEvent> extends GDEventSubscribe
 	private final SpriteFactory spriteFactory;
 	private final Map<GDUserIconSet, String[]> iconsCache;
 
-	public UserEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache) {
-		super(bot, broadcastedMessages);
+	public UserEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
+			Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
+		super(bot, broadcastedMessages, gdClient);
 		this.spriteFactory = Objects.requireNonNull(spriteFactory);
 		this.iconsCache = Objects.requireNonNull(iconsCache);
 	}
@@ -51,7 +54,9 @@ abstract class UserEventSubscriber<E extends UserEvent> extends GDEventSubscribe
 	Mono<Message> sendOne(E event, MessageChannel channel, Optional<Role> roleToTag) {
 		return GDUtils.makeIconSet(bot, event.getUser(), spriteFactory, iconsCache)
 				.flatMap(urls -> GDUtils.userProfileView(bot, Optional.empty(), event.getUser(), authorName(), authorIconUrl(), urls[0], urls[1]))
-				.map(mcs -> mcs.andThen(mcs2 -> mcs2.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "") + "A user has been " + messageContent())))
+				.map(mcs -> mcs.andThen(mcs2 -> mcs2.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
+						+ (channel instanceof PrivateChannel ? isPromotion() ? "Congratulations for being " : "I'm sorry to announce this, but you have been " // GNOMED
+						: "A user has been ") + messageContent())))
 				.flatMap(channel::createMessage)
 				.onErrorResume(e -> {
 					e.printStackTrace();
@@ -67,4 +72,10 @@ abstract class UserEventSubscriber<E extends UserEvent> extends GDEventSubscribe
 	abstract String authorIconUrl();
 	abstract String messageContent();
 	abstract String eventName();
+	abstract boolean isPromotion();
+
+	@Override
+	Mono<Long> accountIdGetter(E event) {
+		return Mono.just(event.getUser().getAccountId());
+	}
 }

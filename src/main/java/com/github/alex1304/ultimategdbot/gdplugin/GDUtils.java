@@ -19,6 +19,7 @@ import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 
+import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.entity.GDSong;
 import com.github.alex1304.jdash.entity.GDUser;
@@ -220,6 +221,20 @@ public final class GDUtils {
 		} catch (IOException e) {
 			throw new UncheckedIOException(e); // Should never happen
 		}
+	}
+	
+	public static Mono<GDUser> stringToUser(Bot bot, AuthenticatedGDClient gdClient, String str) {
+		if (str.matches("<@!?[0-9]+>")) {
+			var id = str.substring(str.startsWith("<@!") ? 3 : 2, str.length() - 1);
+			return Mono.just(id)
+					.map(Snowflake::of)
+					.onErrorMap(e -> new CommandFailedException("Not a valid mention."))
+					.flatMap(snowflake -> bot.getDiscordClients().flatMap(client -> client.getUserById(snowflake)).next())
+					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
+					.flatMap(user -> bot.getDatabase().findByID(GDLinkedUsers.class, user.getId().asLong()))
+					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()));
+		}
+		return gdClient.searchUser(str);
 	}
 
 	// ------------ LEVEL UTILS ------------ //

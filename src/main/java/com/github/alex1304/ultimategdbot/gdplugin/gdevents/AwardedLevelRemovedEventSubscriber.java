@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import com.github.alex1304.jdash.client.AuthenticatedGDClient;
+import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
@@ -12,14 +14,16 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.Role;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
 public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<AwardedLevelRemovedEvent> {
 
-	public AwardedLevelRemovedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
-		super(bot, broadcastedMessages);
+	public AwardedLevelRemovedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+			AuthenticatedGDClient gdClient) {
+		super(bot, broadcastedMessages, gdClient);
 	}
 
 	@Override
@@ -43,7 +47,8 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 		};
 		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
-					+ randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]);
+					+ (channel instanceof PrivateChannel ? "I'm sorry to announce this, but your level got unrated..."
+							: randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
 			mcs.setEmbed(embed);
 		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}
@@ -61,5 +66,10 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 	@Override
 	long entityFieldRole(GDSubscribedGuilds subscribedGuild) {
 		return subscribedGuild.getRoleAwardedLevelsId();
+	}
+
+	@Override
+	Mono<Long> accountIdGetter(AwardedLevelRemovedEvent event) {
+		return gdClient.searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId);
 	}
 }
