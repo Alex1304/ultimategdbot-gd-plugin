@@ -40,7 +40,7 @@ public class LevelCommand implements Command {
 		var paginatorMono = (Mono<GDPaginator<GDLevel>>) ctx.getVar("paginator", Mono.class);
 		if (paginatorMono == null) {
 			if (byUser) {
-				ctx.setVar("paginator", gdClient.searchUser(input)
+				ctx.setVar("paginator", GDUtils.stringToUser(ctx.getBot(), gdClient, input)
 						.flatMap(user -> {
 							ctx.setVar("creatorName", user.getName());
 							return gdClient.getLevelsByUser(user, 0);

@@ -101,16 +101,19 @@ public class LeaderboardCommand implements Command {
 				if (ctx0.getArgs().size() == 1) {
 					return Mono.error(new CommandFailedException("Please specify a user"));
 				}
-				final var names = entryList.stream().map(entry -> entry.getGdUser().getName()).map(String::toLowerCase).collect(Collectors.toList());
-				final var rank = names.indexOf(ctx0.getArgs().get(1).toLowerCase());
-				if (rank == -1) {
-					return Mono.error(new CommandFailedException("This user wasn't found on this leaderboard."));
-				}
-				final var jumpTo = rank / elementsPerPage;
-				ctx.setVar("page", jumpTo);
-				ctx.setVar("highlighted", ctx0.getArgs().get(1));
-				ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-				return Mono.empty();
+				return GDUtils.stringToUser(ctx.getBot(), gdClient, ctx0.getArgs().get(1))
+						.flatMap(gdUser -> {
+							final var ids = entryList.stream().map(entry -> entry.getGdUser().getId()).collect(Collectors.toList());
+							final var rank = ids.indexOf(gdUser.getId());
+							if (rank == -1) {
+								return Mono.error(new CommandFailedException("This user wasn't found on this leaderboard."));
+							}
+							final var jumpTo = rank / elementsPerPage;
+							ctx.setVar("page", jumpTo);
+							ctx.setVar("highlighted", gdUser.getName());
+							ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
+							return Mono.empty();
+						});
 			});
 			rb.setHeader("Page " + (page + 1) + "/" + (size / elementsPerPage + 1));
 			return GDUtils.leaderboardView(ctx, subList, page, elementsPerPage, size).flatMap(embed -> rb.build(null, embed)).then();

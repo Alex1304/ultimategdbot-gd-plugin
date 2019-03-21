@@ -224,7 +224,7 @@ public final class GDUtils {
 	}
 	
 	public static Mono<GDUser> stringToUser(Bot bot, AuthenticatedGDClient gdClient, String str) {
-		if (str.matches("<@!?[0-9]+>")) {
+		if (str.matches("<@!?[0-9]{1,19}>")) {
 			var id = str.substring(str.startsWith("<@!") ? 3 : 2, str.length() - 1);
 			return Mono.just(id)
 					.map(Snowflake::of)
@@ -232,7 +232,8 @@ public final class GDUtils {
 					.flatMap(snowflake -> bot.getDiscordClients().flatMap(client -> client.getUserById(snowflake)).next())
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
 					.flatMap(user -> bot.getDatabase().findByID(GDLinkedUsers.class, user.getId().asLong()))
-					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()));
+					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
+					.switchIfEmpty(Mono.error(new CommandFailedException("This user doesn't have an associated Geometry Dash account.")));
 		}
 		return gdClient.searchUser(str);
 	}

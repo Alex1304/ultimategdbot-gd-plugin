@@ -41,7 +41,7 @@ public class ProfileCommand implements Command {
 					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
-		return showProfile(ctx, gdClient.searchUser(input));
+		return showProfile(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
 	}
 	
 	public Mono<Void> showProfile(Context ctx, Mono<GDUser> userMono) {

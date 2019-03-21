@@ -44,7 +44,7 @@ public class CheckModCommand implements Command {
 					.flatMap(linkedUser -> showModStatus(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
 		}
 		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
-		return showModStatus(ctx, gdClient.searchUser(input));
+		return showModStatus(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
 	}
 	
 	public Mono<Void> showModStatus(Context ctx, Mono<GDUser> userMono) {
