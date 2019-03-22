@@ -55,7 +55,6 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	void onBroadcastSuccess(AwardedLevelRemovedEvent event, List<Message> broadcastResult) {
-		broadcastedLevels.put(event.getRemovedLevel().getId(), broadcastResult);
 	}
 
 	@Override

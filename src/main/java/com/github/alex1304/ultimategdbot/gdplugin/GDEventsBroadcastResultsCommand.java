@@ -37,7 +37,7 @@ public class GDEventsBroadcastResultsCommand implements Command {
 				var sb = new StringBuilder("__**GD events broadcast results:**__\n"
 						).append( "Data below is collected in order to have the ability to edit previous announcement messages"
 						).append( " in case an **Awarded Level Updated** event is dispatched.\n"
-						).append( "You can clear this at anytime in order to free resources and avoid memory leaks.\n\n");
+						).append( "You can clear this at anytime in order to free resources.\n\n");
 				if (broadcastedLevels.isEmpty()) {
 					sb.append("*(No data)*");
 				}

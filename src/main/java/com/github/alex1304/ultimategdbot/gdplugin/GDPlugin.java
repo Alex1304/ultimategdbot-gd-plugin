@@ -80,7 +80,7 @@ public class GDPlugin implements Plugin {
 		this.iconsCache = new ConcurrentHashMap<>();
 		this.gdEventDispatcher = new GDEventDispatcher();
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
-		this.broadcastedLevels = new ConcurrentHashMap<>();
+		this.broadcastedLevels = new LinkedHashMap<>();
 		this.eventFluxBufferSize = eventFluxBufferSize;
 		initGDEventSubscribers();
 	}
