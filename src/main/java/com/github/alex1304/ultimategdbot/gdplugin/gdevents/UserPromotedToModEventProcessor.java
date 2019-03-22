@@ -10,11 +10,11 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 
 import discord4j.core.object.entity.Message;
 
-public class UserPromotedToElderEventSubscriber extends UserEventSubscriber<UserPromotedToElderEvent> {
+public class UserPromotedToModEventProcessor extends UserEventSubscriber<UserPromotedToModEvent> {
 
-	public UserPromotedToElderEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public UserPromotedToModEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
+		super(UserPromotedToModEvent.class, bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
 	}
 
 	@Override
@@ -29,12 +29,12 @@ public class UserPromotedToElderEventSubscriber extends UserEventSubscriber<User
 
 	@Override
 	String messageContent() {
-		return "promoted to Geometry Dash Elder Moderator!";
+		return "promoted to Geometry Dash Moderator!";
 	}
 
 	@Override
 	String eventName() {
-		return "User Promoted To Elder";
+		return "User Promoted To Mod";
 	}
 
 	@Override

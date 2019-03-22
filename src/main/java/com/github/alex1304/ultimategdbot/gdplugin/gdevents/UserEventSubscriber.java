@@ -18,20 +18,20 @@ import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.Role;
 import reactor.core.publisher.Mono;
 
-abstract class UserEventSubscriber<E extends UserEvent> extends GDEventSubscriber<E> {
+abstract class UserEventSubscriber<E extends UserEvent> extends AbstractGDEventProcessor<E> {
 
 	private final SpriteFactory spriteFactory;
 	private final Map<GDUserIconSet, String[]> iconsCache;
 
-	public UserEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
+	public UserEventSubscriber(Class<E> clazz, Bot bot, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
 			Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, gdClient);
+		super(clazz, bot, broadcastedMessages, gdClient);
 		this.spriteFactory = Objects.requireNonNull(spriteFactory);
 		this.iconsCache = Objects.requireNonNull(iconsCache);
 	}
 
 	@Override
-	String logText(E event) {
+	String logText0(E event) {
 		return "**" + eventName() + "** for user **" + event.getUser().getName() + "** (" + event.getUser().getAccountId() + ")";
 	}
 

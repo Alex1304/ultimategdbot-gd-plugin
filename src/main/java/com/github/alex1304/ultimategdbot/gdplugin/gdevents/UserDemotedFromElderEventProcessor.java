@@ -10,11 +10,11 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 
 import discord4j.core.object.entity.Message;
 
-public class UserDemotedFromModEventSubscriber extends UserEventSubscriber<UserDemotedFromModEvent> {
+public class UserDemotedFromElderEventProcessor extends UserEventSubscriber<UserDemotedFromElderEvent> {
 
-	public UserDemotedFromModEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public UserDemotedFromElderEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
+		super(UserDemotedFromElderEvent.class, bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
 	}
 
 	@Override
@@ -29,12 +29,12 @@ public class UserDemotedFromModEventSubscriber extends UserEventSubscriber<UserD
 
 	@Override
 	String messageContent() {
-		return "demoted from Geometry Dash Moderator...";
+		return "demoted from Geometry Dash Elder Moderator...";
 	}
 
 	@Override
 	String eventName() {
-		return "User Demoted From Mod";
+		return "User Demoted From Elder";
 	}
 
 	@Override

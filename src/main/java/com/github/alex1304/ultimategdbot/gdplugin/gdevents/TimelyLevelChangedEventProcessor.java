@@ -20,15 +20,15 @@ import discord4j.core.object.entity.Role;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
-public class TimelyLevelChangedEventSubscriber extends GDEventSubscriber<TimelyLevelChangedEvent> {
+public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<TimelyLevelChangedEvent> {
 	
-	public TimelyLevelChangedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public TimelyLevelChangedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, gdClient);
+		super(TimelyLevelChangedEvent.class, bot, broadcastedMessages, gdClient);
 	}
 
 	@Override
-	String logText(TimelyLevelChangedEvent event) {
+	String logText0(TimelyLevelChangedEvent event) {
 		return "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed" : "Daily Level Changed")
 				+ "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId();
 	}

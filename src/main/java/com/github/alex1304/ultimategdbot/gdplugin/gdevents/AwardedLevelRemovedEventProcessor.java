@@ -19,15 +19,15 @@ import discord4j.core.object.entity.Role;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
-public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<AwardedLevelRemovedEvent> {
+public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<AwardedLevelRemovedEvent> {
 
-	public AwardedLevelRemovedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public AwardedLevelRemovedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, gdClient);
+		super(AwardedLevelRemovedEvent.class, bot, broadcastedMessages, gdClient);
 	}
 
 	@Override
-	String logText(AwardedLevelRemovedEvent event) {
+	String logText0(AwardedLevelRemovedEvent event) {
 		return "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getRemovedLevel());
 	}
 
@@ -48,7 +48,7 @@ public class AwardedLevelRemovedEventSubscriber extends GDEventSubscriber<Awarde
 		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "I'm sorry to announce this, but your level got unrated..."
-							: randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
+							: randomMessages[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
 			mcs.setEmbed(embed);
 		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}

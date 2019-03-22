@@ -7,14 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import org.reactivestreams.Subscriber;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
-import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.exception.GDLoginFailedException;
 import com.github.alex1304.jdash.exception.SpriteLoadException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
@@ -22,11 +17,7 @@ import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Routes;
 import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
-import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
-import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
-import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.jdashevents.event.GDEvent;
-import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.jdashevents.scanner.AwardedSectionScanner;
 import com.github.alex1304.jdashevents.scanner.DailyLevelScanner;
 import com.github.alex1304.jdashevents.scanner.GDEventScanner;
@@ -37,21 +28,19 @@ import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.guildsettings.GuildSettingsEntry;
 import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelRemovedEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelUpdatedEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TimelyLevelChangedEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelRemovedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelUpdatedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TimelyLevelChangedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEventProcessor;
 
 import discord4j.core.object.entity.Message;
+import reactor.core.publisher.Flux;
 
 public class GDPlugin implements Plugin {
 	
@@ -101,34 +90,27 @@ public class GDPlugin implements Plugin {
 	}
 
 	private void initGDEventSubscribers() {
-		subscribeToGDEvent(AwardedLevelAddedEvent.class, event -> "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel()),
-				new AwardedLevelAddedEventSubscriber(bot, broadcastedLevels, gdClient));
-		subscribeToGDEvent(AwardedLevelRemovedEvent.class, event -> "**Awarded Level Removed** for level " + GDUtils.levelToString(event.getRemovedLevel()),
-				new AwardedLevelRemovedEventSubscriber(bot, broadcastedLevels, gdClient));
-		subscribeToGDEvent(AwardedLevelUpdatedEvent.class, event -> "**Awarded Level Updated** for level " + GDUtils.levelToString(event.getNewLevel()),
-				new AwardedLevelUpdatedEventSubscriber(bot, broadcastedLevels));
-		subscribeToGDEvent(TimelyLevelChangedEvent.class, event -> "**" + (event.getTimelyLevel().getType() == TimelyType.WEEKLY ? "Weekly Demon Changed"
-						: "Daily Level Changed") + "** for " + event.getTimelyLevel().getType().toString() + " #" + event.getTimelyLevel().getId(),
-				new TimelyLevelChangedEventSubscriber(bot, broadcastedLevels, gdClient));
-		// GD mods
-		BiFunction<UserEvent, String, String> logTextMod = (event, name) -> "**" + name + "** for user **"
-				+ event.getUser().getName() + "** (" + event.getUser().getAccountId() + ")";
-		subscribeToGDEvent(UserPromotedToModEvent.class, event -> logTextMod.apply(event, "User Promoted To Mod"),
-				new UserPromotedToModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
-		subscribeToGDEvent(UserPromotedToElderEvent.class, event -> logTextMod.apply(event, "User Promoted To Elder"),
-				new UserPromotedToElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
-		subscribeToGDEvent(UserDemotedFromModEvent.class, event -> logTextMod.apply(event, "User Demoted From Mod"),
-				new UserDemotedFromModEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
-		subscribeToGDEvent(UserDemotedFromElderEvent.class, event -> logTextMod.apply(event, "User Demoted From Elder"),
-				new UserDemotedFromElderEventSubscriber(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+		Set<GDEventProcessor> processors = Set.of(
+				new AwardedLevelAddedEventProcessor(bot, broadcastedLevels, gdClient),
+				new AwardedLevelRemovedEventProcessor(bot, broadcastedLevels, gdClient),
+				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
+				new TimelyLevelChangedEventProcessor(bot, broadcastedLevels, gdClient),
+				new UserPromotedToModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserPromotedToElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+		gdEventDispatcher.on(GDEvent.class)
+			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
+						+ findLogText(processors, event) + "\n"
+						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
+			.subscribe(new GDEventSubscriber(Flux.fromIterable(processors)));
 	}
 	
-	private <E extends GDEvent> void subscribeToGDEvent(Class<E> clazz, Function<E, String> logText, Subscriber<E> instance) {
-		gdEventDispatcher.on(clazz)
-				.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the GD event dispatcher "
-						+ "has rejected event " + logText.apply(event) + "\n"
-						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
-				.subscribe(instance);
+	private String findLogText(Set<GDEventProcessor> processors, GDEvent event) {
+		return processors.stream()
+				.map(processor -> processor.logText(event))
+				.filter(text -> !text.isEmpty())
+				.findFirst().orElse("**[Unknown Event]**");
 	}
 	
 	@Override

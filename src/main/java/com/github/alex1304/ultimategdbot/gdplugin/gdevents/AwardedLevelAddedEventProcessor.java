@@ -19,15 +19,15 @@ import discord4j.core.object.entity.Role;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
-public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedLevelAddedEvent> {
+public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<AwardedLevelAddedEvent> {
 
-	public AwardedLevelAddedEventSubscriber(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public AwardedLevelAddedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(bot, broadcastedMessages, gdClient);
+		super(AwardedLevelAddedEvent.class, bot, broadcastedMessages, gdClient);
 	}
 
 	@Override
-	String logText(AwardedLevelAddedEvent event) {
+	String logText0(AwardedLevelAddedEvent event) {
 		return "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel());
 	}
 
@@ -52,7 +52,7 @@ public class AwardedLevelAddedEventSubscriber extends GDEventSubscriber<AwardedL
 		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelAddedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "Congratulations for getting your level rated!"
-							: randomMessages[GDEventSubscriber.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
+							: randomMessages[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
 			mcs.setEmbed(embed);
 		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}

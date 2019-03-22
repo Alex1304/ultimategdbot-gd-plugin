@@ -64,7 +64,7 @@ public class LeaderboardCommand implements Command {
 			final var maxPage = size / elementsPerPage;
 			final var offset = page * elementsPerPage;
 			final var subList = entryList.subList(offset, Math.min(offset + elementsPerPage, size));
-			var rb = new ReplyMenuBuilder(ctx, true, false);
+			var rb = new ReplyMenuBuilder(ctx, false, false);
 			if (page < maxPage) {
 				rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
 					ctx.setVar("page", page + 1);
