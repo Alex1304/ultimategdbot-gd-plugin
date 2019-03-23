@@ -34,12 +34,13 @@ public class GDEventsBroadcastResultsCommand implements Command {
 		}
 		switch (ctx.getArgs().get(1)) {
 			case "view":
-				var sb = new StringBuilder("__**GD events broadcast results:**__\n"
-						).append( "Data below is collected in order to have the ability to edit previous announcement messages"
-						).append( " in case an **Awarded Level Updated** event is dispatched.\n"
-						).append( "You can clear this at anytime in order to free resources.\n\n");
+				var sb = new StringBuilder("__**GD events broadcast results:**__\n")
+						.append( "Data below is collected in order to have the ability to edit previous announcement messages")
+						.append( " in case an **Awarded Level Updated** event is dispatched.\n")
+						.append( "Only the last 10 results are saved here. Older ones automatically get deleted in order to ")
+						.append("save resources and avoid memory leaks.\n\n");
 				if (broadcastedLevels.isEmpty()) {
-					sb.append("*(No data)*");
+					sb.append("There is nothing here yet!");
 				}
 				broadcastedLevels.forEach((k, v) -> sb.append("LevelID **")
 						.append(k).append("** => **").append(v.size()).append("** messages sent\n"));

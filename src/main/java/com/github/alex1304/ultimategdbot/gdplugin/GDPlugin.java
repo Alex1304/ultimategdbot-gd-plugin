@@ -25,7 +25,7 @@ import com.github.alex1304.jdashevents.scanner.WeeklyDemonScanner;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Plugin;
-import com.github.alex1304.ultimategdbot.api.guildsettings.GuildSettingsEntry;
+import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
 import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventProcessor;

@@ -1,6 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import com.github.alex1304.ultimategdbot.api.guildsettings.GuildSettings;
+import com.github.alex1304.ultimategdbot.api.database.GuildSettings;
 
 public class GDSubscribedGuilds implements GuildSettings {
 	
