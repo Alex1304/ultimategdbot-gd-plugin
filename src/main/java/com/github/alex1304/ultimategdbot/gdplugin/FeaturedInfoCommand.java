@@ -39,6 +39,8 @@ public class FeaturedInfoCommand implements Command {
 			var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
 			return gdClient.searchLevels(input, LevelSearchFilters.create(), 0)
 					.map(paginator -> paginator.asList().get(0))
+					.filter(level -> level.getFeaturedScore() != 0)
+					.switchIfEmpty(Mono.error(new CommandFailedException("This level is not featured.")))
 					.doOnNext(level -> {
 						ctx.setVar("min", 0);
 						ctx.setVar("max", 10000);
@@ -75,7 +77,7 @@ public class FeaturedInfoCommand implements Command {
 						return Mono.empty();
 					} else if (first.getFeaturedScore() > targetScore) {
 						ctx.setVar("min", currentPage);
-						ctx.setVar("current", (maxPageVisited + currentPage) / 2);
+						ctx.setVar("current", (maxPageVisited + currentPage) / 2 + ((maxPageVisited - currentPage) / 2 == 0 ? 1 : 0));
 						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 						System.out.println("right");
 						return Mono.empty();
