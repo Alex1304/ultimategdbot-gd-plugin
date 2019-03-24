@@ -57,10 +57,10 @@ public class FeaturedInfoCommand implements Command {
 		var targetScore = ctx.getVar("score", Integer.class);
 		var isLinear = ctx.getVar("linear", Boolean.class);
 		
-		System.out.println("min=" + minPageVisited + ", max=" + maxPageVisited + ", current=" + currentPage + ", score=" + targetScore + ", linear=" + isLinear);
-		
 		return gdClient.browseFeaturedLevels(currentPage)
 				.flatMap(paginator -> {
+					System.out.println(paginator);
+					System.out.println("Found:min=" + minPageVisited + ", max=" + maxPageVisited + ", current=" + currentPage + ", targetScore=" + targetScore + ", linear=" + isLinear);
 					var first = paginator.asList().get(0);
 					var i = 1;
 					for (var level : paginator.asList()) {
@@ -83,7 +83,7 @@ public class FeaturedInfoCommand implements Command {
 						return Mono.empty();
 					} else {
 						if (!isLinear) {
-							if (currentPage == maxPageVisited) {
+							if (currentPage.intValue() == maxPageVisited.intValue()) {
 								ctx.setVar("linear", true);
 								ctx.setVar("max", currentPage - 1);
 								ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
@@ -97,7 +97,7 @@ public class FeaturedInfoCommand implements Command {
 								return Mono.empty();
 							}
 						} else {
-							if (currentPage != minPageVisited) {
+							if (currentPage.intValue() != minPageVisited.intValue()) {
 								ctx.setVar("current", currentPage - 1);
 								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
 								System.out.println("linear left");
@@ -108,6 +108,7 @@ public class FeaturedInfoCommand implements Command {
 					return Mono.error(new CommandFailedException("This level couldn't be found in the Featured section."));
 				})
 				.onErrorResume(MissingAccessException.class, e -> {
+					System.out.println("NotFound:min=" + minPageVisited + ", max=" + maxPageVisited + ", current=" + currentPage + ", score=" + targetScore + ", linear=" + isLinear);
 					ctx.setVar("max", currentPage - 1);
 					ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
 					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
