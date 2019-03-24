@@ -138,6 +138,13 @@ public class FeaturedInfoCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "Levels are sorted in the Featured section by a score. This score is given by RobTop and determines its position in the Featured section. "
+				+ "The bot uses this score in order to perform a dichotomous search in the Featured section, allowing it to find the position of any "
+				+ "level in only a few seconds, regardless of how far back it is.";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "<level_name_or_ID>";
 	}

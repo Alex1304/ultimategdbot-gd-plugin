@@ -86,6 +86,11 @@ public class GDEventsBroadcastResultsCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "view|clear|remove <id>";
 	}

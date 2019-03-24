@@ -108,6 +108,12 @@ public class CheckModCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "This command displays the mod status as if you pressed the 'REQ' button in-game, but note that it doesn't actually push this button for you.\n"
+				+ "It just checks for the presence of the 'M' badge, nothing else.";
+	}
+
+	@Override
 	public PermissionLevel getPermissionLevel() {
 		return PermissionLevel.PUBLIC;
 	}

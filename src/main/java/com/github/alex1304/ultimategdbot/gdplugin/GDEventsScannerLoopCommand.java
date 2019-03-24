@@ -55,6 +55,11 @@ public class GDEventsScannerLoopCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "start|stop";
 	}

@@ -62,6 +62,11 @@ public class TimelyCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "It shows information on the level as the `level` command would do, as well as the cooldown until next " + (isWeekly ? "Weekly Demon" : "Daily level") + ".";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "";
 	}

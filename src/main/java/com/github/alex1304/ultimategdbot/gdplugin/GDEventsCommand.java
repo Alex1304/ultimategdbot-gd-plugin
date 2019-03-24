@@ -56,6 +56,12 @@ public class GDEventsCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "This is particularly useful when the bot fails to detect some events, this allows you to dispatch them manually.\n"
+				+ "You can also view the results of previous broadcasts, and start/stop the event scanner loop.";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "";
 	}

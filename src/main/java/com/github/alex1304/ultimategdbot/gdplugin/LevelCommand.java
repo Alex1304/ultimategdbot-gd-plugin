@@ -102,6 +102,12 @@ public class LevelCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return (byUser ? "You can specify the user either by their name or their player ID. " : "You can specify the level either by its name or its ID. ")
+				+ "If several results are found, an interactive menu will open allowing you to navigate through results and select the result you want.";
+	}
+
+	@Override
 	public String getSyntax() {
 		return byUser ? "<username_or_playerID>" : "<name_or_ID>";
 	}

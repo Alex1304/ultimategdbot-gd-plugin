@@ -211,6 +211,11 @@ public class LeaderboardCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "This command might take a while to execute, because it needs to fetch the profile of every single user that is on the server and that has an account linked.\n";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "";
 	}

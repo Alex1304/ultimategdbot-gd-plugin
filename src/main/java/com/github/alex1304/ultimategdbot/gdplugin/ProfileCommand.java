@@ -69,6 +69,20 @@ public class ProfileCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "It can display a bunch of data regarding players, such as:\n"
+				+ "- stars\n"
+				+ "- demons\n"
+				+ "- diamonds\n"
+				+ "- creator points\n"
+				+ "- user and secret coins\n"
+				+ "- social links\n"
+				+ "- global rank\n"
+				+ "- icon set\n"
+				+ "- privacy settings (whether private messages are open, friend requests are enabled, etc)";
+	}
+
+	@Override
 	public String getSyntax() {
 		return "<username_or_playerID>";
 	}

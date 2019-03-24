@@ -99,8 +99,22 @@ public class GDEventsDispatchCommand implements Command {
 	}
 
 	@Override
+	public String getLongDescription() {
+		return "<event_name> can be one of:\n"
+				+ "- `daily_level_changed`\n"
+				+ "- `late_daily_level_changed`\n"
+				+ "- `weekly_demon_changed`\n"
+				+ "- `late_weekly_demon_changed`\n"
+				+ "- `awarded_level_added <level_id>`\n"
+				+ "- `late_awarded_level_added <level_id>`\n"
+				+ "- `awarded_level_removed <level_id>`\n"
+				+ "- `late_awarded_level_removed <level_id>`\n"
+				+ "- `awarded_level_updated <level_id>`\n";
+	}
+
+	@Override
 	public String getSyntax() {
-		return "<event_name> <level_id_if_applicable>";
+		return "<event_name>";
 	}
 
 	@Override
