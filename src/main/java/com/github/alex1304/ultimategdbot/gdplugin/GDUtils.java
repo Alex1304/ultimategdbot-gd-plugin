@@ -24,6 +24,7 @@ import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.entity.GDSong;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
+import com.github.alex1304.jdash.entity.PrivacySetting;
 import com.github.alex1304.jdash.entity.Role;
 import com.github.alex1304.jdash.exception.BadResponseException;
 import com.github.alex1304.jdash.exception.CorruptedResponseContentException;
@@ -126,13 +127,14 @@ public final class GDUtils {
 				bot.getEmoji("secret_coin"), bot.getEmoji("demon"), bot.getEmoji("creator_points"),
 				bot.getEmoji("mod"), bot.getEmoji("elder_mod"), bot.getEmoji("global_rank"),
 				bot.getEmoji("youtube"), bot.getEmoji("twitter"), bot.getEmoji("twitch"),
-				bot.getEmoji("discord"))
+				bot.getEmoji("discord"), bot.getEmoji("friends"), bot.getEmoji("messages"),
+				bot.getEmoji("comment_history"))
 				.zipWith(getDiscordAccountsForGDUser(bot, user).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
 					var linkedAccounts = tuple.getT2();
 					return mcs -> {
-						final var statWidth = 10;
+						final var statWidth = 9;
 						if (author.isPresent()) {
 							mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
 						}
@@ -146,7 +148,7 @@ public final class GDUtils {
 									+ emojis[5] + "  " + formatCode(user.getCreatorPoints(), statWidth) + "\n", false);
 							final var badge = user.getRole() == Role.ELDER_MODERATOR ? emojis[7] : emojis[6];
 							final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
-							embed.addField("────────", (user.getRole() != Role.USER ? mod : "")
+							embed.addField("───────────", (user.getRole() != Role.USER ? mod : "")
 									+ emojis[8] + "  **Global Rank:** "
 									+ (user.getGlobalRank() == 0 ? "*Unranked*" : user.getGlobalRank()) + "\n"
 									+ emojis[9] + "  **Youtube:** "
@@ -160,13 +162,20 @@ public final class GDUtils {
 										+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
 									+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? "*unknown*" : linkedAccounts.stream()
 											.reduce(new StringJoiner(", "), (sj, l) -> sj.add(BotUtils.formatDiscordUsername(l)), (a, b) -> a).toString())
-									+ "", false);
+									+ "\n───────────\n"
+									+ emojis[13] + "  **Friend requests:** " + (user.hasFriendRequestsEnabled() ? "Enabled" : "Disabled") + "\n"
+									+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
+									+ emojis[15] + "  **Comment history:** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
 							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
 							embed.setThumbnail(iconUrl);
 							embed.setImage(iconSetUrl);
 						});
 					};
 				});
+	}
+	
+	private static String formatPrivacy(PrivacySetting privacy) {
+		return  privacy.name().charAt(0) + privacy.name().substring(1).replaceAll("_", " ").toLowerCase();
 	}
 	
 	private static String formatCode(Object val, int n) {
