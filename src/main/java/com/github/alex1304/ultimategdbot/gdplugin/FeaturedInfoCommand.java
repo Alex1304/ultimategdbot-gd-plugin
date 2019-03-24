@@ -3,6 +3,7 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -35,21 +36,25 @@ public class FeaturedInfoCommand implements Command {
 		}
 		var searchedLevelId = ctx.getVar("id", Long.class);
 		if (searchedLevelId == null) {
-			System.out.println("what");
 			var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
-			return gdClient.searchLevels(input, LevelSearchFilters.create(), 0)
-					.map(paginator -> paginator.asList().get(0))
-					.filter(level -> level.getFeaturedScore() != 0)
-					.switchIfEmpty(Mono.error(new CommandFailedException("This level is not featured.")))
-					.doOnNext(level -> {
-						ctx.setVar("min", 0);
-						ctx.setVar("max", 10000);
-						ctx.setVar("current", 500);
-						ctx.setVar("id", level.getId());
-						ctx.setVar("score", level.getFeaturedScore());
-						ctx.setVar("linear", false);
-						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-					}).then();
+			return ctx.reply("Searching, please wait...")
+					.flatMap(waitMessage -> gdClient.searchLevels(input, LevelSearchFilters.create(), 0)
+							.map(paginator -> paginator.asList().get(0))
+							.filter(level -> level.getFeaturedScore() != 0)
+							.switchIfEmpty(Mono.just(waitMessage).flatMap(message -> {
+								ctx.setVar("wait", waitMessage);
+								return cleanError(ctx, "This level is not featured.");
+							}))
+							.doOnNext(level -> {
+								ctx.setVar("min", 0);
+								ctx.setVar("max", 10000);
+								ctx.setVar("current", 500);
+								ctx.setVar("id", level.getId());
+								ctx.setVar("score", level.getFeaturedScore());
+								ctx.setVar("linear", false);
+								ctx.setVar("wait", waitMessage);
+								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
+							})).then();
 		}
 		var minPageVisited = ctx.getVar("min", Integer.class);
 		var maxPageVisited = ctx.getVar("max", Integer.class);
@@ -59,8 +64,6 @@ public class FeaturedInfoCommand implements Command {
 		
 		return gdClient.browseFeaturedLevels(currentPage)
 				.flatMap(paginator -> {
-					System.out.println(paginator);
-					System.out.println("Found:min=" + minPageVisited + ", max=" + maxPageVisited + ", current=" + currentPage + ", targetScore=" + targetScore + ", linear=" + isLinear);
 					var first = paginator.asList().get(0);
 					var i = 1;
 					for (var level : paginator.asList()) {
@@ -73,13 +76,11 @@ public class FeaturedInfoCommand implements Command {
 						ctx.setVar("max", currentPage - 1);
 						ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
 						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-						System.out.println("left");
 						return Mono.empty();
 					} else if (first.getFeaturedScore() > targetScore) {
 						ctx.setVar("min", currentPage);
 						ctx.setVar("current", (maxPageVisited + currentPage) / 2 + ((maxPageVisited - currentPage) / 2 == 0 ? 1 : 0));
 						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-						System.out.println("right");
 						return Mono.empty();
 					} else {
 						if (!isLinear) {
@@ -88,27 +89,23 @@ public class FeaturedInfoCommand implements Command {
 								ctx.setVar("max", currentPage - 1);
 								ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
 								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								System.out.println("linear switch");
 								return Mono.empty();
 							} else {
 								ctx.setVar("current", currentPage + 1);
 								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								System.out.println("linear right");
 								return Mono.empty();
 							}
 						} else {
 							if (currentPage.intValue() != minPageVisited.intValue()) {
 								ctx.setVar("current", currentPage - 1);
 								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								System.out.println("linear left");
 								return Mono.empty();
 							}
 						}
 					}
-					return Mono.error(new CommandFailedException("This level couldn't be found in the Featured section."));
+					return cleanError(ctx, "This level couldn't be found in the Featured section.");
 				})
 				.onErrorResume(MissingAccessException.class, e -> {
-					System.out.println("NotFound:min=" + minPageVisited + ", max=" + maxPageVisited + ", current=" + currentPage + ", score=" + targetScore + ", linear=" + isLinear);
 					ctx.setVar("max", currentPage - 1);
 					ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
 					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
@@ -117,9 +114,20 @@ public class FeaturedInfoCommand implements Command {
 				.then();
 	}
 	
-	private Mono<Message> sendResult(Context ctx, GDLevel level, int page, int position) { 
-		return ctx.reply(GDUtils.levelToString(level) + " is currently placed in page **" + (page + 1)
-				+ "** of the Featured section at position " + position);
+	private Mono<Message> sendResult(Context ctx, GDLevel level, int page, int position) {
+		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
+				.map(Message::delete).orElse(Mono.empty());
+		return deleteWait.onErrorResume(e -> Mono.empty())
+				.then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
+						+ GDUtils.levelToString(level) + " is currently placed in page **" + (page + 1)
+						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
+	}
+	
+	private <X> Mono<X> cleanError(Context ctx, String text) {
+		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
+				.map(Message::delete).orElse(Mono.empty());
+		return deleteWait.onErrorResume(e -> Mono.empty())
+				.then(Mono.error(new CommandFailedException(text)));
 	}
 
 	@Override

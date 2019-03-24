@@ -48,6 +48,9 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 											+ (time.toSecondsPart() > 0 ? time.toSecondsPart() + "s " : "")
 											+ (time.toMillisPart() > 0 ? time.toMillisPart() + "ms " : "");
 									var oldList = broadcastedLevels.put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
+									if (oldList == null) {
+										return bot.log(emojis.getT1() + " Skipping " + logText + ": list of messages to edit is no longer available.");
+									}
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
 											+ "Successfully edited **" + messageList.size() + "/" + oldList.size() + "** messages!\n"
 											+ "**Execution time: " + formattedTime + "**").onErrorResume(e -> Mono.empty());
