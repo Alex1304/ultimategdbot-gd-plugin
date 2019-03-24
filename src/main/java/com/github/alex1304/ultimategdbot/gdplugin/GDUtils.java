@@ -38,6 +38,7 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
@@ -100,20 +101,14 @@ public final class GDUtils {
 		}
 		if (paginator.getTotalSize() == 0 || paginator.getTotalNumberOfPages() > 1) {
 			rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
-				if (ctx0.getArgs().size() == 1) {
-					return Mono.error(new CommandFailedException("Please specify a page number"));
+				ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a page number");
+				var page = ArgUtils.getArgAsInt(ctx0, 1) - 1;
+				if (page < 0 || (paginator.getTotalSize() > 0 && page >= paginator.getTotalNumberOfPages())) {
+					return Mono.error(new CommandFailedException("Page number out of range"));
 				}
-				try {
-					var page = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-					if (page < 0 || (paginator.getTotalSize() > 0 && page >= paginator.getTotalNumberOfPages())) {
-						return Mono.error(new CommandFailedException("Page number out of range"));
-					}
-					ctx.setVar("paginator", paginator.goTo(page));
-					ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
-					return Mono.empty();
-				} catch (NumberFormatException e) {
-					return Mono.error(new CommandFailedException("Please specify a valid page number"));
-				}
+				ctx.setVar("paginator", paginator.goTo(page));
+				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
+				return Mono.empty();
 			});
 		}
 		rb.setHeader("Page " + (paginator.getPageNumber() + 1));

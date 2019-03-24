@@ -14,6 +14,7 @@ import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
 import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
@@ -40,7 +41,7 @@ public class ProfileCommand implements Command {
 									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))
 					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
 		}
-		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
+		var input = ArgUtils.concatArgs(ctx, 1);
 		return showProfile(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
 	}
 	

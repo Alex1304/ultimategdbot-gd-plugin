@@ -12,6 +12,7 @@ import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
 import discord4j.core.object.entity.Channel;
@@ -29,9 +30,7 @@ public class GDEventsBroadcastResultsCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() == 1) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
+		ArgUtils.requireMinimumArgCount(ctx, 2);
 		switch (ctx.getArgs().get(1)) {
 			case "view":
 				var sb = new StringBuilder("__**GD events broadcast results:**__\n")

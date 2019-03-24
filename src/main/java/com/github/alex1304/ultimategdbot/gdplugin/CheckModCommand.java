@@ -15,6 +15,7 @@ import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEvent;
@@ -43,7 +44,7 @@ public class CheckModCommand implements Command {
 									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "checkmod <gd_username>`.")))
 					.flatMap(linkedUser -> showModStatus(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
 		}
-		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
+		var input = ArgUtils.concatArgs(ctx, 1);
 		return showModStatus(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
 	}
 	

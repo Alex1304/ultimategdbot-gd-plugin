@@ -11,6 +11,7 @@ import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
 import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
@@ -25,9 +26,7 @@ public class GDEventsScannerLoopCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() == 1) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
+		ArgUtils.requireMinimumArgCount(ctx, 2);
 		switch (ctx.getArgs().get(1)) {
 			case "start":
 				scannerLoop.start();

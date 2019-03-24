@@ -14,8 +14,8 @@ import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
 import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.entity.Message;
@@ -31,9 +31,7 @@ public class FeaturedInfoCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() == 1) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
+		ArgUtils.requireMinimumArgCount(ctx, 2);
 		var searchedLevelId = ctx.getVar("id", Long.class);
 		if (searchedLevelId == null) {
 			var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
@@ -45,7 +43,7 @@ public class FeaturedInfoCommand implements Command {
 								ctx.setVar("wait", waitMessage);
 								return cleanError(ctx, "This level is not featured.");
 							}))
-							.doOnNext(level -> {
+							.flatMap(level -> {
 								ctx.setVar("min", 0);
 								ctx.setVar("max", 10000);
 								ctx.setVar("current", 500);
@@ -53,7 +51,7 @@ public class FeaturedInfoCommand implements Command {
 								ctx.setVar("score", level.getFeaturedScore());
 								ctx.setVar("linear", false);
 								ctx.setVar("wait", waitMessage);
-								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
+								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 							})).then();
 		}
 		var minPageVisited = ctx.getVar("min", Integer.class);
@@ -75,31 +73,26 @@ public class FeaturedInfoCommand implements Command {
 					if (first.getFeaturedScore() < targetScore) {
 						ctx.setVar("max", currentPage - 1);
 						ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-						return Mono.empty();
+						return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 					} else if (first.getFeaturedScore() > targetScore) {
 						ctx.setVar("min", currentPage);
 						ctx.setVar("current", (maxPageVisited + currentPage) / 2 + ((maxPageVisited - currentPage) / 2 == 0 ? 1 : 0));
-						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-						return Mono.empty();
+						return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 					} else {
 						if (!isLinear) {
 							if (currentPage.intValue() == maxPageVisited.intValue()) {
 								ctx.setVar("linear", true);
 								ctx.setVar("max", currentPage - 1);
 								ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								return Mono.empty();
+								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 							} else {
 								ctx.setVar("current", currentPage + 1);
-								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								return Mono.empty();
+								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 							}
 						} else {
 							if (currentPage.intValue() != minPageVisited.intValue()) {
 								ctx.setVar("current", currentPage - 1);
-								ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-								return Mono.empty();
+								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 							}
 						}
 					}
@@ -108,8 +101,7 @@ public class FeaturedInfoCommand implements Command {
 				.onErrorResume(MissingAccessException.class, e -> {
 					ctx.setVar("max", currentPage - 1);
 					ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-					return Mono.empty();
+					return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 				})
 				.then();
 	}

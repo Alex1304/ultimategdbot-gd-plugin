@@ -13,6 +13,7 @@ import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
@@ -38,10 +39,7 @@ public class TimelyCommand implements Command {
 				.flatMap(level -> GDUtils.levelView(ctx, level, headerTitle + " #" + timely.getId(), headerLink)
 						.flatMap(embed -> {
 							var cooldown = Duration.ofSeconds(timely.getCooldown());
-							var formattedCooldown = (cooldown.toDaysPart() > 0 ? cooldown.toDaysPart() + "d " : "")
-									+ (cooldown.toHoursPart() > 0 ? cooldown.toHoursPart() + "h " : "")
-									+ (cooldown.toMinutesPart() > 0 ? cooldown.toMinutesPart() + "min " : "")
-									+ (cooldown.toSecondsPart() > 0 ? cooldown.toSecondsPart() + "s " : "");
+							var formattedCooldown = BotUtils.formatTimeMillis(cooldown);
 							return rb.build(ctx.getEvent().getMessage().getAuthor().get().getMention() + ", here is the " + headerTitle + " of today. "
 									+ "Next " + headerTitle + " in " + formattedCooldown + ".", embed);
 						})))

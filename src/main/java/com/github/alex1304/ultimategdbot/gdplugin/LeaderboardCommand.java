@@ -17,6 +17,7 @@ import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
@@ -81,27 +82,19 @@ public class LeaderboardCommand implements Command {
 			}
 			if (maxPage > 0) {
 				rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
-					if (ctx0.getArgs().size() == 1) {
-						return Mono.error(new CommandFailedException("Please specify a page number"));
+					ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a page number");
+					var requestedPage = ArgUtils.getArgAsInt(ctx0, 1) - 1;
+					if (requestedPage < 0 || requestedPage > maxPage) {
+						return Mono.error(new CommandFailedException("Page number out of range"));
 					}
-					try {
-						var requestedPage = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-						if (requestedPage < 0 || requestedPage > maxPage) {
-							return Mono.error(new CommandFailedException("Page number out of range"));
-						}
-						ctx.setVar("page", requestedPage);
-						ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-						return Mono.empty();
-					} catch (NumberFormatException e) {
-						return Mono.error(new CommandFailedException("Please specify a valid page number"));
-					}
+					ctx.setVar("page", requestedPage);
+					ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
+					return Mono.empty();
 				});
 			}
 			rb.addItem("finduser", "To jump to the page where a specific user is, type `finduser <GD_username>`", ctx0 -> {
-				if (ctx0.getArgs().size() == 1) {
-					return Mono.error(new CommandFailedException("Please specify a user"));
-				}
-				return GDUtils.stringToUser(ctx.getBot(), gdClient, ctx0.getArgs().get(1))
+				ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a user");
+				return GDUtils.stringToUser(ctx.getBot(), gdClient, ArgUtils.concatArgs(ctx, 1))
 						.flatMap(gdUser -> {
 							final var ids = entryList.stream().map(entry -> entry.getGdUser().getId()).collect(Collectors.toList());
 							final var rank = ids.indexOf(gdUser.getId());
@@ -173,8 +166,7 @@ public class LeaderboardCommand implements Command {
 						.flatMap(list -> {
 							ctx.setVar("leaderboard", list);
 							ctx.setVar("page", 0);
-							ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-							return Mono.<Void>empty();
+							return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 						})
 						.doOnSuccessOrError((__, e) -> message.delete().subscribe())));
 				
@@ -237,5 +229,4 @@ public class LeaderboardCommand implements Command {
 	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
 		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
 	}
-
 }

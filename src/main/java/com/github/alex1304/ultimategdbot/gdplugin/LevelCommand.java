@@ -13,8 +13,8 @@ import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
@@ -32,10 +32,8 @@ public class LevelCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() < 2) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
-		var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
+		ArgUtils.requireMinimumArgCount(ctx, 2);
+		var input = ArgUtils.concatArgs(ctx, 1);
 		@SuppressWarnings("unchecked")
 		var paginatorMono = (Mono<GDPaginator<GDLevel>>) ctx.getVar("paginator", Mono.class);
 		if (paginatorMono == null) {
@@ -48,8 +46,7 @@ public class LevelCommand implements Command {
 			} else {
 				ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
 			}
-			ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe();
-			return Mono.empty();
+			return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 		}
 		return paginatorMono.flatMap(paginator -> {
 			if (!paginator.hasPreviousPage() && paginator.getPageSize() == 1) {

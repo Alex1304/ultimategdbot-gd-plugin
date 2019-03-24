@@ -11,6 +11,7 @@ import java.util.Random;
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 
@@ -54,11 +55,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());
-									var formattedTime = (time.toDaysPart() > 0 ? time.toDaysPart() + "d " : "")
-											+ (time.toHoursPart() > 0 ? time.toHoursPart() + "h " : "")
-											+ (time.toMinutesPart() > 0 ? time.toMinutesPart() + "min " : "")
-											+ (time.toSecondsPart() > 0 ? time.toSecondsPart() + "s " : "")
-											+ (time.toMillisPart() > 0 ? time.toMillisPart() + "ms " : "");
+									var formattedTime = BotUtils.formatTimeMillis(time);
 									var messageList = tupleOfTimeAndMessageList.getT2();
 									onBroadcastSuccess(t, messageList);
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"

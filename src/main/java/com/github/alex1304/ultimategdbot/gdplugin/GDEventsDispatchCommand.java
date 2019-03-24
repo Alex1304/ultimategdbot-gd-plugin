@@ -16,10 +16,10 @@ import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Command;
-import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateTimelyLevelChangedEvent;
@@ -39,9 +39,7 @@ public class GDEventsDispatchCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() == 1) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
+		ArgUtils.requireMinimumArgCount(ctx, 2);
 		Mono<GDEvent> eventToDispatch;
 		switch (ctx.getArgs().get(1)) {
 			case "daily_level_changed":
@@ -81,14 +79,8 @@ public class GDEventsDispatchCommand implements Command {
 	}
 	
 	private long convertSecondArgToID(Context ctx) {
-		if (ctx.getArgs().size() == 2) {
-			throw new InvalidSyntaxException(this);
-		}
-		try {
-			return Long.parseLong(ctx.getArgs().get(2));
-		} catch (NumberFormatException e) {
-			throw new CommandFailedException("Invalid level ID");
-		}
+		ArgUtils.requireMinimumArgCount(ctx, 3, "Please specify a levelID");
+		return ArgUtils.getArgAsLong(ctx, 2);
 	}
 
 	@Override

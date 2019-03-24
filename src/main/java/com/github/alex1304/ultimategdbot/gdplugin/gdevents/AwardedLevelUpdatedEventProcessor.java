@@ -8,6 +8,7 @@ import java.util.Objects;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
@@ -42,11 +43,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());
-									var formattedTime = (time.toDaysPart() > 0 ? time.toDaysPart() + "d " : "")
-											+ (time.toHoursPart() > 0 ? time.toHoursPart() + "h " : "")
-											+ (time.toMinutesPart() > 0 ? time.toMinutesPart() + "min " : "")
-											+ (time.toSecondsPart() > 0 ? time.toSecondsPart() + "s " : "")
-											+ (time.toMillisPart() > 0 ? time.toMillisPart() + "ms " : "");
+									var formattedTime = BotUtils.formatTimeMillis(time);
 									var oldList = broadcastedLevels.put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
 									if (oldList == null) {
 										return bot.log(emojis.getT1() + " Skipping " + logText + ": list of messages to edit is no longer available.");

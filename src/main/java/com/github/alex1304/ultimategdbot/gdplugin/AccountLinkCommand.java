@@ -14,8 +14,8 @@ import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
@@ -34,10 +34,8 @@ public class AccountLinkCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		if (ctx.getArgs().size() == 1) {
-			return Mono.error(new InvalidSyntaxException(this));
-		}
-		final var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
+		ArgUtils.requireMinimumArgCount(ctx, 2);
+		final var input = ArgUtils.concatArgs(ctx, 1);
 		final var authorId = ctx.getEvent().getMessage().getAuthor().get().getId().asLong();
 		return ctx.getBot().getDatabase().findByIDOrCreate(GDLinkedUsers.class, authorId, GDLinkedUsers::setDiscordUserId)
 				.filter(linkedUser -> !linkedUser.getIsLinkActivated())
