@@ -2,6 +2,7 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,7 +124,7 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
-				new ModListCommand(), new FeaturedInfoCommand(gdClient));
+				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand());
 	}
 
 	@Override
@@ -133,12 +134,12 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<String> getDatabaseMappingResources() {
-		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml");
+		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml", "/GDLeaderboardBans.hbm.xml", "/GDAwardedLevels.hbm.xml");
 	}
 
 	@Override
 	public Map<String, GuildSettingsEntry<?, ?>> getGuildConfigurationEntries() {
-		var map = new LinkedHashMap<String, GuildSettingsEntry<?, ?>>();
+		var map = new HashMap<String, GuildSettingsEntry<?, ?>>();
 		var valueConverter = new GuildSettingsValueConverter(bot);
 		map.put("channel_awarded_levels", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,

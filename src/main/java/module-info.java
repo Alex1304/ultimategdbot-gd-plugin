@@ -11,6 +11,7 @@ module ultimategdbot.gdplugin {
 	requires io.netty.codec.http;
 	requires java.desktop;
 	requires transitive org.reactivestreams;
+	requires transitive java.sql;
 	
 	exports com.github.alex1304.ultimategdbot.gdplugin;
 	exports com.github.alex1304.ultimategdbot.gdplugin.gdevents;

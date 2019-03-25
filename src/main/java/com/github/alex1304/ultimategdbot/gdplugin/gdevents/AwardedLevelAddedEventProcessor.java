@@ -1,5 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -9,6 +11,7 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDAwardedLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -24,6 +27,18 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 	public AwardedLevelAddedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
 		super(AwardedLevelAddedEvent.class, bot, broadcastedMessages, gdClient);
+	}
+	
+	@Override
+	public Mono<Void> process0(AwardedLevelAddedEvent t) {
+		bot.getDatabase().findByID(GDAwardedLevels.class, t.getAddedLevel().getId())
+				.switchIfEmpty(Mono.just(new GDAwardedLevels()).doOnNext(awarded -> {
+					awarded.setLevelId(t.getAddedLevel().getId());
+					awarded.setInsertDate(Timestamp.from(Instant.now()));
+					awarded.setDownloads(t.getAddedLevel().getDownloads());
+					awarded.setLikes(t.getAddedLevel().getLikes());
+				})).flatMap(bot.getDatabase()::save).subscribe();
+		return super.process0(t);
 	}
 
 	@Override

@@ -144,10 +144,18 @@ public class LeaderboardCommand implements Command {
 		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
 				.flatMap(message -> Mono.zip(emojiMono, ctx.getBot().getDatabase()
 						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
-						.collectList(), guild.getMembers().collectList())
+						.collectList(), guild.getMembers().collectList(), ctx.getBot().getDatabase()
+						.query(GDLeaderboardBans.class, "from GDLeaderboardBans").collectList())
 						.map(tuple -> {
-							// Filter out from database results (T2) users that aren't in the guild. Guild member list is stored in T3
-							var ids = tuple.getT2().stream().map(GDLinkedUsers::getDiscordUserId).collect(Collectors.toSet());
+							// Filter out from database results (T2) users that aren't in the guild or that are banned.
+							// Guild member list is stored in T3 and ban list in T4
+							var bannedAccountIds = tuple.getT4().stream()
+									.map(GDLeaderboardBans::getAccountId)
+									.collect(Collectors.toSet());
+							var ids = tuple.getT2().stream()
+									.filter(linkedUser -> !bannedAccountIds.contains(linkedUser.getGdAccountId()))
+									.map(GDLinkedUsers::getDiscordUserId)
+									.collect(Collectors.toSet());
 							ids.retainAll(tuple.getT3().stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
 							tuple.getT2().removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
 							tuple.getT3().removeIf(member -> !ids.contains(member.getId().asLong()));
@@ -202,12 +210,13 @@ public class LeaderboardCommand implements Command {
 
 	@Override
 	public Set<Command> getSubcommands() {
-		return Set.of();
+		return Set.of(new LeaderboardBanCommand(gdClient), new LeaderboardUnbanCommand(gdClient),
+				new LeaderboardBanListCommand(gdClient));
 	}
 
 	@Override
 	public String getDescription() {
-		return "Builds and displays a server-wide Geometry Dash leaderboard based on a player stat (stars, demons, creator points, etc)";
+		return "Builds and displays a server-wide Geometry Dash leaderboard.";
 	}
 
 	@Override
