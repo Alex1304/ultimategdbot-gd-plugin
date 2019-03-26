@@ -182,7 +182,7 @@ public final class GDUtils {
 		return sb.toString();
 	}
 	
-	public static Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
+	public static synchronized Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
 		final var iconSet = new GDUserIconSet(user, sf);
 		final var cached = iconsCache.get(iconSet);
 		if (cached != null) {
