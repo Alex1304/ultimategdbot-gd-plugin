@@ -53,6 +53,7 @@ public class GDPlugin implements Plugin {
 	private GDEventScannerLoop scannerLoop;
 	private Map<Long, List<Message>> broadcastedLevels;
 	private int eventFluxBufferSize;
+	private int broadcastMessageIntervalMillis;
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -64,6 +65,7 @@ public class GDPlugin implements Plugin {
 		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		var eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
+		var broadcastMessageIntervalMillis = parser.parseAsIntOrDefault("gdplugin.broadcast_message_interval_millis", 300);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -83,6 +85,7 @@ public class GDPlugin implements Plugin {
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
 		this.eventFluxBufferSize = eventFluxBufferSize;
+		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
 		initGDEventSubscribers();
 	}
 
@@ -92,14 +95,14 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		Set<GDEventProcessor> processors = Set.of(
-				new AwardedLevelAddedEventProcessor(bot, broadcastedLevels, gdClient),
-				new AwardedLevelRemovedEventProcessor(bot, broadcastedLevels, gdClient),
-				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
-				new TimelyLevelChangedEventProcessor(bot, broadcastedLevels, gdClient),
-				new UserPromotedToModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserPromotedToElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+				new AwardedLevelAddedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
+				new AwardedLevelRemovedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
+				new AwardedLevelUpdatedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels),
+				new TimelyLevelChangedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
+				new UserPromotedToModEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserPromotedToElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromModEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
 						+ findLogText(processors, event) + "\n"
@@ -124,7 +127,7 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
-				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand());
+				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis));
 	}
 
 	@Override

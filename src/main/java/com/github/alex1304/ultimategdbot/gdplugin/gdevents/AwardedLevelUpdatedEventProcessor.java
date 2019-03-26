@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -14,16 +13,17 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<AwardedLevelUpdatedEvent> {
 
 	private final Bot bot;
+	private final int broadcastMessageIntervalMillis;
 	private final Map<Long, List<Message>> broadcastedLevels;
 	
-	public AwardedLevelUpdatedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
+	public AwardedLevelUpdatedEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages) {
 		super(AwardedLevelUpdatedEvent.class);
 		this.bot = Objects.requireNonNull(bot);
+		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 	}
 
@@ -35,11 +35,11 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
-								.parallel().runOn(Schedulers.parallel())
+								.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed))))
-								.collectSortedList(Comparator.comparing(Message::getId))
+								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());

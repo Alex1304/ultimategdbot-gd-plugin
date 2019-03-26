@@ -12,9 +12,9 @@ import discord4j.core.object.entity.Message;
 
 public class UserPromotedToModEventProcessor extends UserEventSubscriber<UserPromotedToModEvent> {
 
-	public UserPromotedToModEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public UserPromotedToModEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
 			SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(UserPromotedToModEvent.class, bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
+		super(UserPromotedToModEvent.class, bot, broadcastMessageIntervalMillis, broadcastedMessages, spriteFactory, iconsCache, gdClient);
 	}
 
 	@Override

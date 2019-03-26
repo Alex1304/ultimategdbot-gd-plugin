@@ -21,9 +21,9 @@ import reactor.core.publisher.Mono;
 
 public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<AwardedLevelRemovedEvent> {
 
-	public AwardedLevelRemovedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public AwardedLevelRemovedEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(AwardedLevelRemovedEvent.class, bot, broadcastedMessages, gdClient);
+		super(AwardedLevelRemovedEvent.class, bot, broadcastMessageIntervalMillis, broadcastedMessages, gdClient);
 	}
 
 	@Override

@@ -23,9 +23,9 @@ abstract class UserEventSubscriber<E extends UserEvent> extends AbstractGDEventP
 	private final SpriteFactory spriteFactory;
 	private final Map<GDUserIconSet, String[]> iconsCache;
 
-	public UserEventSubscriber(Class<E> clazz, Bot bot, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
+	public UserEventSubscriber(Class<E> clazz, Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
 			Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(clazz, bot, broadcastedMessages, gdClient);
+		super(clazz, bot, broadcastMessageIntervalMillis, broadcastedMessages, gdClient);
 		this.spriteFactory = Objects.requireNonNull(spriteFactory);
 		this.iconsCache = Objects.requireNonNull(iconsCache);
 	}

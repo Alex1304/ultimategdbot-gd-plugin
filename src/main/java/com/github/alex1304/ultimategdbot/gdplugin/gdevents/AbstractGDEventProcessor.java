@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,7 +21,6 @@ import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -33,10 +31,13 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	final Bot bot;
 	final Map<Long, List<Message>> broadcastedLevels;
 	final AuthenticatedGDClient gdClient;
+	final int broadcastMessageIntervalMillis;
 	
-	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, Map<Long, List<Message>> broadcastedMessages, AuthenticatedGDClient gdClient) {
+	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
+			AuthenticatedGDClient gdClient) {
 		super(clazz);
 		this.bot = Objects.requireNonNull(bot);
+		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 		this.gdClient = Objects.requireNonNull(gdClient);
 	}
@@ -47,11 +48,11 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
 						.then(congrat(t).concatWith(bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where " + databaseField() + " > 0")
-										.parallel().runOn(Schedulers.parallel())
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
+								.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
-								.collectSortedList(Comparator.comparing(Message::getId))
+								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());

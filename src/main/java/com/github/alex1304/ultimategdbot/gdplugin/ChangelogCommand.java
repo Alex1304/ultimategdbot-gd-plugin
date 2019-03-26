@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.awt.Color;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -27,6 +28,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class ChangelogCommand implements Command {
+	
+	private final int broadcastMessageIntervalMillis;
+
+	public ChangelogCommand(int broadcastMessageIntervalMillis) {
+		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
+	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
@@ -80,6 +87,7 @@ public class ChangelogCommand implements Command {
 								.ofType(MessageChannel.class)
 								.next()
 								.onErrorResume(e -> Mono.empty()))
+						.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();

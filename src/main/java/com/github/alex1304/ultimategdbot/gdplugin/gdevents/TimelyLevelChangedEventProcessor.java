@@ -22,9 +22,9 @@ import reactor.core.publisher.Mono;
 
 public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<TimelyLevelChangedEvent> {
 	
-	public TimelyLevelChangedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public TimelyLevelChangedEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(TimelyLevelChangedEvent.class, bot, broadcastedMessages, gdClient);
+		super(TimelyLevelChangedEvent.class, bot, broadcastMessageIntervalMillis, broadcastedMessages, gdClient);
 	}
 
 	@Override
