@@ -3,10 +3,12 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
@@ -15,12 +17,14 @@ import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
-import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.DiscordClient;
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class ChangelogCommand implements Command {
 
@@ -63,15 +67,21 @@ public class ChangelogCommand implements Command {
 			}
 		});
 		return ctx.reply("Sending changelog, please wait...")
-				.thenMany(ctx.getBot().getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where channelChangelogId > 0")
+				.then(Mono.zip(ctx.getBot().getDiscordClients().flatMap(DiscordClient::getGuilds).collectList(),
+						ctx.getBot().getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where channelChangelogId > 0").collectList())
+						.flatMapMany(tuple -> {
+							var subSet = new HashSet<>(tuple.getT2());
+							var guildIds = tuple.getT1().stream().map(Guild::getId).map(Snowflake::asLong).collect(Collectors.toSet());
+							subSet.removeIf(sub -> !guildIds.contains(sub.getGuildId()));
+							return Flux.fromIterable(subSet);
+						})
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.flatMap(channelId -> ctx.getBot().getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(channelId)))
-								.onErrorResume(e -> Mono.empty())
-								.next())
-						.ofType(MessageChannel.class)
-						.parallel().runOn(Schedulers.parallel())
-						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty())))
-				.then(ctx.reply("Changelog sent to all guilds!"))
+								.ofType(MessageChannel.class)
+								.next()
+								.onErrorResume(e -> Mono.empty()))
+						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
+						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
 	}
 
