@@ -74,9 +74,9 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	abstract Mono<Long> accountIdGetter(E event);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return bot.getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
+		return bot.getDiscordClients().next()
+				.flatMap(client -> client.getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.ofType(MessageChannel.class))
-				.next()
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
