@@ -65,10 +65,12 @@ public class ChangelogCommand implements Command {
 		return ctx.reply("Sending changelog, please wait...")
 				.thenMany(ctx.getBot().getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
-						.flatMap(channelId -> ctx.getBot().getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(channelId))).next())
+						.flatMap(channelId -> ctx.getBot().getDiscordClients().flatMap(client -> client.getChannelById(Snowflake.of(channelId)))
+								.onErrorResume(e -> Mono.empty())
+								.next())
 						.ofType(MessageChannel.class)
 						.parallel().runOn(Schedulers.parallel())
-						.flatMap(channel -> channel.createMessage(changelog)))
+						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty())))
 				.then(ctx.reply("Changelog sent to all guilds!"))
 				.then();
 	}
