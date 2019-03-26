@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import java.util.Random;
 import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
@@ -42,6 +44,8 @@ import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
+import discord4j.core.DiscordClient;
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
@@ -114,6 +118,17 @@ public final class GDUtils {
 		rb.setHeader("Page " + (paginator.getPageNumber() + 1));
 	}
 	
+	public static Flux<GDSubscribedGuilds> getExistingSubscribedGuilds(Bot bot, String hql) {
+		return Mono.zip(bot.getDiscordClients().flatMap(DiscordClient::getGuilds).collectList(),
+				bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds " + hql).collectList())
+						.flatMapMany(tuple -> {
+							var subSet = new HashSet<>(tuple.getT2());
+							var guildIds = tuple.getT1().stream().map(Guild::getId).map(Snowflake::asLong).collect(Collectors.toSet());
+							subSet.removeIf(sub -> !guildIds.contains(sub.getGuildId()));
+							return Flux.fromIterable(subSet);
+						});
+	}
+	
 	// ------------ USER PROFILE UTILS ------------ //
 	
 	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Bot bot, Optional<User> author, GDUser user, 
@@ -182,7 +197,7 @@ public final class GDUtils {
 		return sb.toString();
 	}
 	
-	public static synchronized Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
+	public static Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
 		final var iconSet = new GDUserIconSet(user, sf);
 		final var cached = iconsCache.get(iconSet);
 		if (cached != null) {

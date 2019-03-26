@@ -13,6 +13,7 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
@@ -47,10 +48,10 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
-						.then(congrat(t).concatWith(bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where " + databaseField() + " > 0")
+						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
+										.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectList()
 								.elapsed()
