@@ -127,7 +127,8 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
-				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis));
+				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis),
+				new ClearCacheCommand(gdClient));
 	}
 
 	@Override

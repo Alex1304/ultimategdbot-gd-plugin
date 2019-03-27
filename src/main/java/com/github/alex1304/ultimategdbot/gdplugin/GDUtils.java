@@ -110,7 +110,7 @@ public final class GDUtils {
 				if (page < 0 || (paginator.getTotalSize() > 0 && page >= paginator.getTotalNumberOfPages())) {
 					return Mono.error(new CommandFailedException("Page number out of range"));
 				}
-				ctx.setVar("paginator", paginator.goTo(page));
+				ctx.setVar("paginator", paginator.goTo(page).onErrorMap(IllegalArgumentException.class, __ -> new CommandFailedException("Page number out of range")));
 				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
 				return Mono.empty();
 			});

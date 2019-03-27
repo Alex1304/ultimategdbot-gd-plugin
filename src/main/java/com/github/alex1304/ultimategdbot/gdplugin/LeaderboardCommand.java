@@ -1,5 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -165,7 +166,7 @@ public class LeaderboardCommand implements Command {
 						})
 						.flatMapMany(tuple -> Flux.fromIterable(tuple.getT2())
 								.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
-										.subscribeOn(Schedulers.parallel())
+										.subscribeOn(Schedulers.elastic())
 										.onErrorResume(e -> Mono.empty()) // Just skip if unable to fetch user
 										.map(gdUser -> new LeaderboardEntry(tuple.getT1(), stat.applyAsInt(gdUser),
 												gdUser, tuple.getT3().get(linkedUser.getDiscordUserId())))))
@@ -176,31 +177,8 @@ public class LeaderboardCommand implements Command {
 							ctx.setVar("page", 0);
 							return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
 						})
+						.timeout(Duration.ofMinutes(2), Mono.error(new CommandFailedException("The leaderboard took too long to build. Try again.")))
 						.doOnSuccessOrError((__, e) -> message.delete().subscribe())));
-				
-//		return ctx.getEvent().getGuild().flatMap(guild -> ctx.reply("Building leaderboard, this might take a while...")
-//				.flatMap(message -> emojiMono.flatMap(emoji -> ctx.getBot().getDatabase()
-//						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
-//								.parallel().runOn(Schedulers.parallel())
-//								.flatMap(linkedUser -> guild.getMembers()
-//										.filter(m -> m.getId().asLong() == linkedUser.getDiscordUserId())
-//										.map(m -> Tuples.of(linkedUser, m)))
-//								.buffer()
-//								.flatMap(list -> Flux.fromIterable(list).flatMap(tuple -> gdClient.getUserByAccountId(tuple.getT1().getGdAccountId())
-//										.onErrorContinue((__, __0) -> {})
-//										.map(gdUser -> Tuples.of(tuple.getT2(), gdUser))))
-//								.map(tuple -> new LeaderboardEntry(emoji, stat.applyAsInt(tuple.getT2()), tuple.getT2(), tuple.getT1()))
-//								.doOnNext(System.out::println)
-//								.sequential()
-//								.distinct(LeaderboardEntry::getGdUser)
-//								.collectSortedList(Comparator.naturalOrder())
-//								.flatMap(list -> {
-//									ctx.setVar("leaderboard", list);
-//									ctx.setVar("page", 0);
-//									Command.invoke(this, ctx);
-//									return Mono.<Void>empty();
-//								})).doOnSuccessOrError((__, e) -> message.delete().subscribe())));
-
 	}
 
 	@Override

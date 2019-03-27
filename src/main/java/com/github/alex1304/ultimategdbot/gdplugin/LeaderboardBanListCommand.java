@@ -1,5 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -7,14 +8,16 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.PaginatedReplyMenuBuilder;
 
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 public class LeaderboardBanListCommand implements Command {
 	
@@ -27,13 +30,15 @@ public class LeaderboardBanListCommand implements Command {
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		return ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans")
-				.flatMap(ban -> gdClient.getUserByAccountId(ban.getAccountId()))
+				.flatMap(ban -> gdClient.getUserByAccountId(ban.getAccountId()).map(user -> Tuples.of(ban, user)))
+				.flatMap(tuple -> ctx.getBot().getDiscordClients().next()
+						.flatMap(client -> client.getUserById(Snowflake.of(tuple.getT1().getBannedBy())))
+						.map(user -> Tuples.of(tuple.getT2(), BotUtils.formatDiscordUsername(user))))
 				.onErrorResume(e -> Mono.empty())
-				.map(GDUser::getName)
-				.collectSortedList(String.CASE_INSENSITIVE_ORDER)
+				.collectSortedList(Comparator.comparing(tuple -> tuple.getT1().getName().toLowerCase()))
 				.map(banList -> {
 					var sb = new StringBuilder("__**Leaderboard ban list:**__\n\n");
-					banList.forEach(ban -> sb.append(ban).append("\n"));
+					banList.forEach(ban -> sb.append(ban.getT1().getName()).append(", banned by ").append(ban.getT2()).append("\n"));
 					if (banList.isEmpty()) {
 						sb.append("*(No data)*\n");
 					}
