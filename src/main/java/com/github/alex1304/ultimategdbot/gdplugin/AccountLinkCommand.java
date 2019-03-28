@@ -42,6 +42,8 @@ public class AccountLinkCommand implements Command {
 				.switchIfEmpty(Mono.error(new CommandFailedException("You are already linked to a Geometry Dash account.")))
 				.flatMap(linkedUser -> gdClient.searchUser(input)
 						.flatMap(user -> gdClient.getUserByAccountId(gdClient.getAccountID())
+								.filter(gdUser -> gdUser.getAccountId() > 0)
+								.switchIfEmpty(Mono.error(new CommandFailedException("This Geometry Dash user is green/unregistered. Cannot proceed to linking.")))
 								.doOnNext(__ -> linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
 										GDUtils.generateAlphanumericToken(TOKEN_LENGTH))))
 								.doOnNext(__ -> linkedUser.setGdAccountId(user.getAccountId()))

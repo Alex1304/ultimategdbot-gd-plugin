@@ -21,18 +21,19 @@
 					<source>${java.version}</source>
 					<target>${java.version}</target>
 				</configuration>
-			</plugin>
-			<plugin>
+			</plugin><plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-dependency-plugin</artifactId>
-				<version>3.1.1</version>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.2.1</version>
 				<executions>
 					<execution>
-						<id>copy-dependencies</id>
-						<phase>prepare-package</phase>
+						<phase>package</phase>
 						<goals>
-							<goal>copy-dependencies</goal>
+							<goal>shade</goal>
 						</goals>
+						<configuration>
+							<outputFile>${project.build.directory}/ultimategdbot-gd-plugin.jar</outputFile>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
@@ -43,12 +44,12 @@
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>ultimategdbot-api</artifactId>
-			<version>4.0.0-SNAPSHOT</version>
+			<version>4.0.0-alpha2</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>jdash</artifactId>
-			<version>3.2.3</version>
+			<version>3.2.4</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
