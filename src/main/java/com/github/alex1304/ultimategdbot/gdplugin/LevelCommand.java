@@ -59,7 +59,7 @@ public class LevelCommand implements Command {
 					return Mono.error(new CommandFailedException("Invalid input"));
 				}
 				var selected = Integer.parseInt(ctx0.getArgs().get(1)) - 1;
-				if (selected >= paginator.getPageSize()) {
+				if (selected < 0 || selected >= paginator.getPageSize()) {
 					return Mono.error(new CommandFailedException("Number out of range"));
 				}
 				ctx.setVar("canGoBack", true);

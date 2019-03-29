@@ -29,7 +29,7 @@ public class GDEventSubscriber implements Subscriber<GDEvent> {
 	@Override
 	public void onNext(GDEvent t) {
 		processors.flatMap(processor -> processor.process(t))
-				.doAfterTerminate(() -> subscription.ifPresent(s -> s.request(1)))
+				.doFinally(__ -> requestNext())
 				.subscribe();
 	}
 
@@ -39,5 +39,9 @@ public class GDEventSubscriber implements Subscriber<GDEvent> {
 
 	@Override
 	public void onComplete() {
+	}
+	
+	public void requestNext() {
+		subscription.ifPresent(s -> s.request(1));
 	}
 }

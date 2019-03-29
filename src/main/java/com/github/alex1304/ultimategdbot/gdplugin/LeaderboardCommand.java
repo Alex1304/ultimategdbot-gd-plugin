@@ -95,7 +95,7 @@ public class LeaderboardCommand implements Command {
 			}
 			rb.addItem("finduser", "To jump to the page where a specific user is, type `finduser <GD_username>`", ctx0 -> {
 				ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a user");
-				return GDUtils.stringToUser(ctx.getBot(), gdClient, ArgUtils.concatArgs(ctx, 1))
+				return GDUtils.stringToUser(ctx.getBot(), gdClient, ArgUtils.concatArgs(ctx0, 1))
 						.flatMap(gdUser -> {
 							final var ids = entryList.stream().map(entry -> entry.getGdUser().getId()).collect(Collectors.toList());
 							final var rank = ids.indexOf(gdUser.getId());

@@ -518,7 +518,7 @@ public final class GDUtils {
 		var highlighted = ctx.getVar("highlighted", String.class);
 		return ctx.getEvent().getGuild().map(guild -> embed -> {
 			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");
-			if (size == 0) {
+			if (size == 0 || subList.isEmpty()) {
 				embed.setDescription("No entries.");
 				return;
 			}

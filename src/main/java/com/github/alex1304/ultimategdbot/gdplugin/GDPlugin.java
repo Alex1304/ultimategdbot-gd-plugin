@@ -54,6 +54,7 @@ public class GDPlugin implements Plugin {
 	private Map<Long, List<Message>> broadcastedLevels;
 	private int eventFluxBufferSize;
 	private int broadcastMessageIntervalMillis;
+	private GDEventSubscriber subscriber;
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -103,11 +104,12 @@ public class GDPlugin implements Plugin {
 				new UserPromotedToElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
 				new UserDemotedFromModEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
 				new UserDemotedFromElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+		this.subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
 						+ findLogText(processors, event) + "\n"
 						+ "You will need to push it through manually via the `" + bot.getDefaultPrefix() + "gdevents dispatch` command.").subscribe())
-			.subscribe(new GDEventSubscriber(Flux.fromIterable(processors)));
+			.subscribe(subscriber);
 	}
 	
 	private String findLogText(Set<GDEventProcessor> processors, GDEvent event) {
@@ -128,7 +130,7 @@ public class GDPlugin implements Plugin {
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
 				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis),
-				new ClearCacheCommand(gdClient));
+				new ClearCacheCommand(gdClient), new GDEventsReleaseNextCommand(subscriber));
 	}
 
 	@Override
