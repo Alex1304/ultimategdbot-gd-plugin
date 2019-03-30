@@ -62,8 +62,9 @@ public class GDPlugin implements Plugin {
 		var username = parser.parseAsString("gdplugin.username");
 		var password = parser.parseAsString("gdplugin.password");
 		var host = parser.parseAsStringOrDefault("gdplugin.host", Routes.BASE_URL);
-		var cacheTtl = parser.parseAsLongOrDefault("gdplugin.cache_ttl", GDClientBuilder.DEFAULT_CACHE_TTL);
+		var cacheTtl = parser.parseOrDefault("gdplugin.cache_ttl", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_CACHE_TTL);
 		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
+		var requestTimeout = parser.parseOrDefault("gdplugin.request_timeout", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		var eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		var broadcastMessageIntervalMillis = parser.parseAsIntOrDefault("gdplugin.broadcast_message_interval_millis", 300);
@@ -72,6 +73,7 @@ public class GDPlugin implements Plugin {
 					.withHost(host)
 					.withCacheTtl(cacheTtl)
 					.withMaxConnections(maxConnections)
+					.withRequestTimeout(requestTimeout)
 					.buildAuthenticated(username, password);
 		} catch (GDLoginFailedException e) {
 			throw new RuntimeException("Failed to login with the given Geometry Dash credentials", e);
@@ -128,9 +130,9 @@ public class GDPlugin implements Plugin {
 	public Set<Command> getProvidedCommands() {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
-				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels), new CheckModCommand(gdClient, gdEventDispatcher),
+				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber), new CheckModCommand(gdClient, gdEventDispatcher),
 				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis),
-				new ClearCacheCommand(gdClient), new GDEventsReleaseNextCommand(subscriber));
+				new ClearCacheCommand(gdClient));
 	}
 
 	@Override

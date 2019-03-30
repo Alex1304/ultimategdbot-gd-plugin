@@ -67,23 +67,34 @@ public final class GDUtils {
 	private static Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> defaultGDErrorActions() {
 		var map = new HashMap<Class<? extends Throwable>, BiConsumer<Throwable, Context>>();
 		map.put(MissingAccessException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Nothing found.")).doOnError(__ -> {}).subscribe();
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Nothing found.")).onErrorResume(__ -> Mono.empty()).subscribe();
 		});
 		map.put(BadResponseException.class, (error, ctx) -> {
 			BadResponseException e = (BadResponseException) error;
 			var status = e.getResponse().status();
 			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned a `" + status.code() + " "
 							+ status.reasonPhrase() + "` error. Try again later."))
-					.doOnError(__ -> {})
+					.onErrorResume(__ -> Mono.empty())
 					.subscribe();
 		});
 		map.put(CorruptedResponseContentException.class, (error, ctx) -> {
+			var e = (CorruptedResponseContentException) error;
+			var content = e.getResponseContent();
+			if (content.length() > 500) {
+				content = content.substring(0, 497) + "...";
+			}
 			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned an invalid response."
 							+ " Unable to show the information you requested. Sorry for the inconvenience."))
-					.doOnError(__ -> {})
+					.onErrorResume(__ -> Mono.empty())
 					.subscribe();
-			ctx.getBot().log(":warning: Geometry Dash server returned an invalid response upon executing `" + ctx.getEvent().getMessage().getContent().get() + "`.")
-					.doOnError(__ -> {}).subscribe();
+			ctx.getBot().log(":warning: Geometry Dash server returned an invalid response upon executing `" + ctx.getEvent().getMessage().getContent().get() + "`.\n"
+					+ "Path: `" + e.getRequestPath() + "`\n"
+					+ "Parameters: `" + e.getRequestParams() + "`\n"
+					+ "Response: `" + content + "`\n"
+					+ "Error observed when parsing response: `" + e.getCause().getClass().getCanonicalName()
+							+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
+							+ "` (stack trace available in internal logs)")
+					.onErrorResume(__ -> Mono.empty()).subscribe();
 		});
 		return Collections.unmodifiableMap(map);
 	}
@@ -251,8 +262,12 @@ public final class GDUtils {
 					.flatMap(snowflake -> bot.getDiscordClients().flatMap(client -> client.getUserById(snowflake)).next())
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
 					.flatMap(user -> bot.getDatabase().findByID(GDLinkedUsers.class, user.getId().asLong()))
+					.filter(GDLinkedUsers::getIsLinkActivated)
 					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
 					.switchIfEmpty(Mono.error(new CommandFailedException("This user doesn't have an associated Geometry Dash account.")));
+		}
+		if (!str.matches("[a-zA-Z0-9 _-]+")) {
+			return Mono.error(new CommandFailedException("Your query contains invalid characters."));
 		}
 		return gdClient.searchUser(str);
 	}

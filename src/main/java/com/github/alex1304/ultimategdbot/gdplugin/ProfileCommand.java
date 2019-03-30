@@ -36,6 +36,7 @@ public class ProfileCommand implements Command {
 		if (ctx.getArgs().size() == 1) {
 			final var authorId = ctx.getEvent().getMessage().getAuthor().get().getId().asLong();
 			return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
+					.filter(GDLinkedUsers::getIsLinkActivated)
 					.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to show your own profile, "
 							+ "link your Geometry Dash account using `" + ctx.getPrefixUsed() + "account` and retry this command. Otherwise, you "
 									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))

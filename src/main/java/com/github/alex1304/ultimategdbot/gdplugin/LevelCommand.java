@@ -34,6 +34,9 @@ public class LevelCommand implements Command {
 	public Mono<Void> execute(Context ctx) {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
 		var input = ArgUtils.concatArgs(ctx, 1);
+		if (!input.matches("[a-zA-Z0-9 _-]+")) {
+			return Mono.error(new CommandFailedException("Your query contains invalid characters."));
+		}
 		@SuppressWarnings("unchecked")
 		var paginatorMono = (Mono<GDPaginator<GDLevel>>) ctx.getVar("paginator", Mono.class);
 		if (paginatorMono == null) {

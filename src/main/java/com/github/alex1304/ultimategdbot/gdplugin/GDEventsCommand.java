@@ -14,6 +14,7 @@ import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventSubscriber;
 
 import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.entity.Message;
@@ -25,13 +26,15 @@ public class GDEventsCommand implements Command {
 	private final GDEventDispatcher gdEventDispatcher;
 	private final GDEventScannerLoop scannerLoop;
 	private final Map<Long, List<Message>> broadcastedLevels;
+	private final GDEventSubscriber subscriber;
 
 	public GDEventsCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher, GDEventScannerLoop scannerLoop,
-			Map<Long, List<Message>> broadcastedLevels) {
+			Map<Long, List<Message>> broadcastedLevels, GDEventSubscriber subscriber) {
 		this.gdClient = Objects.requireNonNull(gdClient);
 		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
 		this.scannerLoop = Objects.requireNonNull(scannerLoop);
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedLevels);
+		this.subscriber = Objects.requireNonNull(subscriber);
 	}
 
 	@Override
@@ -47,7 +50,7 @@ public class GDEventsCommand implements Command {
 	@Override
 	public Set<Command> getSubcommands() {
 		return Set.of(new GDEventsDispatchCommand(gdClient, gdEventDispatcher), new GDEventsScannerLoopCommand(scannerLoop),
-				new GDEventsBroadcastResultsCommand(broadcastedLevels));
+				new GDEventsBroadcastResultsCommand(broadcastedLevels), new GDEventsReleaseNextCommand(subscriber));
 	}
 
 	@Override
