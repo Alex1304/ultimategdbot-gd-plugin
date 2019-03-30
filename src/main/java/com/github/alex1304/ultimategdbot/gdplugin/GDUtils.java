@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.StringJoiner;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -95,6 +96,11 @@ public final class GDUtils {
 							+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
 							+ "` (stack trace available in internal logs)")
 					.onErrorResume(__ -> Mono.empty()).subscribe();
+		});
+		map.put(TimeoutException.class, (error, ctx) -> {
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
+					.onErrorResume(__ -> Mono.empty())
+					.subscribe();
 		});
 		return Collections.unmodifiableMap(map);
 	}
