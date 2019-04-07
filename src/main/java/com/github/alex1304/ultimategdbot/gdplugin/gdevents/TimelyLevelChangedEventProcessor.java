@@ -10,6 +10,7 @@ import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.ChannelLoader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -22,9 +23,9 @@ import reactor.core.publisher.Mono;
 
 public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<TimelyLevelChangedEvent> {
 	
-	public TimelyLevelChangedEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
+	public TimelyLevelChangedEventProcessor(Bot bot, ChannelLoader channelLoader, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(TimelyLevelChangedEvent.class, bot, broadcastMessageIntervalMillis, broadcastedMessages, gdClient);
+		super(TimelyLevelChangedEvent.class, bot, channelLoader, broadcastedMessages, gdClient);
 	}
 
 	@Override

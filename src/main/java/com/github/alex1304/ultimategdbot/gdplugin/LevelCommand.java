@@ -49,7 +49,7 @@ public class LevelCommand implements Command {
 			} else {
 				ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
 			}
-			return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
+			return ctx.getBot().getCommandKernel().invokeCommand(this, ctx).onErrorResume(e -> Mono.empty());
 		}
 		return paginatorMono.flatMap(paginator -> {
 			if (!paginator.hasPreviousPage() && paginator.getPageSize() == 1) {

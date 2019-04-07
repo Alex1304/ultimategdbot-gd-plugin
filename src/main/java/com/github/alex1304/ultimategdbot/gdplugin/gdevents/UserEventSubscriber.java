@@ -9,6 +9,7 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.ChannelLoader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -23,9 +24,9 @@ abstract class UserEventSubscriber<E extends UserEvent> extends AbstractGDEventP
 	private final SpriteFactory spriteFactory;
 	private final Map<GDUserIconSet, String[]> iconsCache;
 
-	public UserEventSubscriber(Class<E> clazz, Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
+	public UserEventSubscriber(Class<E> clazz, Bot bot, ChannelLoader channelLoader, Map<Long, List<Message>> broadcastedMessages, SpriteFactory spriteFactory,
 			Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(clazz, bot, broadcastMessageIntervalMillis, broadcastedMessages, gdClient);
+		super(clazz, bot, channelLoader, broadcastedMessages, gdClient);
 		this.spriteFactory = Objects.requireNonNull(spriteFactory);
 		this.iconsCache = Objects.requireNonNull(iconsCache);
 	}

@@ -1,10 +1,10 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.awt.Color;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -17,17 +17,16 @@ import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
 import discord4j.core.object.entity.Channel.Type;
-import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
 public class ChangelogCommand implements Command {
 	
-	private final int broadcastMessageIntervalMillis;
-
-	public ChangelogCommand(int broadcastMessageIntervalMillis) {
-		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
+	private final ChannelLoader channelLoader;
+	
+	public ChangelogCommand(ChannelLoader channelLoader) {
+		this.channelLoader = Objects.requireNonNull(channelLoader);
 	}
 
 	@Override
@@ -71,11 +70,8 @@ public class ChangelogCommand implements Command {
 		return ctx.reply("Sending changelog, please wait...")
 				.then(GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
-						.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
-						.flatMap(channelId -> ctx.getBot().getDiscordClients().next()
-								.flatMap(client -> client.getChannelById(Snowflake.of(channelId)))
-								.ofType(MessageChannel.class)
-								.onErrorResume(e -> Mono.empty()))
+						.map(Snowflake::of)
+						.concatMap(channelLoader::load)
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();

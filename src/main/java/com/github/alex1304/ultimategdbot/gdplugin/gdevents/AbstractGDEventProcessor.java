@@ -11,6 +11,7 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.ChannelLoader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
@@ -32,13 +33,13 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	final Bot bot;
 	final Map<Long, List<Message>> broadcastedLevels;
 	final AuthenticatedGDClient gdClient;
-	final int broadcastMessageIntervalMillis;
+	final ChannelLoader channelLoader;
 	
-	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages,
+	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, ChannelLoader channelLoader, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
 		super(clazz);
 		this.bot = Objects.requireNonNull(bot);
-		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
+		this.channelLoader = Objects.requireNonNull(channelLoader);
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 		this.gdClient = Objects.requireNonNull(gdClient);
 	}
@@ -49,8 +50,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
 						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
-										.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
-										.flatMap(this::findChannel)
+										.concatMap(this::findChannel)
 										.flatMap(this::findRole))
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectList()
@@ -74,9 +74,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	abstract Mono<Long> accountIdGetter(E event);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return bot.getDiscordClients().next()
-				.flatMap(client -> client.getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
-				.ofType(MessageChannel.class))
+		return channelLoader.load(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
@@ -84,9 +82,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<MessageChannel, Optional<Role>>> findRole(Tuple2<GDSubscribedGuilds, MessageChannel> tuple) {
 		var subscribedGuild = tuple.getT1();
 		var channel = tuple.getT2();
-		return bot.getDiscordClients().flatMap(client -> client.getRoleById(Snowflake.of(subscribedGuild.getGuildId()),
+		return bot.getDiscordClients().next().flatMap(client -> client.getRoleById(Snowflake.of(subscribedGuild.getGuildId()),
 						Snowflake.of(entityFieldRole(subscribedGuild))))
-				.next()
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())
 				.defaultIfEmpty(Optional.empty())
@@ -97,7 +94,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
 		return accountIdGetter(event).flux()
 				.flatMap(accountId -> bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
-				.flatMap(linkedUser -> bot.getDiscordClients().flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId()))))
+				.flatMap(linkedUser -> bot.getDiscordClients().next().flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId()))))
 				.flatMap(User::getPrivateChannel)
 				.map(channel -> Tuples.of(channel, Optional.empty()));
 	}

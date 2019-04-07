@@ -52,8 +52,8 @@ public class GDPlugin implements Plugin {
 	private GDEventDispatcher gdEventDispatcher;
 	private GDEventScannerLoop scannerLoop;
 	private Map<Long, List<Message>> broadcastedLevels;
+	private ChannelLoader channelLoader;
 	private int eventFluxBufferSize;
-	private int broadcastMessageIntervalMillis;
 	private GDEventSubscriber subscriber;
 
 	@Override
@@ -67,7 +67,6 @@ public class GDPlugin implements Plugin {
 		var requestTimeout = parser.parseOrDefault("gdplugin.request_timeout", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		var eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
-		var broadcastMessageIntervalMillis = parser.parseAsIntOrDefault("gdplugin.broadcast_message_interval_millis", 300);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -87,8 +86,8 @@ public class GDPlugin implements Plugin {
 		this.gdEventDispatcher = new GDEventDispatcher();
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
+		this.channelLoader = new ChannelLoader(bot.getDiscordClients().blockFirst());
 		this.eventFluxBufferSize = eventFluxBufferSize;
-		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
 		initGDEventSubscribers();
 	}
 
@@ -98,14 +97,14 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		Set<GDEventProcessor> processors = Set.of(
-				new AwardedLevelAddedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
-				new AwardedLevelRemovedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
-				new AwardedLevelUpdatedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels),
-				new TimelyLevelChangedEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, gdClient),
-				new UserPromotedToModEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserPromotedToElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromModEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromElderEventProcessor(bot, broadcastMessageIntervalMillis, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+				new AwardedLevelAddedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
+				new AwardedLevelRemovedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
+				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
+				new TimelyLevelChangedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
+				new UserPromotedToModEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserPromotedToElderEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromModEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromElderEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		this.subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
@@ -131,7 +130,7 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
 				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber), new CheckModCommand(gdClient, gdEventDispatcher),
-				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(broadcastMessageIntervalMillis),
+				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(channelLoader),
 				new ClearCacheCommand(gdClient));
 	}
 

@@ -17,13 +17,11 @@ import reactor.core.publisher.Mono;
 public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<AwardedLevelUpdatedEvent> {
 
 	private final Bot bot;
-	private final int broadcastMessageIntervalMillis;
 	private final Map<Long, List<Message>> broadcastedLevels;
 	
-	public AwardedLevelUpdatedEventProcessor(Bot bot, int broadcastMessageIntervalMillis, Map<Long, List<Message>> broadcastedMessages) {
+	public AwardedLevelUpdatedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
 		super(AwardedLevelUpdatedEvent.class);
 		this.bot = Objects.requireNonNull(bot);
-		this.broadcastMessageIntervalMillis = broadcastMessageIntervalMillis;
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 	}
 
@@ -35,7 +33,6 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
-								.delayElements(Duration.ofMillis(broadcastMessageIntervalMillis))
 								.filter(message -> message.getEmbeds().size() > 0)
 								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())

@@ -95,7 +95,9 @@ public final class GDUtils {
 					+ "Error observed when parsing response: `" + e.getCause().getClass().getCanonicalName()
 							+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
 							+ "` (stack trace available in internal logs)")
-					.onErrorResume(__ -> Mono.empty()).subscribe();
+					.onErrorResume(__ -> Mono.empty())
+					.then(Mono.just(0).doOnNext(__ -> ctx.getBot().getLogger().warn("Geometry Dash server returned an invalid response", error)))
+					.subscribe();
 		});
 		map.put(TimeoutException.class, (error, ctx) -> {
 			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
@@ -503,19 +505,19 @@ public final class GDUtils {
 	// ============ ACCOUNT LINKING ==============
 	
 	/**
-	 * Generates a random String made of alphanumeric characters. The length of
-	 * the generated String is specified as an argument.
+	 * Generates a random String made of alphanumeric characters. The length of the
+	 * generated String is specified as an argument.
 	 * 
-	 * The following characters are excluded to avoid confusion between l and 1,
-	 * O and 0, etc: <code>l, I, 1, 0, O</code>
+	 * The following characters are excluded to avoid confusion between l and 1, O
+	 * and 0, etc: <code>l, I, 1, 0, O</code>
 	 * 
-	 * @param n
-	 *            - the length of the generated String
+	 * @param n the length of the generated String
 	 * @return the generated random String
 	 */
 	public static String generateAlphanumericToken(int n) {
-		if (n < 1)
-			return null;
+		if (n < 1) {
+			throw new IllegalArgumentException("n is negative");
+		}
 		
 		final String alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 		char[] result = new char[n];
@@ -569,8 +571,8 @@ public final class GDUtils {
 				}
 			}
 			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n\n" + sb.toString());
-			embed.addField(" ‌‌", "Note that members of this server must have linked their Geometry Dash account with "
-					+ "`u!account` in order to be displayed on this leaderboard.", false);
+			embed.addField(" ‌‌", "Note that members of this server must have linked their Geometry Dash account with `"
+					+ ctx.getPrefixUsed() + "account` in order to be displayed on this leaderboard.", false);
 		});
 	}
 	
