@@ -51,12 +51,12 @@ public class GDEventsScannerLoopCommand implements Command {
 
 	@Override
 	public String getDescription() {
-		return "Starts or stops the GD event scanner loop. If stopped, GD events won't be dispatched automatically when they happen in game.";
+		return "Starts or stops the GD event scanner loop.";
 	}
 
 	@Override
 	public String getLongDescription() {
-		return "";
+		return "If stopped, GD events will no longer be dispatched automatically when they happen in game.";
 	}
 
 	@Override

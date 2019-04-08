@@ -148,6 +148,21 @@ public final class GDUtils {
 						});
 	}
 	
+	public static Mono<Long> preloadBroadcastChannels(Bot bot, ChannelLoader channelLoader) {
+		return Flux.concat(GDUtils.getExistingSubscribedGuilds(bot, "where channelAwardedLevelsId > 0")
+						.map(GDSubscribedGuilds::getChannelAwardedLevelsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelTimelyLevelsId > 0")
+						.map(GDSubscribedGuilds::getChannelTimelyLevelsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelGdModeratorsId > 0")
+						.map(GDSubscribedGuilds::getChannelGdModeratorsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelChangelogId > 0")
+						.map(GDSubscribedGuilds::getChannelChangelogId))
+				.distinct()
+				.map(Snowflake::of)
+				.concatMap(channelLoader::load)
+				.count();
+	}
+	
 	// ------------ USER PROFILE UTILS ------------ //
 	
 	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Bot bot, Optional<User> author, GDUser user, 
