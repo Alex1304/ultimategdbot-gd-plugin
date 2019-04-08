@@ -53,7 +53,7 @@ public class GDEventsCommand implements Command {
 	public Set<Command> getSubcommands() {
 		return Set.of(new GDEventsDispatchCommand(gdClient, gdEventDispatcher), new GDEventsScannerLoopCommand(scannerLoop),
 				new GDEventsBroadcastResultsCommand(broadcastedLevels), new GDEventsReleaseNextCommand(subscriber),
-				new GDEventsPreloadChannelsCommand(channelLoader));
+				new GDEventsBroadcastChannelsCommand(channelLoader));
 	}
 
 	@Override

@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -43,6 +44,10 @@ public class ChannelLoader {
 								.map(channel -> Tuples.of(snowflake, channel)))
 						.doOnNext(TupleUtils.consumer(cache::put))
 						.map(Tuple2::getT2));
+	}
+	
+	public Set<Snowflake> getInvalidChannelSnowflakes() {
+		return Collections.unmodifiableSet(invalidCache);
 	}
 	
 	public void clearCache() {

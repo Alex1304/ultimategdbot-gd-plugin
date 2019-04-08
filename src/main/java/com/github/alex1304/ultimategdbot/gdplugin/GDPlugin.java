@@ -27,6 +27,7 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventProcessor;
@@ -42,6 +43,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEven
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public class GDPlugin implements Plugin {
 	
@@ -55,6 +57,7 @@ public class GDPlugin implements Plugin {
 	private ChannelLoader channelLoader;
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
+	private boolean preloadChannelsOnStartup;
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -66,7 +69,8 @@ public class GDPlugin implements Plugin {
 		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
 		var requestTimeout = parser.parseOrDefault("gdplugin.request_timeout", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
-		var eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
+		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
+		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -87,7 +91,6 @@ public class GDPlugin implements Plugin {
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
 		this.channelLoader = new ChannelLoader(bot.getDiscordClients().blockFirst());
-		this.eventFluxBufferSize = eventFluxBufferSize;
 		initGDEventSubscribers();
 	}
 
@@ -122,7 +125,18 @@ public class GDPlugin implements Plugin {
 	
 	@Override
 	public void onBotReady() {
-		scannerLoop.start();
+		if (preloadChannelsOnStartup) {
+			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
+					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels accepting GD event notifications...")
+							.flatMap(__ -> GDUtils.preloadBroadcastChannels(bot, channelLoader))
+							.elapsed()
+							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2()
+									+ "** channels in **" + BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
+							.doAfterTerminate(() -> scannerLoop.start())
+							.subscribe();
+		} else {
+			scannerLoop.start();
+		}
 	}
 
 	@Override
