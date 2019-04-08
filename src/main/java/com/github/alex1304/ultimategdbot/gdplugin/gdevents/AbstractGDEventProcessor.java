@@ -51,8 +51,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.onErrorResume(e -> Mono.empty())
 						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.concatMap(this::findChannel)
-										.concatMap(this::findRole))
-								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
+										.flatMap(this::findRole))
+								.concatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
