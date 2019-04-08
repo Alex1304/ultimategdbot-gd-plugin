@@ -127,10 +127,12 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<Command> getProvidedCommands() {
-		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true), new LevelCommand(gdClient, false),
-				new TimelyCommand(gdClient, true), new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
-				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber), new CheckModCommand(gdClient, gdEventDispatcher),
-				new ModListCommand(), new FeaturedInfoCommand(gdClient), new ChangelogCommand(channelLoader),
+		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true),
+				new LevelCommand(gdClient, false), new TimelyCommand(gdClient, true),
+				new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
+				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber, channelLoader),
+				new CheckModCommand(gdClient, gdEventDispatcher), new ModListCommand(),
+				new FeaturedInfoCommand(gdClient), new ChangelogCommand(channelLoader),
 				new ClearCacheCommand(gdClient));
 	}
 

@@ -82,7 +82,7 @@ public class LeaderboardBanCommand implements Command {
 
 	@Override
 	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return Map.of();
+		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
 	}
 
 }
