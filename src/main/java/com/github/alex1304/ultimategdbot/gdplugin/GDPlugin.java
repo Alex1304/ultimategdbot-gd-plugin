@@ -54,7 +54,7 @@ public class GDPlugin implements Plugin {
 	private GDEventDispatcher gdEventDispatcher;
 	private GDEventScannerLoop scannerLoop;
 	private Map<Long, List<Message>> broadcastedLevels;
-	private ChannelLoader channelLoader;
+	private BroadcastPreloader preloader;
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
@@ -90,7 +90,7 @@ public class GDPlugin implements Plugin {
 		this.gdEventDispatcher = new GDEventDispatcher();
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
-		this.channelLoader = new ChannelLoader(bot.getDiscordClients().blockFirst());
+		this.preloader = new BroadcastPreloader(bot.getDiscordClients().blockFirst());
 		initGDEventSubscribers();
 	}
 
@@ -100,14 +100,14 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		Set<GDEventProcessor> processors = Set.of(
-				new AwardedLevelAddedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
-				new AwardedLevelRemovedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
+				new AwardedLevelAddedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
+				new AwardedLevelRemovedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
 				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
-				new TimelyLevelChangedEventProcessor(bot, channelLoader, broadcastedLevels, gdClient),
-				new UserPromotedToModEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserPromotedToElderEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromModEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromElderEventProcessor(bot, channelLoader, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+				new TimelyLevelChangedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
+				new UserPromotedToModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserPromotedToElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		this.subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
@@ -127,11 +127,12 @@ public class GDPlugin implements Plugin {
 	public void onBotReady() {
 		if (preloadChannelsOnStartup) {
 			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels accepting GD event notifications...")
-							.flatMap(__ -> GDUtils.preloadBroadcastChannels(bot, channelLoader))
+					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
+							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
 							.elapsed()
-							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2()
-									+ "** channels in **" + BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
+							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
+									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
+									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
 							.doAfterTerminate(() -> scannerLoop.start())
 							.subscribe();
 		} else {
@@ -144,9 +145,9 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true),
 				new LevelCommand(gdClient, false), new TimelyCommand(gdClient, true),
 				new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
-				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber, channelLoader),
+				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber, preloader),
 				new CheckModCommand(gdClient, gdEventDispatcher), new ModListCommand(),
-				new FeaturedInfoCommand(gdClient), new ChangelogCommand(channelLoader),
+				new FeaturedInfoCommand(gdClient), new ChangelogCommand(preloader),
 				new ClearCacheCommand(gdClient));
 	}
 

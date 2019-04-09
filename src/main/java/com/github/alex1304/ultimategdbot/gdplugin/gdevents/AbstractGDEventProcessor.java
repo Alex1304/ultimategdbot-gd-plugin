@@ -11,7 +11,7 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
-import com.github.alex1304.ultimategdbot.gdplugin.ChannelLoader;
+import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
@@ -33,13 +33,13 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	final Bot bot;
 	final Map<Long, List<Message>> broadcastedLevels;
 	final AuthenticatedGDClient gdClient;
-	final ChannelLoader channelLoader;
+	final BroadcastPreloader preloader;
 	
-	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, ChannelLoader channelLoader, Map<Long, List<Message>> broadcastedMessages,
+	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
 		super(clazz);
 		this.bot = Objects.requireNonNull(bot);
-		this.channelLoader = Objects.requireNonNull(channelLoader);
+		this.preloader = Objects.requireNonNull(preloader);
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 		this.gdClient = Objects.requireNonNull(gdClient);
 	}
@@ -51,8 +51,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.onErrorResume(e -> Mono.empty())
 						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.concatMap(this::findChannel)
-										.flatMap(this::findRole))
-								.concatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
+										.concatMap(this::findRole))
+								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), Runtime.getRuntime().availableProcessors())
 								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
@@ -62,7 +62,9 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 									onBroadcastSuccess(t, messageList);
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
 											+ "Successfully notified **" + messageList.size() + "** guilds!\n"
-											+ "**Execution time: " + formattedTime + "**").onErrorResume(e -> Mono.empty());
+											+ "**Execution time: " + formattedTime + "**\n"
+											+ "**Average broadcast speed: " + (messageList.size() / time.toSeconds()) + " guilds/s**")
+											.onErrorResume(e -> Mono.empty());
 								}))).then();
 	}
 	
@@ -74,7 +76,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	abstract Mono<Long> accountIdGetter(E event);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return channelLoader.load(Snowflake.of(entityFieldChannel(subscribedGuild)))
+		return preloader.preloadChannel(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
@@ -82,8 +84,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<MessageChannel, Optional<Role>>> findRole(Tuple2<GDSubscribedGuilds, MessageChannel> tuple) {
 		var subscribedGuild = tuple.getT1();
 		var channel = tuple.getT2();
-		return bot.getDiscordClients().next().flatMap(client -> client.getRoleById(Snowflake.of(subscribedGuild.getGuildId()),
-						Snowflake.of(entityFieldRole(subscribedGuild))))
+		return preloader.preloadRole(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(entityFieldRole(subscribedGuild)))
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())
 				.defaultIfEmpty(Optional.empty())

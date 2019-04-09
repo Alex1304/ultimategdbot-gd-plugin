@@ -27,16 +27,16 @@ public class GDEventsCommand implements Command {
 	private final GDEventScannerLoop scannerLoop;
 	private final Map<Long, List<Message>> broadcastedLevels;
 	private final GDEventSubscriber subscriber;
-	private final ChannelLoader channelLoader;
+	private final BroadcastPreloader preloader;
 
 	public GDEventsCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher, GDEventScannerLoop scannerLoop,
-			Map<Long, List<Message>> broadcastedLevels, GDEventSubscriber subscriber, ChannelLoader channelLoader) {
+			Map<Long, List<Message>> broadcastedLevels, GDEventSubscriber subscriber, BroadcastPreloader preloader) {
 		this.gdClient = Objects.requireNonNull(gdClient);
 		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
 		this.scannerLoop = Objects.requireNonNull(scannerLoop);
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedLevels);
 		this.subscriber = Objects.requireNonNull(subscriber);
-		this.channelLoader = Objects.requireNonNull(channelLoader);
+		this.preloader = Objects.requireNonNull(preloader);
 	}
 
 	@Override
@@ -53,7 +53,7 @@ public class GDEventsCommand implements Command {
 	public Set<Command> getSubcommands() {
 		return Set.of(new GDEventsDispatchCommand(gdClient, gdEventDispatcher), new GDEventsScannerLoopCommand(scannerLoop),
 				new GDEventsBroadcastResultsCommand(broadcastedLevels), new GDEventsReleaseNextCommand(subscriber),
-				new GDEventsBroadcastChannelsCommand(channelLoader));
+				new GDEventsChannelsAndRolesCommand(preloader));
 	}
 
 	@Override

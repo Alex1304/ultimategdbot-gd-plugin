@@ -23,10 +23,10 @@ import reactor.core.publisher.Mono;
 
 public class ChangelogCommand implements Command {
 	
-	private final ChannelLoader channelLoader;
+	private final BroadcastPreloader preloader;
 	
-	public ChangelogCommand(ChannelLoader channelLoader) {
-		this.channelLoader = Objects.requireNonNull(channelLoader);
+	public ChangelogCommand(BroadcastPreloader preloader) {
+		this.preloader = Objects.requireNonNull(preloader);
 	}
 
 	@Override
@@ -71,7 +71,7 @@ public class ChangelogCommand implements Command {
 				.then(GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
-						.concatMap(channelLoader::load)
+						.concatMap(preloader::preloadChannel)
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();

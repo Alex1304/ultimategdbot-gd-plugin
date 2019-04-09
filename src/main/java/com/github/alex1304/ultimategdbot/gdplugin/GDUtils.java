@@ -54,6 +54,7 @@ import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.function.TupleUtils;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -148,7 +149,7 @@ public final class GDUtils {
 						});
 	}
 	
-	public static Mono<Long> preloadBroadcastChannels(Bot bot, ChannelLoader channelLoader) {
+	public static Mono<Tuple2<Long, Long>> preloadBroadcastChannelsAndRoles(Bot bot, BroadcastPreloader preloader) {
 		return Flux.concat(GDUtils.getExistingSubscribedGuilds(bot, "where channelAwardedLevelsId > 0")
 						.map(GDSubscribedGuilds::getChannelAwardedLevelsId), 
 				GDUtils.getExistingSubscribedGuilds(bot, "where channelTimelyLevelsId > 0")
@@ -159,8 +160,17 @@ public final class GDUtils {
 						.map(GDSubscribedGuilds::getChannelChangelogId))
 				.distinct()
 				.map(Snowflake::of)
-				.concatMap(channelLoader::load)
-				.count();
+				.concatMap(preloader::preloadChannel)
+				.count()
+				.zipWith(Flux.concat(GDUtils.getExistingSubscribedGuilds(bot, "where roleAwardedLevelsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleAwardedLevelsId()))), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where roleTimelyLevelsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleTimelyLevelsId()))), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where roleGdModeratorsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleGdModeratorsId()))))
+				.distinct()
+				.concatMap(TupleUtils.function(preloader::preloadRole))
+				.count());
 	}
 	
 	// ------------ USER PROFILE UTILS ------------ //
