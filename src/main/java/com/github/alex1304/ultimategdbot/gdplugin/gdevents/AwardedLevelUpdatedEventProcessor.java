@@ -48,8 +48,8 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 									}
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
 											+ "Successfully edited **" + messageList.size() + "/" + oldList.size() + "** messages!\n"
-											+ "**Execution time: " + formattedTime + "**"
-											+ "**Average speed: " + (messageList.size() / time.toSeconds()) + " edits/s**").onErrorResume(e -> Mono.empty());
+											+ "**Execution time: " + formattedTime + "**\n"
+											+ "**Average speed: " + (messageList.size() / time.toSeconds()) + " messages/s**").onErrorResume(e -> Mono.empty());
 								}))).then();
 	}
 

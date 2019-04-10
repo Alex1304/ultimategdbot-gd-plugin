@@ -72,7 +72,7 @@ public class ChangelogCommand implements Command {
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
 						.concatMap(preloader::preloadChannel)
-						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
+						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()), 12)
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
 	}
