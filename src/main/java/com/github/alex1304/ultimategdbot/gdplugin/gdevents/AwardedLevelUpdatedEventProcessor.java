@@ -36,7 +36,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 								.filter(message -> message.getEmbeds().size() > 0)
 								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
-										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty()), 12))
+										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())), 12)
 								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
