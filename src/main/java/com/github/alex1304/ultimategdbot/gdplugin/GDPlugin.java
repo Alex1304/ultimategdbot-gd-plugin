@@ -27,7 +27,6 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
-import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventProcessor;
@@ -43,7 +42,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEven
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 public class GDPlugin implements Plugin {
 	
@@ -54,10 +52,8 @@ public class GDPlugin implements Plugin {
 	private GDEventDispatcher gdEventDispatcher;
 	private GDEventScannerLoop scannerLoop;
 	private Map<Long, List<Message>> broadcastedLevels;
-	private BroadcastPreloader preloader;
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
-	private boolean preloadChannelsOnStartup;
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -70,7 +66,6 @@ public class GDPlugin implements Plugin {
 		var requestTimeout = parser.parseOrDefault("gdplugin.request_timeout", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
-		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -90,7 +85,6 @@ public class GDPlugin implements Plugin {
 		this.gdEventDispatcher = new GDEventDispatcher();
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
-		this.preloader = new BroadcastPreloader(bot.getDiscordClients().blockFirst());
 		initGDEventSubscribers();
 	}
 
@@ -100,14 +94,14 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		Set<GDEventProcessor> processors = Set.of(
-				new AwardedLevelAddedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
-				new AwardedLevelRemovedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
+				new AwardedLevelAddedEventProcessor(bot, broadcastedLevels, gdClient),
+				new AwardedLevelRemovedEventProcessor(bot, broadcastedLevels, gdClient),
 				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
-				new TimelyLevelChangedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
-				new UserPromotedToModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserPromotedToElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+				new TimelyLevelChangedEventProcessor(bot, broadcastedLevels, gdClient),
+				new UserPromotedToModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserPromotedToElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromModEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient),
+				new UserDemotedFromElderEventProcessor(bot, broadcastedLevels, spriteFactory, iconsCache, gdClient));
 		this.subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
@@ -125,19 +119,7 @@ public class GDPlugin implements Plugin {
 	
 	@Override
 	public void onBotReady() {
-		if (preloadChannelsOnStartup) {
-			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
-							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
-							.elapsed()
-							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
-									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
-									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
-							.doAfterTerminate(() -> scannerLoop.start())
-							.subscribe();
-		} else {
 			scannerLoop.start();
-		}
 	}
 
 	@Override
@@ -145,9 +127,9 @@ public class GDPlugin implements Plugin {
 		return Set.of(new ProfileCommand(gdClient, spriteFactory, iconsCache), new LevelCommand(gdClient, true),
 				new LevelCommand(gdClient, false), new TimelyCommand(gdClient, true),
 				new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
-				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber, preloader),
+				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber),
 				new CheckModCommand(gdClient, gdEventDispatcher), new ModListCommand(),
-				new FeaturedInfoCommand(gdClient), new ChangelogCommand(preloader),
+				new FeaturedInfoCommand(gdClient), new ChangelogCommand(),
 				new ClearCacheCommand(gdClient));
 	}
 

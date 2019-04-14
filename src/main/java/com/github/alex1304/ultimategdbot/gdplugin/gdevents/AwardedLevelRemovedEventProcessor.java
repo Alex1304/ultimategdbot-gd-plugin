@@ -9,7 +9,6 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -22,9 +21,9 @@ import reactor.core.publisher.Mono;
 
 public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<AwardedLevelRemovedEvent> {
 
-	public AwardedLevelRemovedEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
+	public AwardedLevelRemovedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(AwardedLevelRemovedEvent.class, bot, preloader, broadcastedMessages, gdClient);
+		super(AwardedLevelRemovedEvent.class, bot, broadcastedMessages, gdClient);
 	}
 
 	@Override

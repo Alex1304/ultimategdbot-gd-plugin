@@ -4,7 +4,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -17,17 +16,12 @@ import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
 public class ChangelogCommand implements Command {
-	
-	private final BroadcastPreloader preloader;
-	
-	public ChangelogCommand(BroadcastPreloader preloader) {
-		this.preloader = Objects.requireNonNull(preloader);
-	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
@@ -71,7 +65,9 @@ public class ChangelogCommand implements Command {
 				.then(GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
-						.concatMap(preloader::preloadChannel)
+						.flatMap(ctx.getBot().getMainDiscordClient()::getChannelById)
+						.ofType(MessageChannel.class)
+						.onErrorResume(e -> Mono.empty())
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()), 12)
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();

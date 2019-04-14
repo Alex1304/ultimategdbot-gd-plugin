@@ -11,7 +11,6 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDAwardedLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
@@ -25,9 +24,9 @@ import reactor.core.publisher.Mono;
 
 public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<AwardedLevelAddedEvent> {
 
-	public AwardedLevelAddedEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
+	public AwardedLevelAddedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
-		super(AwardedLevelAddedEvent.class, bot, preloader, broadcastedMessages, gdClient);
+		super(AwardedLevelAddedEvent.class, bot, broadcastedMessages, gdClient);
 	}
 	
 	@Override
