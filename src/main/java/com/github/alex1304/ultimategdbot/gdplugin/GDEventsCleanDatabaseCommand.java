@@ -38,13 +38,13 @@ public class GDEventsCleanDatabaseCommand implements Command {
 	
 	private Mono<GDSubscribedGuilds> performCleanup(DiscordClient client, GDSubscribedGuilds subscribedGuild) {
 		var monos = new ArrayList<Mono<Boolean>>();
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelAwardedLevelsId, GDSubscribedGuilds::setChannelAwardedLevelsId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelTimelyLevelsId, GDSubscribedGuilds::setChannelTimelyLevelsId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelGdModeratorsId, GDSubscribedGuilds::setChannelGdModeratorsId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelChangelogId, GDSubscribedGuilds::setChannelChangelogId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleAwardedLevelsId, GDSubscribedGuilds::setRoleAwardedLevelsId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleTimelyLevelsId, GDSubscribedGuilds::setRoleTimelyLevelsId);
-		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleGdModeratorsId, GDSubscribedGuilds::setRoleGdModeratorsId);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelAwardedLevelsId, GDSubscribedGuilds::setChannelAwardedLevelsId, true);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelTimelyLevelsId, GDSubscribedGuilds::setChannelTimelyLevelsId, true);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelGdModeratorsId, GDSubscribedGuilds::setChannelGdModeratorsId, true);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getChannelChangelogId, GDSubscribedGuilds::setChannelChangelogId, true);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleAwardedLevelsId, GDSubscribedGuilds::setRoleAwardedLevelsId, false);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleTimelyLevelsId, GDSubscribedGuilds::setRoleTimelyLevelsId, false);
+		addIfConfigured(monos, client, subscribedGuild, GDSubscribedGuilds::getRoleGdModeratorsId, GDSubscribedGuilds::setRoleGdModeratorsId, false);
 		if (monos.isEmpty()) {
 			return Mono.empty();
 		}
@@ -52,10 +52,11 @@ public class GDEventsCleanDatabaseCommand implements Command {
 	}
 	
 	private void addIfConfigured(List<Mono<Boolean>> monos, DiscordClient client, GDSubscribedGuilds subscribedGuild,
-			ToLongFunction<GDSubscribedGuilds> getter, BiConsumer<GDSubscribedGuilds, Long> setter) {
+			ToLongFunction<GDSubscribedGuilds> getter, BiConsumer<GDSubscribedGuilds, Long> setter, boolean isChannel) {
+		var entityMono = isChannel ? client.getChannelById(Snowflake.of(getter.applyAsLong(subscribedGuild)))
+				: client.getRoleById(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(getter.applyAsLong(subscribedGuild)));
 		if (getter.applyAsLong(subscribedGuild) > 0) {
-			monos.add(client.getChannelById(Snowflake.of(getter.applyAsLong(subscribedGuild)))
-					.doOnError(e -> setter.accept(subscribedGuild, 0L))
+			monos.add(entityMono.doOnError(e -> setter.accept(subscribedGuild, 0L))
 					.map(__ -> true)
 					.onErrorReturn(false));
 		}

@@ -46,7 +46,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
-						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
+						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
@@ -75,7 +75,6 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
 		return bot.getMainDiscordClient().getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.ofType(MessageChannel.class)
-				.onErrorResume(e -> Mono.empty())
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
@@ -92,10 +91,11 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	
 
 	private Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
-		return accountIdGetter(event).flux()
-				.flatMap(accountId -> bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
+		return accountIdGetter(event)
+				.flatMapMany(accountId -> bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
 				.flatMap(linkedUser -> bot.getMainDiscordClient().getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
 				.flatMap(User::getPrivateChannel)
+				.onErrorResume(e -> Mono.empty())
 				.map(channel -> Tuples.of(channel, Optional.empty()));
 	}
 }
