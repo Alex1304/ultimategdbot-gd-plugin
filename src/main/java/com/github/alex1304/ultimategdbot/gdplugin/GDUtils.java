@@ -45,7 +45,6 @@ import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
-import discord4j.core.DiscordClient;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
@@ -144,7 +143,7 @@ public final class GDUtils {
 	}
 	
 	public static Flux<GDSubscribedGuilds> getExistingSubscribedGuilds(Bot bot, String hql) {
-		return Mono.zip(bot.getDiscordClients().flatMap(DiscordClient::getGuilds).collectList(),
+		return Mono.zip(bot.getMainDiscordClient().getGuilds().collectList(),
 				bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds " + hql).collectList())
 						.flatMapMany(tuple -> {
 							var subSet = new HashSet<>(tuple.getT2());
