@@ -109,8 +109,7 @@ public class FeaturedInfoCommand implements Command {
 	private Mono<Message> sendResult(Context ctx, GDLevel level, int page, int position) {
 		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
 				.map(Message::delete).orElse(Mono.empty());
-		return deleteWait.onErrorResume(e -> Mono.empty())
-				.then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
+		return deleteWait.then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
 						+ GDUtils.levelToString(level) + " is currently placed in page **" + (page + 1)
 						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
 	}
@@ -118,8 +117,7 @@ public class FeaturedInfoCommand implements Command {
 	private <X> Mono<X> cleanError(Context ctx, String text) {
 		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
 				.map(Message::delete).orElse(Mono.empty());
-		return deleteWait.onErrorResume(e -> Mono.empty())
-				.then(Mono.error(new CommandFailedException(text)));
+		return deleteWait.then(Mono.error(new CommandFailedException(text)));
 	}
 
 	@Override

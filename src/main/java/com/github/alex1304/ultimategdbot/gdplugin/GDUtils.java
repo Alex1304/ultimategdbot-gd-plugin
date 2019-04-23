@@ -105,6 +105,11 @@ public final class GDUtils {
 					.onErrorResume(__ -> Mono.empty())
 					.subscribe();
 		});
+		map.put(IOException.class, (error, ctx) -> {
+			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Cannot connect to Geometry Dash servers due to network issues. Try again later."))
+					.onErrorResume(__ -> Mono.empty())
+					.subscribe();
+		});
 		return Collections.unmodifiableMap(map);
 	}
 

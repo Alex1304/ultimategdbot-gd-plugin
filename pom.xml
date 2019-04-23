@@ -85,12 +85,12 @@
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>ultimategdbot-api</artifactId>
-			<version>4.0.0-alpha6</version>
+			<version>4.0.0-alpha7</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>jdash</artifactId>
-			<version>3.3.2</version>
+			<version>3.3.3</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>

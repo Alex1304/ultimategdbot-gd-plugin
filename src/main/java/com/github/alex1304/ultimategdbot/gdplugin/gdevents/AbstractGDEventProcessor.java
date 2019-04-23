@@ -23,6 +23,7 @@ import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -49,10 +50,11 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
-						.then(congrat(t).concatWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
-										.concatMap(this::findChannel)
-										.concatMap(this::findRole))
-								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), 12)
+						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
+										.flatMap(this::findChannel)
+										.flatMap(this::findRole))
+								.subscribeOn(Schedulers.elastic())
+								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), Integer.MAX_VALUE, Integer.MAX_VALUE)
 								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
