@@ -31,7 +31,8 @@ public class LeaderboardBanListCommand implements Command {
 	public Mono<Void> execute(Context ctx) {
 		return ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans")
 				.flatMap(ban -> gdClient.getUserByAccountId(ban.getAccountId()).map(user -> Tuples.of(ban, user)))
-				.flatMap(tuple -> ctx.getBot().getMainDiscordClient().getUserById(Snowflake.of(tuple.getT1().getBannedBy()))
+				.flatMap(tuple -> ctx.getBot().getDiscordClients().next()
+						.flatMap(client -> client.getUserById(Snowflake.of(tuple.getT1().getBannedBy())))
 						.map(user -> Tuples.of(tuple.getT2(), BotUtils.formatDiscordUsername(user))))
 				.onErrorResume(e -> Mono.empty())
 				.collectSortedList(Comparator.comparing(tuple -> tuple.getT1().getName().toLowerCase()))

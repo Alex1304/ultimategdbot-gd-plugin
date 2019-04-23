@@ -54,6 +54,7 @@ import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.function.TupleUtils;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -143,7 +144,7 @@ public final class GDUtils {
 	}
 	
 	public static Flux<GDSubscribedGuilds> getExistingSubscribedGuilds(Bot bot, String hql) {
-		return Mono.zip(bot.getDiscordClients().flatMap(DiscordClient::getGuilds).distinct().collectList(),
+		return Mono.zip(bot.getDiscordClients().flatMap(DiscordClient::getGuilds).collectList(),
 				bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds " + hql).collectList())
 						.flatMapMany(tuple -> {
 							var subSet = new HashSet<>(tuple.getT2());
@@ -151,6 +152,30 @@ public final class GDUtils {
 							subSet.removeIf(sub -> !guildIds.contains(sub.getGuildId()));
 							return Flux.fromIterable(subSet);
 						});
+	}
+	
+	public static Mono<Tuple2<Long, Long>> preloadBroadcastChannelsAndRoles(Bot bot, BroadcastPreloader preloader) {
+		return Flux.concat(GDUtils.getExistingSubscribedGuilds(bot, "where channelAwardedLevelsId > 0")
+						.map(GDSubscribedGuilds::getChannelAwardedLevelsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelTimelyLevelsId > 0")
+						.map(GDSubscribedGuilds::getChannelTimelyLevelsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelGdModeratorsId > 0")
+						.map(GDSubscribedGuilds::getChannelGdModeratorsId), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where channelChangelogId > 0")
+						.map(GDSubscribedGuilds::getChannelChangelogId))
+				.distinct()
+				.map(Snowflake::of)
+				.concatMap(preloader::preloadChannel)
+				.count()
+				.zipWith(Flux.concat(GDUtils.getExistingSubscribedGuilds(bot, "where roleAwardedLevelsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleAwardedLevelsId()))), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where roleTimelyLevelsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleTimelyLevelsId()))), 
+				GDUtils.getExistingSubscribedGuilds(bot, "where roleGdModeratorsId > 0")
+						.map(subscribedGuild -> Tuples.of(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(subscribedGuild.getRoleGdModeratorsId()))))
+				.distinct()
+				.concatMap(TupleUtils.function(preloader::preloadRole))
+				.count());
 	}
 	
 	// ------------ USER PROFILE UTILS ------------ //

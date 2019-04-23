@@ -7,14 +7,15 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 
 import discord4j.core.object.entity.Message;
 
 public class UserDemotedFromElderEventProcessor extends UserEventSubscriber<UserDemotedFromElderEvent> {
 
-	public UserDemotedFromElderEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public UserDemotedFromElderEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
 			SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(UserDemotedFromElderEvent.class, bot, broadcastedMessages, spriteFactory, iconsCache, gdClient);
+		super(UserDemotedFromElderEvent.class, bot, preloader, broadcastedMessages, spriteFactory, iconsCache, gdClient);
 	}
 
 	@Override

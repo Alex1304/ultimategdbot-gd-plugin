@@ -11,6 +11,7 @@ import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
@@ -33,11 +34,13 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	final Bot bot;
 	final Map<Long, List<Message>> broadcastedLevels;
 	final AuthenticatedGDClient gdClient;
+	final BroadcastPreloader preloader;
 	
-	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, Map<Long, List<Message>> broadcastedMessages,
+	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
 		super(clazz);
 		this.bot = Objects.requireNonNull(bot);
+		this.preloader = Objects.requireNonNull(preloader);
 		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
 		this.gdClient = Objects.requireNonNull(gdClient);
 	}
@@ -75,8 +78,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	abstract Mono<Long> accountIdGetter(E event);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return bot.getMainDiscordClient().getChannelById(Snowflake.of(entityFieldChannel(subscribedGuild)))
-				.ofType(MessageChannel.class)
+		return preloader.preloadChannel(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
@@ -84,7 +86,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<MessageChannel, Optional<Role>>> findRole(Tuple2<GDSubscribedGuilds, MessageChannel> tuple) {
 		var subscribedGuild = tuple.getT1();
 		var channel = tuple.getT2();
-		return bot.getMainDiscordClient().getRoleById(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(entityFieldRole(subscribedGuild)))
+		return preloader.preloadRole(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(entityFieldRole(subscribedGuild)))
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())
 				.defaultIfEmpty(Optional.empty())
