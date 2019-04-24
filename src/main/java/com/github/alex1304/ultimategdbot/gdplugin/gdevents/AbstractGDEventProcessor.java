@@ -53,7 +53,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.subscribeOn(Schedulers.elastic())
+								.subscribeOn(Schedulers.newParallel("gdevent-parallel"))
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), Integer.MAX_VALUE, Integer.MAX_VALUE)
 								.collectList()
 								.elapsed()
