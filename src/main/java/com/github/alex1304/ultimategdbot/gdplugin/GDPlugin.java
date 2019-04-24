@@ -58,6 +58,8 @@ public class GDPlugin implements Plugin {
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
+	private int broadcastParallelism;
+
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -71,6 +73,7 @@ public class GDPlugin implements Plugin {
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
+		this.broadcastParallelism = parser.parseAsIntOrDefault("gdplugin.broadcast_parallelism", Runtime.getRuntime().availableProcessors());
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -100,14 +103,14 @@ public class GDPlugin implements Plugin {
 
 	private void initGDEventSubscribers() {
 		Set<GDEventProcessor> processors = Set.of(
-				new AwardedLevelAddedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
-				new AwardedLevelRemovedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
-				new AwardedLevelUpdatedEventProcessor(bot, broadcastedLevels),
-				new TimelyLevelChangedEventProcessor(bot, preloader, broadcastedLevels, gdClient),
-				new UserPromotedToModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserPromotedToElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromModEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient),
-				new UserDemotedFromElderEventProcessor(bot, preloader, broadcastedLevels, spriteFactory, iconsCache, gdClient));
+				new AwardedLevelAddedEventProcessor(this),
+				new AwardedLevelRemovedEventProcessor(this),
+				new AwardedLevelUpdatedEventProcessor(this),
+				new TimelyLevelChangedEventProcessor(this),
+				new UserPromotedToModEventProcessor(this),
+				new UserPromotedToElderEventProcessor(this),
+				new UserDemotedFromModEventProcessor(this),
+				new UserDemotedFromElderEventProcessor(this));
 		this.subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
 		gdEventDispatcher.on(GDEvent.class)
 			.onBackpressureBuffer(eventFluxBufferSize, event -> bot.log(":warning: Due to backpressure, the following event has been rejected: "
@@ -216,4 +219,53 @@ public class GDPlugin implements Plugin {
 		));
 		return map;
 	}
+	
+	public Bot getBot() {
+		return bot;
+	}
+
+	public AuthenticatedGDClient getGdClient() {
+		return gdClient;
+	}
+
+	public SpriteFactory getSpriteFactory() {
+		return spriteFactory;
+	}
+
+	public Map<GDUserIconSet, String[]> getIconsCache() {
+		return iconsCache;
+	}
+
+	public GDEventDispatcher getGdEventDispatcher() {
+		return gdEventDispatcher;
+	}
+
+	public GDEventScannerLoop getScannerLoop() {
+		return scannerLoop;
+	}
+
+	public Map<Long, List<Message>> getBroadcastedLevels() {
+		return broadcastedLevels;
+	}
+
+	public BroadcastPreloader getPreloader() {
+		return preloader;
+	}
+
+	public int getEventFluxBufferSize() {
+		return eventFluxBufferSize;
+	}
+
+	public GDEventSubscriber getSubscriber() {
+		return subscriber;
+	}
+
+	public boolean isPreloadChannelsOnStartup() {
+		return preloadChannelsOnStartup;
+	}
+
+	public int getBroadcastParallelism() {
+		return broadcastParallelism;
+	}
+
 }

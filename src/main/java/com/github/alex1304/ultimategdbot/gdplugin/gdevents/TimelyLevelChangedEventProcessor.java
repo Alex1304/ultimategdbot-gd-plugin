@@ -1,16 +1,13 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
-import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -23,9 +20,8 @@ import reactor.core.publisher.Mono;
 
 public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<TimelyLevelChangedEvent> {
 	
-	public TimelyLevelChangedEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
-			AuthenticatedGDClient gdClient) {
-		super(TimelyLevelChangedEvent.class, bot, preloader, broadcastedMessages, gdClient);
+	public TimelyLevelChangedEventProcessor(GDPlugin plugin) {
+		super(TimelyLevelChangedEvent.class, plugin);
 	}
 
 	@Override
@@ -45,7 +41,7 @@ public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<T
 		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return event.getTimelyLevel().getLevel()
-				.flatMap(level -> GDUtils.shortLevelView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
+				.flatMap(level -> GDUtils.shortLevelView(plugin.getBot(), level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
 						.<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 							mcs.setContent((event instanceof LateTimelyLevelChangedEvent
 									? "[Late announcement] "
@@ -73,7 +69,7 @@ public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<T
 	@Override
 	Mono<Long> accountIdGetter(TimelyLevelChangedEvent event) {
 		return event.getTimelyLevel().getLevel()
-				.flatMap(level -> gdClient.searchUser("" + level.getCreatorID()))
+				.flatMap(level -> plugin.getGdClient().searchUser("" + level.getCreatorID()))
 				.map(GDUser::getAccountId);
 	}
 }

@@ -3,17 +3,14 @@ package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdashevents.event.GDEvent;
-import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -32,29 +29,22 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 
 	static final Random RANDOM_GENERATOR = new Random();
 	
-	final Bot bot;
-	final Map<Long, List<Message>> broadcastedLevels;
-	final AuthenticatedGDClient gdClient;
-	final BroadcastPreloader preloader;
+	final GDPlugin plugin;
 	
-	public AbstractGDEventProcessor(Class<E> clazz, Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
-			AuthenticatedGDClient gdClient) {
+	public AbstractGDEventProcessor(Class<E> clazz, GDPlugin plugin) {
 		super(clazz);
-		this.bot = Objects.requireNonNull(bot);
-		this.preloader = Objects.requireNonNull(preloader);
-		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
-		this.gdClient = Objects.requireNonNull(gdClient);
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
 	public Mono<Void> process0(E t) {
-		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText(t))
+		return Mono.zip(plugin.getBot().getEmoji("info"), plugin.getBot().getEmoji("success"))
+				.flatMap(emojis -> plugin.getBot().log(emojis.getT1() + " GD event fired: " + logText(t))
 						.onErrorResume(e -> Mono.empty())
-						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
+						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.parallel(12).runOn(Schedulers.parallel())
+								.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.parallel())
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), false, 1)
 								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 								.elapsed()
@@ -63,7 +53,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 									var formattedTime = BotUtils.formatTimeMillis(time);
 									var messageList = tupleOfTimeAndMessageList.getT2();
 									onBroadcastSuccess(t, messageList);
-									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
+									return plugin.getBot().log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
 											+ "Successfully notified **" + messageList.size() + "** guilds!\n"
 											+ "**Execution time: " + formattedTime + "**\n"
 											+ "**Average broadcast speed: " + ((int) ((messageList.size() / (double) time.toMillis()) * 1000)) + " messages/s**")
@@ -79,7 +69,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	abstract Mono<Long> accountIdGetter(E event);
 	
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
-		return preloader.preloadChannel(Snowflake.of(entityFieldChannel(subscribedGuild)))
+		return plugin.getPreloader().preloadChannel(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.map(channel -> Tuples.of(subscribedGuild, channel))
 				.onErrorResume(e -> Mono.empty());
 	}
@@ -87,7 +77,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<MessageChannel, Optional<Role>>> findRole(Tuple2<GDSubscribedGuilds, MessageChannel> tuple) {
 		var subscribedGuild = tuple.getT1();
 		var channel = tuple.getT2();
-		return preloader.preloadRole(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(entityFieldRole(subscribedGuild)))
+		return plugin.getPreloader().preloadRole(Snowflake.of(subscribedGuild.getGuildId()), Snowflake.of(entityFieldRole(subscribedGuild)))
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())
 				.defaultIfEmpty(Optional.empty())
@@ -97,8 +87,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 
 	Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
 		return accountIdGetter(event)
-				.flatMapMany(accountId -> bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
-				.flatMap(linkedUser -> bot.getMainDiscordClient().getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
+				.flatMapMany(accountId -> plugin.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
+				.flatMap(linkedUser -> plugin.getBot().getMainDiscordClient().getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
 				.flatMap(User::getPrivateChannel)
 				.onErrorResume(e -> Mono.empty())
 				.map(channel -> Tuples.of(channel, Optional.empty()));

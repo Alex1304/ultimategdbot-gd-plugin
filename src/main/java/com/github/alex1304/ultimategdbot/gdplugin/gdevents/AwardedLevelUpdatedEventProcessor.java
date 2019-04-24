@@ -1,54 +1,51 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
-import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
-import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<AwardedLevelUpdatedEvent> {
 
-	private final Bot bot;
-	private final Map<Long, List<Message>> broadcastedLevels;
+	private final GDPlugin plugin;
 	
-	public AwardedLevelUpdatedEventProcessor(Bot bot, Map<Long, List<Message>> broadcastedMessages) {
+	public AwardedLevelUpdatedEventProcessor(GDPlugin plugin) {
 		super(AwardedLevelUpdatedEvent.class);
-		this.bot = Objects.requireNonNull(bot);
-		this.broadcastedLevels = Objects.requireNonNull(broadcastedMessages);
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
 	public Mono<Void> process0(AwardedLevelUpdatedEvent t) {
-		var messageList = broadcastedLevels.getOrDefault(t.getNewLevel().getId(), List.of());
+		var messageList = plugin.getBroadcastedLevels().getOrDefault(t.getNewLevel().getId(), List.of());
 		var logText = "**Awarded Level Updated** for level " + GDUtils.levelToString(t.getNewLevel());
-		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText)
+		return Mono.zip(plugin.getBot().getEmoji("info"), plugin.getBot().getEmoji("success"))
+				.flatMap(emojis -> plugin.getBot().log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.subscribeOn(Schedulers.parallel())
-								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
+								.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.parallel())
+								.flatMap(message -> GDUtils.shortLevelView(plugin.getBot(), t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
-										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())), Integer.MAX_VALUE, Integer.MAX_VALUE)
-								.collectList()
+										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())), false, 1)
+								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());
 									var formattedTime = BotUtils.formatTimeMillis(time);
-									var oldList = broadcastedLevels.put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
+									var oldList = plugin.getBroadcastedLevels().put(t.getNewLevel().getId(), tupleOfTimeAndMessageList.getT2());
 									if (oldList == null) {
-										return bot.log(emojis.getT1() + " Skipping " + logText + ": list of messages to edit is no longer available.");
+										return plugin.getBot().log(emojis.getT1() + " Skipping " + logText + ": list of messages to edit is no longer available.");
 									}
-									return bot.log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
+									return plugin.getBot().log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
 											+ "Successfully edited **" + messageList.size() + "/" + oldList.size() + "** messages!\n"
 											+ "**Execution time: " + formattedTime + "**\n"
 											+ "**Average speed: " + ((int) ((messageList.size() / (double) time.toMillis()) * 1000)) + " messages/s**")

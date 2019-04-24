@@ -1,21 +1,11 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
-import java.util.List;
-import java.util.Map;
-
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdash.graphics.SpriteFactory;
-import com.github.alex1304.jdash.util.GDUserIconSet;
-import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
-
-import discord4j.core.object.entity.Message;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 
 public class UserDemotedFromElderEventProcessor extends UserEventSubscriber<UserDemotedFromElderEvent> {
 
-	public UserDemotedFromElderEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
-			SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache, AuthenticatedGDClient gdClient) {
-		super(UserDemotedFromElderEvent.class, bot, preloader, broadcastedMessages, spriteFactory, iconsCache, gdClient);
+	public UserDemotedFromElderEventProcessor(GDPlugin plugin) {
+		super(UserDemotedFromElderEvent.class, plugin);
 	}
 
 	@Override

@@ -1,15 +1,12 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
-import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.BroadcastPreloader;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
@@ -30,9 +27,8 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 			"NOOOOOOO I liked this level... No more stars :'("
 	};
 
-	public AwardedLevelRemovedEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
-			AuthenticatedGDClient gdClient) {
-		super(AwardedLevelRemovedEvent.class, bot, preloader, broadcastedMessages, gdClient);
+	public AwardedLevelRemovedEventProcessor(GDPlugin plugin) {
+		super(AwardedLevelRemovedEvent.class, plugin);
 	}
 
 	@Override
@@ -47,7 +43,7 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	Mono<Message> sendOne(AwardedLevelRemovedEvent event, MessageChannel channel, Optional<Role> roleToTag) {
-		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+		return GDUtils.shortLevelView(plugin.getBot(), event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "I'm sorry to announce this, but your level got unrated..."
 							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));
@@ -71,6 +67,6 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	Mono<Long> accountIdGetter(AwardedLevelRemovedEvent event) {
-		return gdClient.searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId);
+		return plugin.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId);
 	}
 }
