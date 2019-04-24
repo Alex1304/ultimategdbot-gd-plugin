@@ -13,7 +13,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<AwardedLevelUpdatedEvent> {
 
@@ -35,7 +34,6 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.subscribeOn(Schedulers.elastic())
 								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())), Integer.MAX_VALUE, Integer.MAX_VALUE)
@@ -51,7 +49,8 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
 											+ "Successfully edited **" + messageList.size() + "/" + oldList.size() + "** messages!\n"
 											+ "**Execution time: " + formattedTime + "**\n"
-											+ "**Average speed: " + (messageList.size() / time.toSeconds()) + " messages/s**").onErrorResume(e -> Mono.empty());
+											+ "**Average speed: " + ((int) ((messageList.size() / (double) time.toMillis()) * 1000)) + " messages/s**")
+													.onErrorResume(e -> Mono.empty());
 								}))).then();
 	}
 

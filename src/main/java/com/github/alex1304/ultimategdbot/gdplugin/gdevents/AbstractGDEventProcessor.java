@@ -65,8 +65,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 									return bot.log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
 											+ "Successfully notified **" + messageList.size() + "** guilds!\n"
 											+ "**Execution time: " + formattedTime + "**\n"
-											+ "**Average broadcast speed: " + (messageList.size() / time.toSeconds()) + " messages/s**")
-											.onErrorResume(e -> Mono.empty());
+											+ "**Average broadcast speed: " + ((int) ((messageList.size() / (double) time.toMillis()) * 1000)) + " messages/s**")
+													.onErrorResume(e -> Mono.empty());
 								}))).then();
 	}
 	
@@ -94,7 +94,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	}
 	
 
-	private Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
+	Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
 		return accountIdGetter(event)
 				.flatMapMany(accountId -> bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))
 				.flatMap(linkedUser -> bot.getMainDiscordClient().getUserById(Snowflake.of(linkedUser.getDiscordUserId())))

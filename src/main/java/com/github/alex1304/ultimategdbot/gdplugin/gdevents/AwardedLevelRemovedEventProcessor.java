@@ -21,6 +21,14 @@ import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
 
 public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<AwardedLevelRemovedEvent> {
+	
+	private static final String[] RANDOM_MESSAGES = new String[] {
+			"This level just got un-rated from Geometry Dash...",
+			"Oh snap! RobTop decided to un-rate this level!",
+			"RobTop took away stars from this level. FeelsBadMan",
+			"Sad news. This level is no longer rated...",
+			"NOOOOOOO I liked this level... No more stars :'("
+	};
 
 	public AwardedLevelRemovedEventProcessor(Bot bot, BroadcastPreloader preloader, Map<Long, List<Message>> broadcastedMessages,
 			AuthenticatedGDClient gdClient) {
@@ -39,17 +47,10 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	Mono<Message> sendOne(AwardedLevelRemovedEvent event, MessageChannel channel, Optional<Role> roleToTag) {
-		var randomMessages = new String[] {
-				"This level just got un-rated from Geometry Dash...",
-				"Oh snap! RobTop decided to un-rate this level!",
-				"RobTop took away stars from this level. FeelsBadMan",
-				"Sad news. This level is no longer rated...",
-				"NOOOOOOO I liked this level... No more stars :'("
-		};
 		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "I'm sorry to announce this, but your level got unrated..."
-							: randomMessages[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(randomMessages.length)]));
+							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));
 			mcs.setEmbed(embed);
 		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}

@@ -314,7 +314,7 @@ public final class GDUtils {
 	public static Mono<Consumer<EmbedCreateSpec>> levelPaginatorView(Context ctx, GDPaginator<GDLevel> paginator, String title) {
 		return Mono.zip(o -> o, ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"), ctx.getBot().getEmoji("downloads"),
 				ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"), ctx.getBot().getEmoji("user_coin"),
-				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"))
+				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("dislike"))
 				.zipWith(getLevelDifficultyAndSongFromPaginator(ctx, paginator))
 				.map(tuple -> {
 					var emojis = tuple.getT1();
@@ -338,7 +338,7 @@ public final class GDUtils {
 											+ ":musical_note:  **%s**\n _ _",
 											"" + emojis[2],
 											level.getDownloads(),
-											"" + emojis[3],
+											"" + (level.getLikes() > 0 ? emojis[3] : emojis[8]),
 											level.getLikes(),
 											"" + emojis[4],
 											"" + level.getLength(),
