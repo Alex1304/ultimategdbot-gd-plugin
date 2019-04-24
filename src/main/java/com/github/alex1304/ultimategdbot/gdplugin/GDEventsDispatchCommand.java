@@ -23,7 +23,6 @@ import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateTimelyLevelChangedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TestEvent;
 
 import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
@@ -69,9 +68,6 @@ public class GDEventsDispatchCommand implements Command {
 				break;
 			case "awarded_level_updated":
 				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(level -> new AwardedLevelUpdatedEvent(level, level));
-				break;
-			case "test":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(TestEvent::new);
 				break;
 			default:
 				return Mono.error(new InvalidSyntaxException(this));

@@ -33,8 +33,6 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 			"Hey look, a new level got rated OwO Do you think you can beat it?",
 			"Roses are red. Violets are blue. This newly awarded level is waiting for you."
 	};
-	
-	private volatile Mono<Message> testMessage;
 
 	public AwardedLevelAddedEventProcessor(GDPlugin plugin) {
 		super(AwardedLevelAddedEvent.class, plugin);
@@ -54,7 +52,7 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	String logText0(AwardedLevelAddedEvent event) {
-		return (event instanceof TestEvent ? "**Test**" : "**Awarded Level Added**") + " for level " + GDUtils.levelToString(event.getAddedLevel());
+		return "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel());
 	}
 
 	@Override
@@ -69,14 +67,7 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 					+ (channel instanceof PrivateChannel ? "Congratulations for getting your level rated!"
 							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));
 			mcs.setEmbed(embed);
-		}).flatMap(mcs -> event instanceof TestEvent ? channel.type().then(sendTestMessage()) : channel.createMessage(mcs)).onErrorResume(e -> Mono.empty());
-	}
-	
-	Mono<Message> sendTestMessage() {
-		if (testMessage == null) {
-			testMessage = plugin.getBot().log("test").cache();
-		}
-		return testMessage;
+		}).flatMap(channel::createMessage).onErrorResume(e -> Mono.empty());
 	}
 
 	@Override
