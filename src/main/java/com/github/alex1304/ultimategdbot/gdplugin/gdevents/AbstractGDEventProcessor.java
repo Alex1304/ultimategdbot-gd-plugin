@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,9 +54,9 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.subscribeOn(Schedulers.newParallel("gdevent-parallel"))
-								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), Integer.MAX_VALUE, Integer.MAX_VALUE)
-								.collectList()
+								.parallel().runOn(Schedulers.parallel())
+								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
+								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());
