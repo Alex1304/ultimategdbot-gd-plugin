@@ -32,7 +32,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.parallel())
+								.parallel(plugin.getBroadcastParallelism()).runOn(AbstractGDEventProcessor.GDEVENT_SCHEDULER)
 								.flatMap(message -> GDUtils.shortLevelView(plugin.getBot(), t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())), false, 1)
