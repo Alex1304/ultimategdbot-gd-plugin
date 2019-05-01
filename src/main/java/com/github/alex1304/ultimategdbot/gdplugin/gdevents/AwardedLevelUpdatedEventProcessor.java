@@ -12,7 +12,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<AwardedLevelUpdatedEvent> {
 
@@ -32,7 +31,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.parallel(2).runOn(Schedulers.parallel())
+								.parallel(2).runOn(AbstractGDEventProcessor.GDEVENT_SCHEDULER)
 								.flatMap(message -> GDUtils.shortLevelView(plugin.getBot(), t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())))

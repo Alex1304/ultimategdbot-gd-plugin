@@ -22,12 +22,14 @@ import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEventProcessor<E> {
 
 	static final Random RANDOM_GENERATOR = new Random();
+	static final Scheduler GDEVENT_SCHEDULER = Schedulers.newParallel("gdevents-broadcast");
 	
 	final GDPlugin plugin;
 	
@@ -44,7 +46,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.parallel(2).runOn(Schedulers.parallel())
+								.parallel(2).runOn(GDEVENT_SCHEDULER)
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 								.elapsed()
