@@ -44,8 +44,8 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.parallel())
-								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()), false, 1)
+								.parallel(2).runOn(Schedulers.parallel())
+								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {

@@ -2,6 +2,7 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -20,6 +21,7 @@ import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 public class ChangelogCommand implements Command {
 	
@@ -72,7 +74,9 @@ public class ChangelogCommand implements Command {
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
 						.concatMap(preloader::preloadChannel)
-						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()), 12)
+						.parallel(2).runOn(Schedulers.elastic())
+						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
+						.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
 	}
