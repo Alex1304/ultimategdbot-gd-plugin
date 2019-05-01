@@ -150,7 +150,7 @@ public class GDPlugin implements Plugin {
 				new TimelyCommand(gdClient, false), new AccountCommand(gdClient), new LeaderboardCommand(gdClient),
 				new GDEventsCommand(gdClient, gdEventDispatcher, scannerLoop, broadcastedLevels, subscriber, preloader),
 				new CheckModCommand(gdClient, gdEventDispatcher), new ModListCommand(),
-				new FeaturedInfoCommand(gdClient), new ChangelogCommand(preloader),
+				new FeaturedInfoCommand(gdClient), new ChangelogCommand(this),
 				new ClearCacheCommand(gdClient));
 	}
 

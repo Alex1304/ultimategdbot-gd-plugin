@@ -25,10 +25,10 @@ import reactor.core.scheduler.Schedulers;
 
 public class ChangelogCommand implements Command {
 	
-	private final BroadcastPreloader preloader;
+	private final GDPlugin plugin;
 	
-	public ChangelogCommand(BroadcastPreloader preloader) {
-		this.preloader = Objects.requireNonNull(preloader);
+	public ChangelogCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -73,8 +73,8 @@ public class ChangelogCommand implements Command {
 				.then(GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
-						.concatMap(preloader::preloadChannel)
-						.parallel(2).runOn(Schedulers.elastic())
+						.concatMap(plugin.getPreloader()::preloadChannel)
+						.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.elastic())
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
 						.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 						.then(ctx.reply("Changelog sent to all guilds!")))
