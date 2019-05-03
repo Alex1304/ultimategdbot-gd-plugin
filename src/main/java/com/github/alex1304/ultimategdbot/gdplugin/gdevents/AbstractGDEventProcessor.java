@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,16 +20,12 @@ import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
-import reactor.scheduler.forkjoin.ForkJoinPoolScheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEventProcessor<E> {
 
 	static final Random RANDOM_GENERATOR = new Random();
-	static final Scheduler GDEVENT_SCHEDULER = ForkJoinPoolScheduler.create("gdevent-broadcast");
-	
 	final GDPlugin plugin;
 	
 	public AbstractGDEventProcessor(Class<E> clazz, GDPlugin plugin) {
@@ -46,9 +41,9 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.parallel(plugin.getBroadcastParallelism()).runOn(GDEVENT_SCHEDULER)
+								.publishOn(GDUtils.GDEVENT_SCHEDULER)
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
-								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
+								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());
@@ -86,7 +81,6 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.map(role -> Tuples.of(channel, role));
 	}
 	
-
 	Flux<Tuple2<MessageChannel, Optional<Role>>> congrat(E event) {
 		return accountIdGetter(event)
 				.flatMapMany(accountId -> plugin.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where gdAccountId = ?0", accountId))

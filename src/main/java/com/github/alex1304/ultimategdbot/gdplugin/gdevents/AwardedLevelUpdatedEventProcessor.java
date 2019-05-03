@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevents;
 
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -31,11 +30,11 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 						.onErrorResume(e -> Mono.empty())
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.parallel(plugin.getBroadcastParallelism()).runOn(AbstractGDEventProcessor.GDEVENT_SCHEDULER)
+								.publishOn(GDUtils.GDEVENT_SCHEDULER)
 								.flatMap(message -> GDUtils.shortLevelView(plugin.getBot(), t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())))
-								.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
+								.collectList()
 								.elapsed()
 								.flatMap(tupleOfTimeAndMessageList -> {
 									var time = Duration.ofMillis(tupleOfTimeAndMessageList.getT1());

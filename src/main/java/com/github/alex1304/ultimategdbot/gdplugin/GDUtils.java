@@ -53,14 +53,18 @@ import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.function.TupleUtils;
+import reactor.scheduler.forkjoin.ForkJoinPoolScheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 public final class GDUtils {
+
 	private GDUtils() {
 	}
 
+	public static final Scheduler GDEVENT_SCHEDULER = ForkJoinPoolScheduler.create("gdevent-broadcast");
 	public static final Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> DEFAULT_GD_ERROR_ACTIONS = defaultGDErrorActions();
 	public static final Map<String, String> DIFFICULTY_IMAGES = difficultyImages();
 	public static final Map<Integer, String> GAME_VERSIONS = gameVersions();

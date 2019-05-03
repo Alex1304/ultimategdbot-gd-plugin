@@ -58,8 +58,6 @@ public class GDPlugin implements Plugin {
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
-	private int broadcastParallelism;
-
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -73,7 +71,6 @@ public class GDPlugin implements Plugin {
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
-		this.broadcastParallelism = parser.parseAsIntOrDefault("gdplugin.broadcast_parallelism", Runtime.getRuntime().availableProcessors());
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -263,9 +260,4 @@ public class GDPlugin implements Plugin {
 	public boolean isPreloadChannelsOnStartup() {
 		return preloadChannelsOnStartup;
 	}
-
-	public int getBroadcastParallelism() {
-		return broadcastParallelism;
-	}
-
 }

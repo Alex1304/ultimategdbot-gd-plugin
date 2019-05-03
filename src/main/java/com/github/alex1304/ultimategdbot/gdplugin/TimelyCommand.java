@@ -87,7 +87,7 @@ public class TimelyCommand implements Command {
 		map.put(NoTimelyAvailableException.class, (error, ctx) -> {
 			ctx.getBot().getEmoji("cross")
 					.flatMap(cross -> ctx.reply(cross + " There is no " + (isWeekly ? "Weekly Demon" : "Daily level")
-							+ " available right now. Come back later!")).doOnError(__ -> {})
+							+ " available right now. Come back later!")).onErrorResume(e -> Mono.empty())
 					.subscribe();
 		});
 		return map;

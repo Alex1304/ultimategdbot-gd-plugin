@@ -133,7 +133,7 @@ public class GDEventsDispatchCommand implements Command {
 		map.put(NoTimelyAvailableException.class, (error, ctx) -> {
 			ctx.getBot().getEmoji("cross")
 					.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
-					.doOnError(__ -> {})
+					.onErrorResume(e -> Mono.empty())
 					.subscribe();
 		});
 		return map;

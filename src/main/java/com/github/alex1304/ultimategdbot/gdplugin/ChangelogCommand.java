@@ -74,9 +74,8 @@ public class ChangelogCommand implements Command {
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
 						.concatMap(plugin.getPreloader()::preloadChannel)
-						.parallel(plugin.getBroadcastParallelism()).runOn(Schedulers.elastic())
+						.publishOn(GDUtils.GDEVENT_SCHEDULER)
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
-						.collectSortedList(Comparator.comparing(m -> m.getId().asLong()), 1000)
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
 	}
