@@ -1,38 +1,31 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.time.Duration;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class TimelyCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
+	private final GDPlugin plugin;
 	private final boolean isWeekly;
 
-	public TimelyCommand(AuthenticatedGDClient gdClient, boolean isWeekly) {
-		this.gdClient = Objects.requireNonNull(gdClient);
+	public TimelyCommand(GDPlugin plugin, boolean isWeekly) {
+		this.plugin = Objects.requireNonNull(plugin);
 		this.isWeekly = isWeekly;
 	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		var rb = new ReplyMenuBuilder(ctx, true, false);
-		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
+		var timelyMono = isWeekly ? plugin.getGdClient().getWeeklyDemon() : plugin.getGdClient().getDailyLevel();
 		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return timelyMono.flatMap(timely -> timely.getLevel()
@@ -52,11 +45,6 @@ public class TimelyCommand implements Command {
 	}
 
 	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
-	}
-
-	@Override
 	public String getDescription() {
 		return "Displays info on the current " + (isWeekly ? "Weekly Demon" : "Daily level") + ".";
 	}
@@ -72,24 +60,7 @@ public class TimelyCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		var map = new HashMap<Class<? extends Throwable>, BiConsumer<Throwable, Context>>(GDUtils.DEFAULT_GD_ERROR_ACTIONS);
-		map.put(NoTimelyAvailableException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross")
-					.flatMap(cross -> ctx.reply(cross + " There is no " + (isWeekly ? "Weekly Demon" : "Daily level")
-							+ " available right now. Come back later!")).onErrorResume(e -> Mono.empty())
-					.subscribe();
-		});
-		return map;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

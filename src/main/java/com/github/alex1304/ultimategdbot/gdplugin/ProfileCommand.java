@@ -1,34 +1,23 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
-import com.github.alex1304.jdash.graphics.SpriteFactory;
-import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class ProfileCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	private final SpriteFactory spriteFactory;
-	private final Map<GDUserIconSet, String[]> iconsCache;
+	private final GDPlugin plugin;
 
-	public ProfileCommand(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, Map<GDUserIconSet, String[]> iconsCache) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.spriteFactory = Objects.requireNonNull(spriteFactory);
-		this.iconsCache = Objects.requireNonNull(iconsCache);
+	public ProfileCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -40,14 +29,14 @@ public class ProfileCommand implements Command {
 					.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to show your own profile, "
 							+ "link your Geometry Dash account using `" + ctx.getPrefixUsed() + "account` and retry this command. Otherwise, you "
 									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))
-					.flatMap(linkedUser -> showProfile(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
+					.flatMap(linkedUser -> showProfile(ctx, plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())));
 		}
 		var input = ArgUtils.concatArgs(ctx, 1);
-		return showProfile(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
+		return showProfile(ctx, GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), input));
 	}
 	
 	public Mono<Void> showProfile(Context ctx, Mono<GDUser> userMono) {
-		return userMono.flatMap(user -> GDUtils.makeIconSet(ctx.getBot(), user, spriteFactory, iconsCache)
+		return userMono.flatMap(user -> GDUtils.makeIconSet(ctx.getBot(), user, plugin.getSpriteFactory(), plugin.getIconsCache())
 				.flatMap(urls -> GDUtils.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
 								"User profile", "https://i.imgur.com/ppg4HqJ.png", urls[0], urls[1])
 						.flatMap(view -> ctx.reply(view))))
@@ -57,11 +46,6 @@ public class ProfileCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("profile");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -89,17 +73,7 @@ public class ProfileCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

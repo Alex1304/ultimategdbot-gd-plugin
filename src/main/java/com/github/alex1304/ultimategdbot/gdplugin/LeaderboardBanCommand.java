@@ -1,35 +1,31 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
-import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 
 public class LeaderboardBanCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	
-	public LeaderboardBanCommand(AuthenticatedGDClient gdClient) {
-		this.gdClient = Objects.requireNonNull(gdClient);
+	private final GDPlugin plugin;
+
+	public LeaderboardBanCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
-		return GDUtils.stringToUser(ctx.getBot(), gdClient, ArgUtils.concatArgs(ctx, 1))
+		return GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), ArgUtils.concatArgs(ctx, 1))
 				.flatMap(gdUser -> ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
 						.flatMap(__ -> Mono.error(new CommandFailedException("This user is already banned.")))
 						.then(Mono.just(new GDLeaderboardBans())
@@ -46,11 +42,6 @@ public class LeaderboardBanCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("ban");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -76,13 +67,7 @@ public class LeaderboardBanCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
+	public Plugin getPlugin() {
+		return plugin;
 	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
-	}
-
 }

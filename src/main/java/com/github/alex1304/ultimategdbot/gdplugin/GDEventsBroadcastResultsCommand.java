@@ -1,31 +1,26 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
 import discord4j.core.object.entity.Channel;
-import discord4j.core.object.entity.Message;
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class GDEventsBroadcastResultsCommand implements Command {
 	
-	private final Map<Long, List<Message>> broadcastedLevels;
+	private final GDPlugin plugin;
 
-	public GDEventsBroadcastResultsCommand(Map<Long, List<Message>> broadcastedLevels) {
-		this.broadcastedLevels = Objects.requireNonNull(broadcastedLevels);
+	public GDEventsBroadcastResultsCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -38,16 +33,16 @@ public class GDEventsBroadcastResultsCommand implements Command {
 						.append( " in case an **Awarded Level Updated** event is dispatched.\n")
 						.append( "Only the last 10 results are saved here. Older ones automatically get deleted in order to ")
 						.append("save resources and avoid memory leaks.\n\n");
-				if (broadcastedLevels.isEmpty()) {
+				if (plugin.getBroadcastedLevels().isEmpty()) {
 					sb.append("There is nothing here yet!");
 				}
-				broadcastedLevels.forEach((k, v) -> sb.append("LevelID **")
+				plugin.getBroadcastedLevels().forEach((k, v) -> sb.append("LevelID **")
 						.append(k).append("** => **").append(v.size()).append("** messages sent\n"));
 				return BotUtils.sendMultipleSimpleMessagesToOneChannel(ctx.getEvent().getMessage().getChannel()
 						.cast(Channel.class), BotUtils.chunkMessage(sb.toString()))
 						.then();
 			case "clear":
-				broadcastedLevels.clear();
+				plugin.getBroadcastedLevels().clear();
 				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Broadcast results cleared!")).then();
 			case "remove":
 				var fail = new CommandFailedException("Please give a valid levelID present in the broadcast results");
@@ -56,10 +51,10 @@ public class GDEventsBroadcastResultsCommand implements Command {
 				}
 				try {
 					var key = Long.parseLong(ctx.getArgs().get(2));
-					if (!broadcastedLevels.containsKey(key)) {
+					if (!plugin.getBroadcastedLevels().containsKey(key)) {
 						return Mono.error(new CommandFailedException("Entry not found."));
 					}
-					broadcastedLevels.remove(key);
+					plugin.getBroadcastedLevels().remove(key);
 					return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Data for " + key + " has been removed."))
 							.then();
 				} catch (NumberFormatException e) {
@@ -73,11 +68,6 @@ public class GDEventsBroadcastResultsCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("broadcast_results");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -101,13 +91,7 @@ public class GDEventsBroadcastResultsCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
+	public Plugin getPlugin() {
+		return plugin;
 	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return Map.of();
-	}
-
 }

@@ -1,15 +1,8 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
-import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
 import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
@@ -19,22 +12,20 @@ import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateAwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.LateTimelyLevelChangedEvent;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class GDEventsDispatchCommand implements Command {
+	
+	private final GDPlugin plugin;
 
-	private final AuthenticatedGDClient gdClient;
-	private final GDEventDispatcher gdEventDispatcher;
-
-	public GDEventsDispatchCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
+	public GDEventsDispatchCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -43,37 +34,37 @@ public class GDEventsDispatchCommand implements Command {
 		Mono<GDEvent> eventToDispatch;
 		switch (ctx.getArgs().get(1)) {
 			case "daily_level_changed":
-				eventToDispatch = gdClient.getDailyLevel().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = plugin.getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
 				break;
 			case "late_daily_level_changed":
-				eventToDispatch = gdClient.getDailyLevel().map(LateTimelyLevelChangedEvent::new);
+				eventToDispatch = plugin.getGdClient().getDailyLevel().map(LateTimelyLevelChangedEvent::new);
 				break;
 			case "weekly_demon_changed":
-				eventToDispatch = gdClient.getWeeklyDemon().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = plugin.getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
 				break;
 			case "late_weekly_demon_changed":
-				eventToDispatch = gdClient.getWeeklyDemon().map(LateTimelyLevelChangedEvent::new);
+				eventToDispatch = plugin.getGdClient().getWeeklyDemon().map(LateTimelyLevelChangedEvent::new);
 				break;
 			case "awarded_level_added":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(AwardedLevelAddedEvent::new);
+				eventToDispatch = plugin.getGdClient().getLevelById(convertSecondArgToID(ctx)).map(AwardedLevelAddedEvent::new);
 				break;
 			case "late_awarded_level_added":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(LateAwardedLevelAddedEvent::new);
+				eventToDispatch = plugin.getGdClient().getLevelById(convertSecondArgToID(ctx)).map(LateAwardedLevelAddedEvent::new);
 				break;
 			case "awarded_level_removed":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(AwardedLevelRemovedEvent::new);
+				eventToDispatch = plugin.getGdClient().getLevelById(convertSecondArgToID(ctx)).map(AwardedLevelRemovedEvent::new);
 				break;
 			case "late_awarded_level_removed":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(LateAwardedLevelRemovedEvent::new);
+				eventToDispatch = plugin.getGdClient().getLevelById(convertSecondArgToID(ctx)).map(LateAwardedLevelRemovedEvent::new);
 				break;
 			case "awarded_level_updated":
-				eventToDispatch = gdClient.getLevelById(convertSecondArgToID(ctx)).map(level -> new AwardedLevelUpdatedEvent(level, level));
+				eventToDispatch = plugin.getGdClient().getLevelById(convertSecondArgToID(ctx)).map(level -> new AwardedLevelUpdatedEvent(level, level));
 				break;
 			default:
 				return Mono.error(new InvalidSyntaxException(this));
 		}
 		
-		return eventToDispatch.doOnNext(gdEventDispatcher::dispatch)
+		return eventToDispatch.doOnNext(plugin.getGdEventDispatcher()::dispatch)
 				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
 				.then();
 	}
@@ -86,11 +77,6 @@ public class GDEventsDispatchCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("dispatch");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -123,19 +109,7 @@ public class GDEventsDispatchCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		var map = new HashMap<Class<? extends Throwable>, BiConsumer<Throwable, Context>>(GDUtils.DEFAULT_GD_ERROR_ACTIONS);
-		map.put(NoTimelyAvailableException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross")
-					.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
-					.onErrorResume(e -> Mono.empty())
-					.subscribe();
-		});
-		return map;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

@@ -41,7 +41,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
-								.publishOn(GDUtils.GDEVENT_SCHEDULER)
+								.publishOn(plugin.getGdEventScheduler())
 								.flatMap(tuple -> sendOne(t, tuple.getT1(), tuple.getT2()))
 								.collectList()
 								.elapsed()

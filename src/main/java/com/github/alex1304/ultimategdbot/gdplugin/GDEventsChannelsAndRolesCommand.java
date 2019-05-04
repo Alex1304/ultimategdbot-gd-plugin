@@ -1,28 +1,25 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 
-import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 
 public class GDEventsChannelsAndRolesCommand implements Command {
 	
-	private final BroadcastPreloader preloader;
+	private final GDPlugin plugin;
 
-	public GDEventsChannelsAndRolesCommand(BroadcastPreloader preloader) {
-		this.preloader = Objects.requireNonNull(preloader);
+	public GDEventsChannelsAndRolesCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -33,23 +30,23 @@ public class GDEventsChannelsAndRolesCommand implements Command {
 		switch (ctx.getArgs().get(1).toLowerCase()) {
 			case "preload":
 				return ctx.reply("Processing...")
-						.flatMap(wait -> GDUtils.preloadBroadcastChannelsAndRoles(ctx.getBot(), preloader)
+						.flatMap(wait -> GDUtils.preloadBroadcastChannelsAndRoles(ctx.getBot(), plugin.getPreloader())
 								.flatMap(count -> ctx.reply("Sucessfully preloaded **" + count.getT1() + "** channels and **" + count.getT2() + "** roles!"))
 								.then(wait.delete()));
 			case "unload":
-				preloader.unload();
+				plugin.getPreloader().unload();
 				return ctx.reply("Broadcast channels and roles have been unloaded.").then();
 			case "purge_unused":
-				if (preloader.getInvalidChannelSnowflakes().isEmpty() && preloader.getInvalidRoleSnowflakes().isEmpty()) {
+				if (plugin.getPreloader().getInvalidChannelSnowflakes().isEmpty() && plugin.getPreloader().getInvalidRoleSnowflakes().isEmpty()) {
 					return Mono.error(new CommandFailedException("Nothing to clean. Maybe try preloading again first?"));
 				}
 				return ctx.reply("Processing...")
 						.flatMap(wait -> GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "").collectList()
 								.flatMap(subscribedList -> ctx.getBot().getDatabase().performTransaction(session -> {
-									var invalidChannels = preloader.getInvalidChannelSnowflakes().stream()
+									var invalidChannels = plugin.getPreloader().getInvalidChannelSnowflakes().stream()
 											.map(Snowflake::asLong)
 											.collect(Collectors.toSet());
-									var invalidRoles = preloader.getInvalidRoleSnowflakes().stream()
+									var invalidRoles = plugin.getPreloader().getInvalidRoleSnowflakes().stream()
 											.map(Snowflake::asLong)
 											.collect(Collectors.toSet());
 									var updatedCount = 0;
@@ -104,11 +101,6 @@ public class GDEventsChannelsAndRolesCommand implements Command {
 	}
 
 	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
-	}
-
-	@Override
 	public String getDescription() {
 		return "Manage channels and roles configured to receive GD event announcements.";
 	}
@@ -136,13 +128,7 @@ public class GDEventsChannelsAndRolesCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
+	public Plugin getPlugin() {
+		return plugin;
 	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
-	}
-
 }

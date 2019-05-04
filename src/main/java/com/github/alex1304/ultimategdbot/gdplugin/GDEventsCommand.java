@@ -1,42 +1,22 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
-import com.github.alex1304.jdashevents.GDEventDispatcher;
-import com.github.alex1304.jdashevents.GDEventScannerLoop;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventSubscriber;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 
-import discord4j.core.object.entity.Channel.Type;
-import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
 
 public class GDEventsCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	private final GDEventDispatcher gdEventDispatcher;
-	private final GDEventScannerLoop scannerLoop;
-	private final Map<Long, List<Message>> broadcastedLevels;
-	private final GDEventSubscriber subscriber;
-	private final BroadcastPreloader preloader;
+	private final GDPlugin plugin;
 
-	public GDEventsCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher, GDEventScannerLoop scannerLoop,
-			Map<Long, List<Message>> broadcastedLevels, GDEventSubscriber subscriber, BroadcastPreloader preloader) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
-		this.scannerLoop = Objects.requireNonNull(scannerLoop);
-		this.broadcastedLevels = Objects.requireNonNull(broadcastedLevels);
-		this.subscriber = Objects.requireNonNull(subscriber);
-		this.preloader = Objects.requireNonNull(preloader);
+	public GDEventsCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -51,9 +31,9 @@ public class GDEventsCommand implements Command {
 
 	@Override
 	public Set<Command> getSubcommands() {
-		return Set.of(new GDEventsDispatchCommand(gdClient, gdEventDispatcher), new GDEventsScannerLoopCommand(scannerLoop),
-				new GDEventsBroadcastResultsCommand(broadcastedLevels), new GDEventsReleaseNextCommand(subscriber),
-				new GDEventsChannelsAndRolesCommand(preloader));
+		return Set.of(new GDEventsDispatchCommand(plugin), new GDEventsScannerLoopCommand(plugin),
+				new GDEventsBroadcastResultsCommand(plugin),
+				new GDEventsChannelsAndRolesCommand(plugin));
 	}
 
 	@Override
@@ -78,13 +58,7 @@ public class GDEventsCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
+	public Plugin getPlugin() {
+		return plugin;
 	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return Map.of();
-	}
-
 }

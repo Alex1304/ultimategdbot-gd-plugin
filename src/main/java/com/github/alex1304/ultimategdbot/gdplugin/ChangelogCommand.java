@@ -2,26 +2,21 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
-import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class ChangelogCommand implements Command {
 	
@@ -74,7 +69,7 @@ public class ChangelogCommand implements Command {
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
 						.concatMap(plugin.getPreloader()::preloadChannel)
-						.publishOn(GDUtils.GDEVENT_SCHEDULER)
+						.publishOn(plugin.getGdEventScheduler())
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
@@ -83,11 +78,6 @@ public class ChangelogCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("changelog");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -111,12 +101,7 @@ public class ChangelogCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return Map.of();
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

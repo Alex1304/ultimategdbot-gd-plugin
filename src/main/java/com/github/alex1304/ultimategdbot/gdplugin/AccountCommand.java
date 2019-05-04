@@ -1,31 +1,26 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
 public class AccountCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
+	private final GDPlugin plugin;
 	private final AccountLinkCommand linkSubcmd;
 	private final AccountUnlinkCommand unlinkSubcmd;
 	
-	public AccountCommand(AuthenticatedGDClient gdClient) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.linkSubcmd = new AccountLinkCommand(gdClient);
-		this.unlinkSubcmd = new AccountUnlinkCommand();
+	public AccountCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
+		this.linkSubcmd = new AccountLinkCommand(plugin);
+		this.unlinkSubcmd = new AccountUnlinkCommand(plugin);
 	}
 
 	@Override
@@ -36,7 +31,7 @@ public class AccountCommand implements Command {
 		final var unlinksubalias = BotUtils.joinAliases(unlinkSubcmd.getAliases());
 		return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
 				.filter(GDLinkedUsers::getIsLinkActivated)
-				.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
+				.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId()))
 				.map(user -> Tuples.of(true, "You are currently linked to the Geometry Dash account **" + user.getName() + "**!"))
 				.defaultIfEmpty(Tuples.of(false, "You are not yet linked to any Geometry Dash account!"))
 				.flatMap(tuple -> ctx.reply("You can link your Discord account with your Geometry Dash account "
@@ -83,17 +78,7 @@ public class AccountCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

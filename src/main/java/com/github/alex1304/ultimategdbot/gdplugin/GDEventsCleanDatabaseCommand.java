@@ -1,9 +1,8 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.ToLongFunction;
@@ -11,14 +10,20 @@ import java.util.function.ToLongFunction;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 
 import discord4j.core.DiscordClient;
-import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class GDEventsCleanDatabaseCommand implements Command {
+	
+	private final GDPlugin plugin;
+
+	public GDEventsCleanDatabaseCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
+	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
@@ -68,11 +73,6 @@ public class GDEventsCleanDatabaseCommand implements Command {
 	}
 
 	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
-	}
-
-	@Override
 	public String getDescription() {
 		return "Clean up from database references to channels and roles that aren't valid anymore.";
 	}
@@ -94,12 +94,7 @@ public class GDEventsCleanDatabaseCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

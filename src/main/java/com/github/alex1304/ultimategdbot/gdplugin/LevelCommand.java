@@ -1,35 +1,30 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class LevelCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
+	private final GDPlugin plugin;
 	private final boolean byUser;
 
-	public LevelCommand(AuthenticatedGDClient gdClient, boolean byUser) {
-		this.gdClient = Objects.requireNonNull(gdClient);
+	public LevelCommand(GDPlugin plugin, boolean byUser) {
+		this.plugin = Objects.requireNonNull(plugin);
 		this.byUser = byUser;
 	}
-
+	
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
@@ -41,13 +36,13 @@ public class LevelCommand implements Command {
 		var paginatorMono = (Mono<GDPaginator<GDLevel>>) ctx.getVar("paginator", Mono.class);
 		if (paginatorMono == null) {
 			if (byUser) {
-				ctx.setVar("paginator", GDUtils.stringToUser(ctx.getBot(), gdClient, input)
+				ctx.setVar("paginator", GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), input)
 						.flatMap(user -> {
 							ctx.setVar("creatorName", user.getName());
-							return gdClient.getLevelsByUser(user, 0);
+							return plugin.getGdClient().getLevelsByUser(user, 0);
 						}));
 			} else {
-				ctx.setVar("paginator", gdClient.searchLevels(input, LevelSearchFilters.create(), 0));
+				ctx.setVar("paginator", plugin.getGdClient().searchLevels(input, LevelSearchFilters.create(), 0));
 			}
 			return ctx.getBot().getCommandKernel().invokeCommand(this, ctx).onErrorResume(e -> Mono.empty());
 		}
@@ -95,11 +90,6 @@ public class LevelCommand implements Command {
 	}
 
 	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
-	}
-
-	@Override
 	public String getDescription() {
 		return byUser ? "Browse levels from a specific player in Geometry Dash." : "Searches for online levels in Geometry Dash.";
 	}
@@ -116,17 +106,7 @@ public class LevelCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

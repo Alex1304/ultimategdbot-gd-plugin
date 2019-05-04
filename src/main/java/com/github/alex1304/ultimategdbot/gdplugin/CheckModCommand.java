@@ -1,37 +1,29 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.Role;
-import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEvent;
 
-import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
 public class CheckModCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	private final GDEventDispatcher gdEventDispatcher;
+	private final GDPlugin plugin;
 
-	public CheckModCommand(AuthenticatedGDClient gdClient, GDEventDispatcher gdEventDispatcher) {
-		this.gdClient = Objects.requireNonNull(gdClient);
-		this.gdEventDispatcher = Objects.requireNonNull(gdEventDispatcher);
+	public CheckModCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -43,10 +35,10 @@ public class CheckModCommand implements Command {
 					.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to check your own mod status, "
 							+ "link your Geometry Dash account using `" + ctx.getPrefixUsed() + "account` and retry this command. Otherwise, you "
 									+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "checkmod <gd_username>`.")))
-					.flatMap(linkedUser -> showModStatus(ctx, gdClient.getUserByAccountId(linkedUser.getGdAccountId())));
+					.flatMap(linkedUser -> showModStatus(ctx, plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())));
 		}
 		var input = ArgUtils.concatArgs(ctx, 1);
-		return showModStatus(ctx, GDUtils.stringToUser(ctx.getBot(), gdClient, input));
+		return showModStatus(ctx, GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), input));
 	}
 	
 	public Mono<Void> showModStatus(Context ctx, Mono<GDUser> userMono) {
@@ -60,14 +52,14 @@ public class CheckModCommand implements Command {
 				.defaultIfEmpty(Optional.empty())
 				.doOnNext(gdModOptional -> gdModOptional.ifPresentOrElse(gdMod -> {
 					if (user.getRole() == Role.USER) {
-						gdEventDispatcher.dispatch(gdMod.getIsElder() ? new UserDemotedFromElderEvent(user) : new UserDemotedFromModEvent(user));
+						plugin.getGdEventDispatcher().dispatch(gdMod.getIsElder() ? new UserDemotedFromElderEvent(user) : new UserDemotedFromModEvent(user));
 						ctx.getBot().getDatabase().delete(gdMod).subscribe();
 					} else {
 						if (user.getRole() == Role.MODERATOR && gdMod.getIsElder()) {
-							gdEventDispatcher.dispatch(new UserDemotedFromElderEvent(user));
+							plugin.getGdEventDispatcher().dispatch(new UserDemotedFromElderEvent(user));
 							gdMod.setIsElder(false);
 						} else if (user.getRole() == Role.ELDER_MODERATOR && !gdMod.getIsElder()) {
-							gdEventDispatcher.dispatch(new UserPromotedToElderEvent(user));
+							plugin.getGdEventDispatcher().dispatch(new UserPromotedToElderEvent(user));
 							gdMod.setIsElder(true);
 						}
 						gdMod.setName(user.getName());
@@ -78,7 +70,7 @@ public class CheckModCommand implements Command {
 						return;
 					}
 					var isElder = user.getRole() == Role.ELDER_MODERATOR;
-					gdEventDispatcher.dispatch(isElder ? new UserPromotedToElderEvent(user) : new UserPromotedToModEvent(user));
+					plugin.getGdEventDispatcher().dispatch(isElder ? new UserPromotedToElderEvent(user) : new UserPromotedToModEvent(user));
 					var gdMod = new GDModList();
 					gdMod.setAccountId(user.getAccountId());
 					gdMod.setName(user.getName());
@@ -91,11 +83,6 @@ public class CheckModCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("checkmod");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -115,17 +102,7 @@ public class CheckModCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
-	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }

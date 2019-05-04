@@ -1,36 +1,32 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.PaginatedReplyMenuBuilder;
 
-import discord4j.core.object.entity.Channel.Type;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
 public class LeaderboardBanListCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	
-	public LeaderboardBanListCommand(AuthenticatedGDClient gdClient) {
-		this.gdClient = Objects.requireNonNull(gdClient);
+	private final GDPlugin plugin;
+
+	public LeaderboardBanListCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		return ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans")
-				.flatMap(ban -> gdClient.getUserByAccountId(ban.getAccountId()).map(user -> Tuples.of(ban, user)))
+				.flatMap(ban -> plugin.getGdClient().getUserByAccountId(ban.getAccountId()).map(user -> Tuples.of(ban, user)))
 				.flatMap(tuple -> ctx.getBot().getMainDiscordClient().getUserById(Snowflake.of(tuple.getT1().getBannedBy()))
 						.map(user -> Tuples.of(tuple.getT2(), BotUtils.formatDiscordUsername(user))))
 				.onErrorResume(e -> Mono.empty())
@@ -49,11 +45,6 @@ public class LeaderboardBanListCommand implements Command {
 	@Override
 	public Set<String> getAliases() {
 		return Set.of("ban_list", "banlist");
-	}
-
-	@Override
-	public Set<Command> getSubcommands() {
-		return Set.of();
 	}
 
 	@Override
@@ -79,13 +70,7 @@ public class LeaderboardBanListCommand implements Command {
 	}
 
 	@Override
-	public EnumSet<Type> getChannelTypesAllowed() {
-		return EnumSet.of(Type.GUILD_TEXT, Type.DM);
+	public Plugin getPlugin() {
+		return plugin;
 	}
-
-	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
-	}
-
 }

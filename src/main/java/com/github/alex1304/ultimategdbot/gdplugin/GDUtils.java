@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.StringJoiner;
-import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -29,9 +27,6 @@ import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
 import com.github.alex1304.jdash.entity.PrivacySetting;
 import com.github.alex1304.jdash.entity.Role;
-import com.github.alex1304.jdash.exception.BadResponseException;
-import com.github.alex1304.jdash.exception.CorruptedResponseContentException;
-import com.github.alex1304.jdash.exception.MissingAccessException;
 import com.github.alex1304.jdash.exception.SongNotAllowedForUseException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDPaginator;
@@ -53,9 +48,7 @@ import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
 import reactor.function.TupleUtils;
-import reactor.scheduler.forkjoin.ForkJoinPoolScheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -64,57 +57,8 @@ public final class GDUtils {
 	private GDUtils() {
 	}
 
-	public static final Scheduler GDEVENT_SCHEDULER = ForkJoinPoolScheduler.create("gdevent-broadcast");
-	public static final Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> DEFAULT_GD_ERROR_ACTIONS = defaultGDErrorActions();
 	public static final Map<String, String> DIFFICULTY_IMAGES = difficultyImages();
 	public static final Map<Integer, String> GAME_VERSIONS = gameVersions();
-
-	private static Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> defaultGDErrorActions() {
-		var map = new HashMap<Class<? extends Throwable>, BiConsumer<Throwable, Context>>();
-		map.put(MissingAccessException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Nothing found.")).onErrorResume(__ -> Mono.empty()).subscribe();
-		});
-		map.put(BadResponseException.class, (error, ctx) -> {
-			BadResponseException e = (BadResponseException) error;
-			var status = e.getResponse().status();
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned a `" + status.code() + " "
-							+ status.reasonPhrase() + "` error. Try again later."))
-					.onErrorResume(__ -> Mono.empty())
-					.subscribe();
-		});
-		map.put(CorruptedResponseContentException.class, (error, ctx) -> {
-			var e = (CorruptedResponseContentException) error;
-			var content = e.getResponseContent();
-			if (content.length() > 500) {
-				content = content.substring(0, 497) + "...";
-			}
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned an invalid response."
-							+ " Unable to show the information you requested. Sorry for the inconvenience."))
-					.onErrorResume(__ -> Mono.empty())
-					.subscribe();
-			ctx.getBot().log(":warning: Geometry Dash server returned an invalid response upon executing `" + ctx.getEvent().getMessage().getContent().get() + "`.\n"
-					+ "Path: `" + e.getRequestPath() + "`\n"
-					+ "Parameters: `" + e.getRequestParams() + "`\n"
-					+ "Response: `" + content + "`\n"
-					+ "Error observed when parsing response: `" + e.getCause().getClass().getCanonicalName()
-							+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
-							+ "` (stack trace available in internal logs)")
-					.onErrorResume(__ -> Mono.empty())
-					.then(Mono.just(0).doOnNext(__ -> ctx.getBot().getLogger().warn("Geometry Dash server returned an invalid response", error)))
-					.subscribe();
-		});
-		map.put(TimeoutException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
-					.onErrorResume(__ -> Mono.empty())
-					.subscribe();
-		});
-		map.put(IOException.class, (error, ctx) -> {
-			ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Cannot connect to Geometry Dash servers due to network issues. Try again later."))
-					.onErrorResume(__ -> Mono.empty())
-					.subscribe();
-		});
-		return Collections.unmodifiableMap(map);
-	}
 
 	public static <T> void addPaginatorItems(ReplyMenuBuilder rb, Command cmd, Context ctx, GDPaginator<T> paginator) {
 		if (paginator.hasNextPage()) {

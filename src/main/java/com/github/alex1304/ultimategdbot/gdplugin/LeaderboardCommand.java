@@ -4,20 +4,17 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.InvalidSyntaxException;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
@@ -30,10 +27,10 @@ import reactor.util.function.Tuples;
 
 public class LeaderboardCommand implements Command {
 	
-	private final AuthenticatedGDClient gdClient;
-	
-	public LeaderboardCommand(AuthenticatedGDClient gdClient) {
-		this.gdClient = Objects.requireNonNull(gdClient);
+	private final GDPlugin plugin;
+
+	public LeaderboardCommand(GDPlugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin);
 	}
 
 	@Override
@@ -95,7 +92,7 @@ public class LeaderboardCommand implements Command {
 			}
 			rb.addItem("finduser", "To jump to the page where a specific user is, type `finduser <GD_username>`", ctx0 -> {
 				ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a user");
-				return GDUtils.stringToUser(ctx.getBot(), gdClient, ArgUtils.concatArgs(ctx0, 1))
+				return GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), ArgUtils.concatArgs(ctx0, 1))
 						.flatMap(gdUser -> {
 							final var ids = entryList.stream().map(entry -> entry.getGdUser().getId()).collect(Collectors.toList());
 							final var rank = ids.indexOf(gdUser.getId());
@@ -165,7 +162,7 @@ public class LeaderboardCommand implements Command {
 							return Tuples.of(tuple.getT1(), tuple.getT2(), discordTags);
 						})
 						.flatMapMany(tuple -> Flux.fromIterable(tuple.getT2())
-								.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId())
+								.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())
 										.subscribeOn(Schedulers.elastic())
 										.onErrorResume(e -> Mono.empty()) // Just skip if unable to fetch user
 										.map(gdUser -> new LeaderboardEntry(tuple.getT1(), stat.applyAsInt(gdUser),
@@ -188,8 +185,8 @@ public class LeaderboardCommand implements Command {
 
 	@Override
 	public Set<Command> getSubcommands() {
-		return Set.of(new LeaderboardBanCommand(gdClient), new LeaderboardUnbanCommand(gdClient),
-				new LeaderboardBanListCommand(gdClient));
+		return Set.of(new LeaderboardBanCommand(plugin), new LeaderboardUnbanCommand(plugin),
+				new LeaderboardBanListCommand(plugin));
 	}
 
 	@Override
@@ -208,17 +205,12 @@ public class LeaderboardCommand implements Command {
 	}
 
 	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.PUBLIC;
-	}
-
-	@Override
 	public EnumSet<Type> getChannelTypesAllowed() {
 		return EnumSet.of(Type.GUILD_TEXT);
 	}
 
 	@Override
-	public Map<Class<? extends Throwable>, BiConsumer<Throwable, Context>> getErrorActions() {
-		return GDUtils.DEFAULT_GD_ERROR_ACTIONS;
+	public Plugin getPlugin() {
+		return plugin;
 	}
 }
