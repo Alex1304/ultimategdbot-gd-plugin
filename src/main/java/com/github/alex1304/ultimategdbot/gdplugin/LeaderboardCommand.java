@@ -23,6 +23,7 @@ import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.function.TupleUtils;
 import reactor.util.function.Tuples;
 
 public class LeaderboardCommand implements Command {
@@ -63,7 +64,7 @@ public class LeaderboardCommand implements Command {
 			final var maxPage = size / elementsPerPage;
 			final var offset = page * elementsPerPage;
 			final var subList = entryList.subList(offset, Math.min(offset + elementsPerPage, size));
-			var rb = new ReplyMenuBuilder(ctx, false, false);
+			var rb = new ReplyMenuBuilder(ctx, true, false);
 			if (page < maxPage) {
 				rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
 					ctx.setVar("page", page + 1);
@@ -144,29 +145,29 @@ public class LeaderboardCommand implements Command {
 						.query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1")
 						.collectList(), guild.getMembers().collectList(), ctx.getBot().getDatabase()
 						.query(GDLeaderboardBans.class, "from GDLeaderboardBans").collectList())
-						.map(tuple -> {
+						.map(TupleUtils.function((emoji, linkedUsers, guildMembers, leaderboardBans) -> {
 							// Filter out from database results (T2) users that aren't in the guild or that are banned.
 							// Guild member list is stored in T3 and ban list in T4
-							var bannedAccountIds = tuple.getT4().stream()
+							var bannedAccountIds = leaderboardBans.stream()
 									.map(GDLeaderboardBans::getAccountId)
 									.collect(Collectors.toSet());
-							var ids = tuple.getT2().stream()
+							var ids = linkedUsers.stream()
 									.filter(linkedUser -> !bannedAccountIds.contains(linkedUser.getGdAccountId()))
 									.map(GDLinkedUsers::getDiscordUserId)
 									.collect(Collectors.toSet());
-							ids.retainAll(tuple.getT3().stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
-							tuple.getT2().removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
-							tuple.getT3().removeIf(member -> !ids.contains(member.getId().asLong()));
-							var discordTags = tuple.getT3().stream().collect(Collectors.groupingBy(m -> m.getId().asLong(),
+							ids.retainAll(guildMembers.stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
+							linkedUsers.removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
+							guildMembers.removeIf(member -> !ids.contains(member.getId().asLong()));
+							var discordTags = guildMembers.stream().collect(Collectors.groupingBy(m -> m.getId().asLong(),
 									Collectors.mapping(m -> BotUtils.formatDiscordUsername(m), Collectors.joining())));
-							return Tuples.of(tuple.getT1(), tuple.getT2(), discordTags);
-						})
-						.flatMapMany(tuple -> Flux.fromIterable(tuple.getT2())
+							return Tuples.of(emoji, linkedUsers, discordTags);
+						}))
+						.flatMapMany(TupleUtils.function((emoji, linkedUsers, discordTags) -> Flux.fromIterable(linkedUsers)
 								.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())
 										.subscribeOn(Schedulers.elastic())
 										.onErrorResume(e -> Mono.empty()) // Just skip if unable to fetch user
-										.map(gdUser -> new LeaderboardEntry(tuple.getT1(), stat.applyAsInt(gdUser),
-												gdUser, tuple.getT3().get(linkedUser.getDiscordUserId())))))
+										.map(gdUser -> new LeaderboardEntry(emoji, stat.applyAsInt(gdUser),
+												gdUser, discordTags.get(linkedUser.getDiscordUserId()))))))
 						.distinct(LeaderboardEntry::getGdUser)
 						.collectSortedList(Comparator.naturalOrder())
 						.flatMap(list -> {
@@ -196,12 +197,16 @@ public class LeaderboardCommand implements Command {
 
 	@Override
 	public String getLongDescription() {
-		return "This command might take a while to execute, because it needs to fetch the profile of every single user that is on the server and that has an account linked.\n";
+		return "All members of the current server that has a Geometry Dash account linked may be shown in the leaderboards provided by this command."
+				+ "You can choose which leaderboard to show (stars, demons, creator points, etc), and there is an internal ban system to remove cheaters"
+				+ "from them.\n"
+				+ "This command might take a while to execute, because it needs to fetch the profile of every single user that is on the server and "
+				+ "that has an account linked.\n";
 	}
 
 	@Override
 	public String getSyntax() {
-		return "";
+		return "[<stat_name>]";
 	}
 
 	@Override

@@ -70,18 +70,17 @@ public class AccountLinkCommand implements Command {
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
 						.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find your confirmation message in Geometry Dash. "
-								+ "Have you sent it? Read and follow the steps again and retry.")))
+								+ "Have you sent it? Read and follow the steps again and retry by typing `done` again.")))
 						.next()
 						.flatMap(GDMessage::getBody)
 						.filter(linkedUser.getConfirmationToken()::equals)
 						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
-								+ "Make sure you have typed it correctly and try again. Note that it's case sensitive.")))
+								+ "Make sure you have typed it correctly and retry by typing `done` again. Note that it's case sensitive.")))
 						.doOnNext(__ -> linkedUser.setConfirmationToken(null))
 						.doOnNext(__ -> linkedUser.setIsLinkActivated(true))
 						.thenEmpty(ctx.getBot().getDatabase().save(linkedUser))
 						.then(ctx.getBot().getEmoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
 								+ "Geometry Dash account **" + user.getName() + "**!")))
-						.doOnError(e -> ctx.getBot().getCommandKernel().invokeCommand(this, ctx).subscribe())
 						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
 								+ "Retry later."))
 						.doOnSuccessOrError((m, e) -> waitMessage.delete().subscribe())

@@ -11,6 +11,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
 import com.github.alex1304.jdash.exception.BadResponseException;
@@ -57,6 +60,8 @@ import reactor.scheduler.forkjoin.ForkJoinPoolScheduler;
 
 public class GDPlugin implements Plugin {
 	
+	private static final Logger LOGGER = LoggerFactory.getLogger(GDPlugin.class);
+	
 	private Bot bot;
 	private AuthenticatedGDClient gdClient;
 	private SpriteFactory spriteFactory;
@@ -90,8 +95,7 @@ public class GDPlugin implements Plugin {
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
-		this.gdEventScheduler = ForkJoinPoolScheduler.create("gdevent-broadcast", parser.parseAsIntOrDefault("gdplugin.event_scheduler_parallelism",
-				Runtime.getRuntime().availableProcessors()));
+		this.gdEventScheduler = ForkJoinPoolScheduler.create("gdevent-broadcast");
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -111,7 +115,7 @@ public class GDPlugin implements Plugin {
 		this.gdEventDispatcher = new GDEventDispatcher();
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
-		this.preloader = new BroadcastPreloader(bot.getDiscordClients().blockFirst());
+		this.preloader = new BroadcastPreloader(bot.getMainDiscordClient());
 		initGDEventSubscribers();
 		
 		// Config entries
@@ -185,17 +189,17 @@ public class GDPlugin implements Plugin {
 			if (content.length() > 500) {
 				content = content.substring(0, 497) + "...";
 			}
-			return Flux.merge(ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned an invalid response."
-							+ " Unable to show the information you requested. Sorry for the inconvenience.")), 
-					ctx.getBot().log(":warning: Geometry Dash server returned an invalid response upon executing `"
-							+ ctx.getEvent().getMessage().getContent().get() + "`.\n"
+			return Flux.merge(ctx.getBot().getEmoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned corrupted data."
+					+ "Unable to complete your request.")), 
+					ctx.getBot().log(":warning: Geometry Dash server returned corrupted data.\nContext dump: `"
+							+ ctx + "`.\n"
 							+ "Path: `" + e.getRequestPath() + "`\n"
 							+ "Parameters: `" + e.getRequestParams() + "`\n"
 							+ "Response: `" + content + "`\n"
 							+ "Error observed when parsing response: `" + e.getCause().getClass().getCanonicalName()
 									+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
 									+ "` (stack trace available in internal logs)"),
-					Mono.just(0).doOnNext(__ -> ctx.getBot().getLogger().warn("Geometry Dash server returned an invalid response", e))).then();
+					Mono.just(0).doOnNext(__ -> LOGGER.warn("Geometry Dash server returned corrupted data", e))).then();
 		});
 		cmdErrorHandler.addHandler(TimeoutException.class, (e, ctx) -> ctx.getBot().getEmoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
@@ -206,6 +210,19 @@ public class GDPlugin implements Plugin {
 		cmdErrorHandler.addHandler(NoTimelyAvailableException.class, (e, ctx) -> ctx.getBot().getEmoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
 				.then());
+		if (preloadChannelsOnStartup) {
+			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
+					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
+							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
+							.elapsed()
+							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
+									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
+									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
+							.doAfterTerminate(() -> scannerLoop.start())
+							.subscribe();
+		} else {
+			scannerLoop.start();
+		}
 	}
 
 	private Collection<? extends GDEventScanner> initScanners() {
@@ -237,23 +254,6 @@ public class GDPlugin implements Plugin {
 				.findFirst().orElse("**[Unknown Event]**");
 	}
 	
-	@Override
-	public void onBotReady() {
-		if (preloadChannelsOnStartup) {
-			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
-							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
-							.elapsed()
-							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
-									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
-									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
-							.doAfterTerminate(() -> scannerLoop.start())
-							.subscribe();
-		} else {
-			scannerLoop.start();
-		}
-	}
-
 	@Override
 	public Set<Command> getProvidedCommands() {
 		return providedCommands;
