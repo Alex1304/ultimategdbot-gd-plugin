@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping default-lazy="false">
+	<class name="com.github.alex1304.ultimategdbot.gdplugin.GDLevelRequestsSettings" table="gd_level_requests_settings">
+		<cache usage="read-write" />
+		<id name="guildId" type="long" column="guild_id">
+			<generator class="assigned" />
+		</id>
+		<property name="submissionQueueChannelId" type="long" column="submission_queue_channel_id" />
+		<property name="reviewedLevelsChannelId" type="long" column="reviewed_levels_channel_id" />
+		<property name="reviewerRoleId" type="long" column="reviewer_role_id" />
+		<property name="isOpen" type="boolean" column="is_open" />
+		<property name="roleAwardedLevelsId" type="long" column="role_awarded_levels_id" />
+		<property name="maxQueuedSubmissionsPerPerson" type="int" column="max_queued_submissions_per_person" />
+		<property name="maxReviewsRequired" type="int" column="max_reviews_required" />
+	</class>
+</hibernate-mapping>

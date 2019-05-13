@@ -3,11 +3,9 @@
 <hibernate-mapping default-lazy="false">
 	<class name="com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans" table="gd_leaderboard_bans">
 		<cache usage="read-write" />
-		<id name="levelId" type="long" column="level_id">
+		<id name="accountId" type="long" column="account_id">
 			<generator class="assigned" />
 		</id>
-		<property name="insertDate" type="timestamp" column="insert_date" />
-		<property name="downloads" type="int" />
-		<property name="likes" type="int" />
+		<property name="bannedBy" type="long" column="banned_by" />
 	</class>
 </hibernate-mapping>
