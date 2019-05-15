@@ -112,30 +112,37 @@ public class LeaderboardCommand implements Command {
 		}
 		ToIntFunction<GDUser> stat;
 		Mono<String> emojiMono;
+		boolean noBanList;
 		switch (ctx.getArgs().get(1).toLowerCase()) {
 			case "stars":
 				stat = GDUser::getStars;
 				emojiMono = starEmoji;
+				noBanList = false;
 				break;
 			case "diamonds":
 				stat = GDUser::getDiamonds;
 				emojiMono = diamondEmoji;
+				noBanList = false;
 				break;
 			case "ucoins":
 				stat = GDUser::getUserCoins;
 				emojiMono = userCoinEmoji;
+				noBanList = false;
 				break;
 			case "scoins":
 				stat = GDUser::getSecretCoins;
 				emojiMono = secretCoinEmoji;
+				noBanList = false;
 				break;
 			case "demons":
 				stat = GDUser::getDemons;
 				emojiMono = demonEmoji;
+				noBanList = false;
 				break;
 			case "cp":
 				stat = GDUser::getCreatorPoints;
 				emojiMono = cpEmoji;
+				noBanList = true;
 				break;
 			default:
 				return Mono.error(new InvalidSyntaxException(this));
@@ -146,9 +153,7 @@ public class LeaderboardCommand implements Command {
 						.collectList(), guild.getMembers().collectList(), ctx.getBot().getDatabase()
 						.query(GDLeaderboardBans.class, "from GDLeaderboardBans").collectList())
 						.map(TupleUtils.function((emoji, linkedUsers, guildMembers, leaderboardBans) -> {
-							// Filter out from database results (T2) users that aren't in the guild or that are banned.
-							// Guild member list is stored in T3 and ban list in T4
-							var bannedAccountIds = leaderboardBans.stream()
+							var bannedAccountIds = noBanList ? Set.of() : leaderboardBans.stream()
 									.map(GDLeaderboardBans::getAccountId)
 									.collect(Collectors.toSet());
 							var ids = linkedUsers.stream()

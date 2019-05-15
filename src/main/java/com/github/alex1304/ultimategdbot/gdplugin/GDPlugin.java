@@ -56,7 +56,7 @@ import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import reactor.scheduler.forkjoin.ForkJoinPoolScheduler;
+import reactor.core.scheduler.Schedulers;
 
 public class GDPlugin implements Plugin {
 	
@@ -95,7 +95,7 @@ public class GDPlugin implements Plugin {
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
-		this.gdEventScheduler = ForkJoinPoolScheduler.create("gdevent-broadcast");
+		this.gdEventScheduler = Schedulers.newElastic("gdevent-broadcast");
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
@@ -210,19 +210,22 @@ public class GDPlugin implements Plugin {
 		cmdErrorHandler.addHandler(NoTimelyAvailableException.class, (e, ctx) -> ctx.getBot().getEmoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
 				.then());
+	}
+	
+	@Override
+	public Mono<Void> onBotReady(Bot bot) {
 		if (preloadChannelsOnStartup) {
-			Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
+			return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
 							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
 							.elapsed()
 							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
 									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
 									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
-							.doAfterTerminate(() -> scannerLoop.start())
-							.subscribe();
-		} else {
-			scannerLoop.start();
+							.doAfterTerminate(scannerLoop::start)
+							.then();
 		}
+		return Mono.fromRunnable(scannerLoop::start);
 	}
 
 	private Collection<? extends GDEventScanner> initScanners() {
