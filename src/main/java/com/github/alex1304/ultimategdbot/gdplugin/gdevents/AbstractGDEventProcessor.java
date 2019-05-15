@@ -7,6 +7,9 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers;
@@ -27,6 +30,7 @@ import reactor.util.function.Tuples;
 
 abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEventProcessor<E> {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGDEventProcessor.class);
 	static final Random RANDOM_GENERATOR = new Random();
 	final GDPlugin plugin;
 	
@@ -37,9 +41,11 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 
 	@Override
 	public Mono<Void> process0(E t) {
+		var logText = logText(t);
 		var timeStart = new AtomicLong();
+		LOGGER.info("Processing Geometry Dash event: {}", logText);
 		return Mono.zip(plugin.getBot().getEmoji("info"), plugin.getBot().getEmoji("success"))
-				.flatMap(emojis -> plugin.getBot().log(emojis.getT1() + " GD event fired: " + logText(t))
+				.flatMap(emojis -> plugin.getBot().log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
 						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
@@ -53,11 +59,13 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 								.flatMap(messageList -> {
 									var time = System.nanoTime() - timeStart.get();
 									var formattedTime = BotUtils.formatTimeMillis(Duration.ofNanos(time));
+									var broadcastSpeed = ((int) ((messageList.size() / (double) time) * 1_000_000_000));
 									onBroadcastSuccess(t, messageList);
-									return plugin.getBot().log(emojis.getT2() + " Successfully processed event: " + logText(t) + "\n"
+									LOGGER.info("Finished processing Geometry Dash event: {} in {} ({} messages/s)", logText, formattedTime, broadcastSpeed);
+									return plugin.getBot().log(emojis.getT2() + " Successfully processed event: " + logText + "\n"
 											+ "Successfully notified **" + messageList.size() + "** guilds!\n"
 											+ "**Execution time: " + formattedTime + "**\n"
-											+ "**Average broadcast speed: " + ((int) ((messageList.size() / (double) time) * 1_000_000_000)) + " messages/s**")
+											+ "**Average broadcast speed: " + broadcastSpeed + " messages/s**")
 													.onErrorResume(e -> Mono.empty());
 								}))).then();
 	}
