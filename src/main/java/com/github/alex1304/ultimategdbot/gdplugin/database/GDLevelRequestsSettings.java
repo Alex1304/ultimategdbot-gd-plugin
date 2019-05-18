@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin;
+package com.github.alex1304.ultimategdbot.gdplugin.database;
 
 import com.github.alex1304.ultimategdbot.api.database.GuildSettings;
 

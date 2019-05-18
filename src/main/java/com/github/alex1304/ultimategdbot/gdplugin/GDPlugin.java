@@ -44,6 +44,7 @@ import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.account.AccountCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.admin.ChangelogCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.admin.ClearCacheCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventsCommand;
@@ -60,6 +61,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.leaderboard.LeaderboardCommand
 import com.github.alex1304.ultimategdbot.gdplugin.level.FeaturedInfoCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.level.LevelCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.level.TimelyCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.LevelRequestCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.user.CheckModCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.user.ModListCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.user.ProfileCommand;
@@ -95,7 +97,7 @@ public class GDPlugin implements Plugin {
 			new TimelyCommand(this, true), new TimelyCommand(this, false), new AccountCommand(this),
 			new LeaderboardCommand(this), new GDEventsCommand(this), new CheckModCommand(this),
 			new ModListCommand(this), new FeaturedInfoCommand(this), new ChangelogCommand(this),
-			new ClearCacheCommand(this));
+			new ClearCacheCommand(this), new LevelRequestCommand(this));
 
 	@Override
 	public void setup(Bot bot, PropertyParser parser) {
@@ -182,6 +184,41 @@ public class GDPlugin implements Plugin {
 				GDSubscribedGuilds::setRoleGdModeratorsId,
 				valueConverter::toRoleId,
 				valueConverter::fromRoleId
+		));
+		configEntries.put("lvlreq_submission_queue_channel", new GuildSettingsEntry<>(
+				GDLevelRequestsSettings.class,
+				GDLevelRequestsSettings::getSubmissionQueueChannelId,
+				GDLevelRequestsSettings::setSubmissionQueueChannelId,
+				valueConverter::toTextChannelId,
+				valueConverter::fromChannelId
+		));
+		configEntries.put("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
+				GDLevelRequestsSettings.class,
+				GDLevelRequestsSettings::getReviewedLevelsChannelId,
+				GDLevelRequestsSettings::setReviewedLevelsChannelId,
+				valueConverter::toTextChannelId,
+				valueConverter::fromChannelId
+		));
+		configEntries.put("lvlreq_reviewer_role", new GuildSettingsEntry<>(
+				GDLevelRequestsSettings.class,
+				GDLevelRequestsSettings::getReviewerRoleId,
+				GDLevelRequestsSettings::setReviewerRoleId,
+				valueConverter::toRoleId,
+				valueConverter::fromRoleId
+		));
+		configEntries.put("lvlreq_nb_reviews_required", new GuildSettingsEntry<>(
+				GDLevelRequestsSettings.class,
+				GDLevelRequestsSettings::getMaxReviewsRequired,
+				GDLevelRequestsSettings::setMaxReviewsRequired,
+				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i < 5, "Must be between 1 and 5"),
+				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
+		));
+		configEntries.put("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
+				GDLevelRequestsSettings.class,
+				GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
+				GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
+				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i < 20, "Must be between 1 and 20"),
+				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
 		));
 		
 		// Error handler
@@ -282,7 +319,8 @@ public class GDPlugin implements Plugin {
 
 	@Override
 	public Set<String> getDatabaseMappingResources() {
-		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml", "/GDLeaderboardBans.hbm.xml", "/GDAwardedLevels.hbm.xml");
+		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml",
+				"/GDLeaderboardBans.hbm.xml", "/GDAwardedLevels.hbm.xml", "/GDLevelRequestsSettings.hbm.xml");
 	}
 
 	@Override
