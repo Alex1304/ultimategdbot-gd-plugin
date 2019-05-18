@@ -41,16 +41,30 @@ import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.GuildSettingsValueConverter;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelAddedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelRemovedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.AwardedLevelUpdatedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.GDEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.TimelyLevelChangedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromElderEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserDemotedFromModEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToElderEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevents.UserPromotedToModEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.account.AccountCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.admin.ChangelogCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.admin.ClearCacheCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventsCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelAddedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelRemovedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelUpdatedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.GDEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.TimelyLevelChangedEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserDemotedFromElderEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserDemotedFromModEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToElderEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToModEventProcessor;
+import com.github.alex1304.ultimategdbot.gdplugin.leaderboard.LeaderboardCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.level.FeaturedInfoCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.level.LevelCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.level.TimelyCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.user.CheckModCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.user.ModListCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.user.ProfileCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
@@ -197,9 +211,8 @@ public class GDPlugin implements Plugin {
 							+ "Parameters: `" + e.getRequestParams() + "`\n"
 							+ "Response: `" + content + "`\n"
 							+ "Error observed when parsing response: `" + e.getCause().getClass().getCanonicalName()
-									+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "")
-									+ "` (stack trace available in internal logs)"),
-					Mono.just(0).doOnNext(__ -> LOGGER.warn("Geometry Dash server returned corrupted data", e))).then();
+									+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "") + "`"),
+					Mono.fromRunnable(() -> LOGGER.warn("Geometry Dash server returned corrupted data", e))).then();
 		});
 		cmdErrorHandler.addHandler(TimeoutException.class, (e, ctx) -> ctx.getBot().getEmoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))

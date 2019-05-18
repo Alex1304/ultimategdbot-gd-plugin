@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping default-lazy="false">
-	<class name="com.github.alex1304.ultimategdbot.gdplugin.GDLinkedUsers" table="gd_linked_users">
+	<class name="com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers" table="gd_linked_users">
 		<cache usage="read-write" />
 		<id name="discordUserId" type="long" column="discord_user_id">
 			<generator class="assigned" />
