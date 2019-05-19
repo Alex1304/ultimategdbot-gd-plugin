@@ -5,14 +5,13 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.github.alex1304.ultimategdbot.api.Command;
-import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 
-import discord4j.core.object.entity.Role;
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.entity.Role;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
@@ -29,7 +28,7 @@ public class LevelRequestCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		var guildId = ctx.getEvent().getGuildId().orElseThrow(() -> new CommandFailedException("This command can only be run in a server."));
+		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		return Mono.zip(ctx.getBot().getEmoji("success"), ctx.getBot().getEmoji("failed"))
 				.flatMap(TupleUtils.function((success, failed) -> ctx.getBot().getDatabase()
 						.findByIDOrCreate(GDLevelRequestsSettings.class, guildId.asLong(), GDLevelRequestsSettings::setGuildId)

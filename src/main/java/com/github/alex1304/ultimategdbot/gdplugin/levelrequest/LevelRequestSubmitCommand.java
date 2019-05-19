@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.github.alex1304.ultimategdbot.api.Command;
 import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
@@ -15,11 +14,11 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
 import discord4j.core.object.entity.Channel.Type;
 import reactor.core.publisher.Mono;
 
-public class LevelRequestToggleCommand implements Command {
+public class LevelRequestSubmitCommand implements Command {
 	
 	private final GDPlugin plugin;
 	
-	public LevelRequestToggleCommand(GDPlugin plugin) {
+	public LevelRequestSubmitCommand(GDPlugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin);
 	}
 
@@ -57,11 +56,6 @@ public class LevelRequestToggleCommand implements Command {
 	@Override
 	public EnumSet<Type> getChannelTypesAllowed() {
 		return EnumSet.of(Type.GUILD_TEXT);
-	}
-	
-	@Override
-	public PermissionLevel getPermissionLevel() {
-		return PermissionLevel.SERVER_ADMIN;
 	}
 
 	@Override

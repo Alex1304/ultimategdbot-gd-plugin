@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping default-lazy="false">
+	<class name="com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions" table="gd_level_request_submissions">
+		<cache usage="read-write" />
+		<id name="id" type="long" column="id">
+			<generator class="native" />
+		</id>
+		<property name="levelId" type="long" column="level_id" />
+		<property name="youtubeLink" type="string" column="youtube_link" />
+		<property name="messageId" type="long" column="message_id" />
+		<property name="submitterId" type="long" column="submitter_id" />
+		<property name="submissionTimestamp" type="timestamp" column="submission_timestamp" />
+	</class>
+</hibernate-mapping>
