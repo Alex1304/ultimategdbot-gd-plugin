@@ -2,8 +2,10 @@ package com.github.alex1304.ultimategdbot.gdplugin.util;
 
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class LevelRequestUtils {
@@ -28,5 +30,15 @@ public class LevelRequestUtils {
 						|| lvlReqSettings.getSubmissionQueueChannelId() == 0)
 						? Mono.error(new CommandFailedException("Level requests are not configured."))
 						: Mono.just(lvlReqSettings));
+	}
+	
+	public static Flux<GDLevelRequestSubmissions> getSubmissionsForUser(Context ctx) {
+		var guildId = ctx.getEvent().getGuildId().orElseThrow().asLong();
+		var userId = ctx.getEvent().getMessage().getAuthor().orElseThrow().getId().asLong();
+		return ctx.getBot().getDatabase()
+				.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
+						+ "where s.guildId = ?0 "
+						+ "and s.submitterId = ?1 "
+						+ "order by s.submissionTimestamp", guildId, userId);
 	}
 }

@@ -8,6 +8,7 @@ public class GDLevelRequestSubmissions {
 	private long levelId;
 	private String youtubeLink;
 	private long messageId;
+	private long guildId;
 	private long submitterId;
 	private Timestamp submissionTimestamp;
 	
@@ -43,6 +44,14 @@ public class GDLevelRequestSubmissions {
 		this.messageId = messageId;
 	}
 	
+	public long getGuildId() {
+		return guildId;
+	}
+
+	public void setGuildId(long guildId) {
+		this.guildId = guildId;
+	}
+
 	public long getSubmitterId() {
 		return submitterId;
 	}
