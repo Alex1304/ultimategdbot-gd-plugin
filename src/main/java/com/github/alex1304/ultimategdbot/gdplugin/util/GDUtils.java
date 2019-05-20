@@ -379,7 +379,7 @@ public final class GDUtils {
 								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
 						embed.addField(title, downloadLikesLength, false);
 						embed.addField(coins, songInfo, false);
-						embed.setFooter("LevelID: " + level.getId(), null);
+						embed.setFooter("Level ID: " + level.getId(), null);
 					};
 				});
 	}

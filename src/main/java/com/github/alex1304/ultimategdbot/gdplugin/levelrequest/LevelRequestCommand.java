@@ -65,7 +65,7 @@ public class LevelRequestCommand implements Command {
 	
 	@Override
 	public Set<Command> getSubcommands() {
-		return Set.of(new LevelRequestToggleCommand(plugin));
+		return Set.of(new LevelRequestToggleCommand(plugin), new LevelRequestSubmitCommand(plugin));
 	}
 
 	@Override

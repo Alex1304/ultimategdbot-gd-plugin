@@ -3,7 +3,9 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +69,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.user.ModListCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.user.ProfileCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
@@ -90,6 +93,7 @@ public class GDPlugin implements Plugin {
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
 	private Scheduler gdEventScheduler;
+	private Set<Long> cachedSubmissionChannelIds;
 	
 	private final Map<String, GuildSettingsEntry<?, ?>> configEntries = new HashMap<String, GuildSettingsEntry<?, ?>>();
 	private final CommandErrorHandler cmdErrorHandler = new CommandErrorHandler();
@@ -132,6 +136,7 @@ public class GDPlugin implements Plugin {
 		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 		this.broadcastedLevels = new LinkedHashMap<>();
 		this.preloader = new BroadcastPreloader(bot.getMainDiscordClient());
+		this.cachedSubmissionChannelIds = Collections.synchronizedSet(new HashSet<>());
 		initGDEventSubscribers();
 		
 		// Config entries
@@ -189,7 +194,11 @@ public class GDPlugin implements Plugin {
 				GDLevelRequestsSettings.class,
 				GDLevelRequestsSettings::getSubmissionQueueChannelId,
 				GDLevelRequestsSettings::setSubmissionQueueChannelId,
-				valueConverter::toTextChannelId,
+				(v, guildId) -> valueConverter.toTextChannelId(v, guildId)
+						.doOnNext(cachedSubmissionChannelIds::add)
+						.then(bot.getDatabase().findByID(GDLevelRequestsSettings.class, guildId))
+						.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
+						.doOnNext(cachedSubmissionChannelIds::remove),
 				valueConverter::fromChannelId
 		));
 		configEntries.put("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
@@ -264,6 +273,7 @@ public class GDPlugin implements Plugin {
 	
 	@Override
 	public Mono<Void> onBotReady(Bot bot) {
+		LevelRequestUtils.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
 		if (preloadChannelsOnStartup) {
 			return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")

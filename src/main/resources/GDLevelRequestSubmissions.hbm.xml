@@ -12,5 +12,6 @@
 		<property name="guildId" type="long" column="guild_id" />
 		<property name="submitterId" type="long" column="submitter_id" />
 		<property name="submissionTimestamp" type="timestamp" column="submission_timestamp" />
+		<property name="isReviewed" type="boolean" column="is_reviewed" />
 	</class>
 </hibernate-mapping>

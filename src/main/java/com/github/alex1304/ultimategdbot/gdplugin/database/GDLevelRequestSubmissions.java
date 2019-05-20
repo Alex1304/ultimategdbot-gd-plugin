@@ -11,6 +11,7 @@ public class GDLevelRequestSubmissions {
 	private long guildId;
 	private long submitterId;
 	private Timestamp submissionTimestamp;
+	private boolean isReviewed;
 	
 	public long getId() {
 		return id;
@@ -65,5 +66,13 @@ public class GDLevelRequestSubmissions {
 	
 	public void setSubmissionTimestamp(Timestamp submissionTimestamp) {
 		this.submissionTimestamp = submissionTimestamp;
+	}
+
+	public boolean getIsReviewed() {
+		return isReviewed;
+	}
+
+	public void setIsReviewed(boolean isReviewed) {
+		this.isReviewed = isReviewed;
 	}
 }
