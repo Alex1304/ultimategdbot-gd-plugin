@@ -74,6 +74,7 @@ public class LevelRequestSubmitCommand implements Command {
 						}).flatMap(ctx.getBot().getDatabase()::save))
 				.then(Mono.defer(() -> LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), ctx.getEvent().getMessage().getAuthor().orElseThrow(), 
 						level.get(), lvlReqSettings.get(), submission.get(), List.of())
+						.map(SubmissionMessage::toMessageCreateSpec)
 						.flatMap(ctx::reply)
 						.doOnNext(message -> submission.get().setMessageId(message.getId().asLong()))
 						.then(ctx.getBot().getDatabase().save(submission.get()))

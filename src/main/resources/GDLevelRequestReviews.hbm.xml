@@ -10,6 +10,6 @@
 		<property name="reviewTimestamp" type="timestamp" column="review_timestamp" />
 		<property name="reviewContent" type="text" column="review_content" />
 		<many-to-one name="submission" class="com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions"
-				column="submission_id" cascade="all" />
+				column="submission_id" cascade="save-update" />
 	</class>
 </hibernate-mapping>

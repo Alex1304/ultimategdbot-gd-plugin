@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +16,14 @@ import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
+import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.SubmissionMessage;
 
 import discord4j.core.DiscordClient;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.event.domain.message.MessageDeleteEvent;
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
-import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
@@ -34,8 +35,8 @@ public class LevelRequestUtils {
 	private LevelRequestUtils() {}
 	
 	/**
-	 * Gets the level requests settings for the guild of the specified context. This method checks and throws errors if level
-	 * requests are not configured.
+	 * Gets the level requests settings for the guild of the specified context. This
+	 * method checks and throws errors if level requests are not configured.
 	 * 
 	 * @param ctx the context
 	 * @return the level requests settings, or an error if not configured
@@ -71,7 +72,18 @@ public class LevelRequestUtils {
 						+ "order by s.submissionTimestamp", guildId, userId);
 	}
 
-	public static Mono<Consumer<MessageCreateSpec>> buildSubmissionMessage(Bot bot, User author, GDLevel level,
+	/**
+	 * Builds the submission message from the given data.
+	 * 
+	 * @param bot            the bot instance
+	 * @param author         the submission author
+	 * @param level          the level
+	 * @param lvlReqSettings the settings for level requests in the current server
+	 * @param submission     the submission
+	 * @param reviews        the list of reviews
+	 * @return a Mono emitting the submission message
+	 */
+	public static Mono<SubmissionMessage> buildSubmissionMessage(Bot bot, User author, GDLevel level,
 			GDLevelRequestsSettings lvlReqSettings, GDLevelRequestSubmissions submission, List<GDLevelRequestReviews> reviews) {
 		Objects.requireNonNull(bot, "bot was null");
 		Objects.requireNonNull(author, "author was null");
@@ -86,13 +98,13 @@ public class LevelRequestUtils {
 						.flatMap(bot.getMainDiscordClient()::getUserById)
 						.onErrorContinue((error, obj) -> {})
 						.collectList())
-				.map(TupleUtils.function((embedSpecConsumer, reviewers) -> messageSpec -> {
-					messageSpec.setContent("**Submission ID:** `" + submission.getId() + "`\n"
+				.map(TupleUtils.function((embedSpecConsumer, reviewers) -> {
+					var content = "**Submission ID:** `" + submission.getId() + "`\n"
 							+ "**Author:** " + formatUser + "\n"
 							+ "**Level ID:** `" + level.getId() + "`\n"
-							+ "**YouTube link:** " + (submission.getYoutubeLink().isBlank() ? "*Not provided*" : submission.getYoutubeLink()));
-					messageSpec.setEmbed(embedSpecConsumer.andThen(embedSpec -> {
-						embedSpec.addField("Reviews", reviews.size() + "/" + lvlReqSettings.getMaxReviewsRequired(), false);
+							+ "**YouTube link:** " + (submission.getYoutubeLink().isBlank() ? "*Not provided*" : submission.getYoutubeLink());
+					var embed = embedSpecConsumer.andThen(embedSpec -> {
+						embedSpec.addField("───────────", "**Reviews:** " + reviews.size() + "/" + lvlReqSettings.getMaxReviewsRequired(), false);
 						for (var review : reviews) {
 							var reviewerName = reviewers.stream()
 									.filter(r -> r.getId().asLong() == review.getReviewerId())
@@ -102,12 +114,28 @@ public class LevelRequestUtils {
 									+ " (`" + review.getReviewerId() + "`)";
 							embedSpec.addField(":pencil: " + reviewerName, review.getReviewContent(), false);
 						}
-					}));
+					});
+					return new SubmissionMessage(content, embed);
 				}));
 	}
 	
 	/**
-	 * Keep submission queue channels for level requests clean from messages that aren't submissions.
+	 * Gets all reviews for the given submission.
+	 * 
+	 * @param bot the bot instance
+	 * @param submission the submission to get reviews on
+	 * @return a Flux of all reviews for the given submission
+	 */
+	public static Flux<GDLevelRequestReviews> getReviewsForSubmission(Bot bot, GDLevelRequestSubmissions submission) {
+		return bot.getDatabase().query(GDLevelRequestReviews.class, "select r from GDLevelRequestReviews r "
+				+ "inner join r.submission s "
+				+ "where s.id = ?0 "
+				+ "order by r.reviewTimestamp", submission.getId());
+	}
+	
+	/**
+	 * Keep submission queue channels for level requests clean from messages that
+	 * aren't submissions.
 	 * 
 	 * @param bot the bot
 	 */
@@ -115,7 +143,6 @@ public class LevelRequestUtils {
 		bot.getDatabase().query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
 			.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
 			.collect(() -> cachedSubmissionChannelIds, Set::add)
-			.log()
 			.onErrorResume(e -> Mono.empty())
 			.thenMany(bot.getDiscordClients())
 			.map(DiscordClient::getEventDispatcher)
@@ -126,9 +153,20 @@ public class LevelRequestUtils {
 			.flatMap(event -> Flux.fromIterable(cachedSubmissionChannelIds)
 					.filter(id -> id == event.getMessage().getChannelId().asLong())
 					.next()
-					.delayElement(Duration.ofSeconds(5))
+					.delayElement(Duration.ofSeconds(8))
 					.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
 			.onErrorContinue((error, obj) -> LOGGER.error("Error while cleaning level requests submission queue channels on " + obj, error))
+			.subscribe();
+		
+		bot.getDiscordClients()
+			.map(DiscordClient::getEventDispatcher)
+			.flatMap(dispatcher -> dispatcher.on(MessageDeleteEvent.class))
+			.filter(event -> event.getMessage().map(m -> cachedSubmissionChannelIds.contains(m.getChannelId().asLong())).orElse(false))
+			.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
+			.filter(id -> id > 0)
+			.flatMap(id -> bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
+			.flatMap(bot.getDatabase()::delete)
+			.onErrorContinue((error, obj) -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels on " + obj, error))
 			.subscribe();
 	}
 }
