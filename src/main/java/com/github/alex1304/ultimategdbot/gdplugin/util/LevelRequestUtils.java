@@ -149,7 +149,7 @@ public class LevelRequestUtils {
 			.flatMap(dispatcher -> dispatcher.on(MessageCreateEvent.class))
 			.filter(event -> cachedSubmissionChannelIds.contains(event.getMessage().getChannelId().asLong()))
 			.filter(event -> !event.getMessage().getAuthor().map(User::getId).equals(event.getClient().getSelfId())
-					|| !event.getMessage().getContent().orElse("").contains("Submission"))
+					|| !event.getMessage().getContent().orElse("").startsWith("**Submission ID:**"))
 			.flatMap(event -> Flux.fromIterable(cachedSubmissionChannelIds)
 					.filter(id -> id == event.getMessage().getChannelId().asLong())
 					.next()

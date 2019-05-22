@@ -30,4 +30,12 @@ public class SubmissionMessage {
 			spec.setEmbed(embed);
 		};
 	}
+
+	public String getContent() {
+		return content;
+	}
+
+	public Consumer<EmbedCreateSpec> getEmbed() {
+		return embed;
+	}
 }

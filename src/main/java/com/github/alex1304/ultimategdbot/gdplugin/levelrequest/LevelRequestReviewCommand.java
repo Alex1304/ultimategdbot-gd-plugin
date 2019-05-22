@@ -24,12 +24,15 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettin
 import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
 
 import discord4j.core.object.entity.Channel.Type;
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.TextChannel;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.function.TupleUtils;
 
 public class LevelRequestReviewCommand implements Command {
 	
@@ -50,6 +53,7 @@ public class LevelRequestReviewCommand implements Command {
 		final var level = new AtomicReference<GDLevel>();
 		final var submissionMsg = new AtomicReference<Message>();
 		final var submitter = new AtomicReference<User>();
+		final var guild = new AtomicReference<Guild>();
 		final var submissionId = ArgUtils.getArgAsLong(ctx, 1);
 		final var reviewContent = ArgUtils.concatArgs(ctx, 2);
 		final var isRevoke = new AtomicBoolean(reviewContent.equalsIgnoreCase("revoke"));
@@ -71,6 +75,8 @@ public class LevelRequestReviewCommand implements Command {
 						.flatMap(__ -> ctx.getBot().getMainDiscordClient()
 								.getUserById(Snowflake.of(s.getSubmitterId()))
 								.doOnNext(submitter::set))
+						.flatMap(__ -> ctx.getEvent().getGuild())
+								.doOnNext(guild::set)
 						.hasElement())
 				.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find submission of ID " + submissionId + ".")))
 				.filter(s -> !s.getIsReviewed())
@@ -100,13 +106,13 @@ public class LevelRequestReviewCommand implements Command {
 				.then(Mono.defer(() -> plugin.getGdClient().getLevelById(submission.get().getLevelId())
 						.doOnNext(level::set)
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException("Cannot " + (isRevoke.get() ? "revoke" : "add")
-								+ " review: the level associated to this submission doesn't exist on GD servers anymore. "
+								+ " review: the level associated to this submission doesn't seem to exist on GD servers anymore. "
 								+ "You may want to delete this submission."))))
 				.thenMany(reviewsOnSubmission)
 				.collectList()
 				.flatMap(reviewList -> {
 					var updatedMessage = LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), submitter.get(),
-							level.get(), lvlReqSettings.get(), submission.get(), reviewList);
+							level.get(), lvlReqSettings.get(), submission.get(), reviewList).cache();
 					if (reviewList.size() >= lvlReqSettings.get().getMaxReviewsRequired()) {
 						return submissionMsg.get().delete()
 								.then(updatedMessage)
@@ -119,7 +125,12 @@ public class LevelRequestReviewCommand implements Command {
 											submission.get().setMessageId(message.getId().asLong());
 											submission.get().setIsReviewed(true);
 											return ctx.getBot().getDatabase().save(submission.get());
-										}));
+										}))
+								.then(Mono.defer(() -> submitter.get().getPrivateChannel()
+										.zipWith(updatedMessage.map(m -> new SubmissionMessage("Your level request from **"
+												+ guild.get().getName() + "** has been reviewed!", m.getEmbed()).toMessageCreateSpec()))
+										.flatMap(TupleUtils.function(PrivateChannel::createMessage))
+										.onErrorResume(e -> Mono.empty())));
 					} else {
 						return updatedMessage.map(SubmissionMessage::toMessageEditSpec).flatMap(submissionMsg.get()::edit);
 					}

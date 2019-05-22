@@ -196,9 +196,10 @@ public class GDPlugin implements Plugin {
 				GDLevelRequestsSettings::setSubmissionQueueChannelId,
 				(v, guildId) -> valueConverter.toTextChannelId(v, guildId)
 						.doOnNext(cachedSubmissionChannelIds::add)
-						.then(bot.getDatabase().findByID(GDLevelRequestsSettings.class, guildId))
-						.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
-						.doOnNext(cachedSubmissionChannelIds::remove),
+						.flatMap(channelId -> bot.getDatabase().findByID(GDLevelRequestsSettings.class, guildId)
+								.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
+								.doOnNext(cachedSubmissionChannelIds::remove)
+								.thenReturn(channelId)),
 				valueConverter::fromChannelId
 		));
 		configEntries.put("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
@@ -219,14 +220,14 @@ public class GDPlugin implements Plugin {
 				GDLevelRequestsSettings.class,
 				GDLevelRequestsSettings::getMaxReviewsRequired,
 				GDLevelRequestsSettings::setMaxReviewsRequired,
-				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i < 5, "Must be between 1 and 5"),
+				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 5, "Must be between 1 and 5"),
 				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
 		));
 		configEntries.put("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
 				GDLevelRequestsSettings.class,
 				GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
 				GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
-				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i < 20, "Must be between 1 and 20"),
+				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 20, "Must be between 1 and 20"),
 				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
 		));
 		
