@@ -6,6 +6,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -518,6 +520,7 @@ public final class GDUtils {
 
 	public static Mono<Consumer<EmbedCreateSpec>> leaderboardView(Context ctx, List<LeaderboardEntry> subList, int page,
 			int elementsPerPage, int size) {
+		var refreshed = Duration.between(ctx.getVar("lastRefreshed", Instant.class), Instant.now());
 		var highlighted = ctx.getVar("highlighted", String.class);
 		return ctx.getEvent().getGuild().map(guild -> embed -> {
 			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");
@@ -531,7 +534,7 @@ public final class GDUtils {
 			final var maxRowLength = 100;
 			for (var i = 1 ; i <= subList.size() ; i++) {
 				var entry = subList.get(i - 1);
-				var isHighlighted = entry.getGdUser().getName().equalsIgnoreCase(highlighted);
+				var isHighlighted = entry.getStats().getName().equalsIgnoreCase(highlighted);
 				var rank = page * elementsPerPage + i;
 				if (isHighlighted) {
 					sb.append("**");
@@ -540,7 +543,7 @@ public final class GDUtils {
 						String.format("`#%" + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
 						entry.getEmoji(),
 						formatCode(entry.getValue(), statWidth),
-						entry.getGdUser().getName(),
+						entry.getStats().getName(),
 						entry.getDiscordUser());
 				if (row.length() > maxRowLength) {
 					row = row.substring(0, maxRowLength - 3) + "...";
@@ -551,7 +554,7 @@ public final class GDUtils {
 				}
 			}
 			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n\n" + sb.toString());
-			embed.addField(" ‌‌", "Note that members of this server must have linked their Geometry Dash account with `"
+			embed.addField("Last refreshed: " + BotUtils.formatTimeMillis(refreshed) + " ago", "Note that members of this server must have linked their Geometry Dash account with `"
 					+ ctx.getPrefixUsed() + "account` in order to be displayed on this leaderboard.", false);
 		});
 	}

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping default-lazy="false">
+	<class name="com.github.alex1304.ultimategdbot.gdplugin.database.GDUserStats" table="gd_user_stats">
+		<cache usage="read-write" />
+		<id name="accountId" type="long" column="account_id">
+			<generator class="assigned" />
+		</id>
+		<property name="name" type="string" />
+		<property name="stars" type="int" />
+		<property name="diamonds" type="int" />
+		<property name="userCoins" type="int" column="user_coins" />
+		<property name="secretCoins" type="int" column="secret_coins" />
+		<property name="demons" type="int" />
+		<property name="creatorPoints" type="int" column="creator_points" />
+		<property name="lastRefreshed" type="timestamp" column="last_refreshed" />
+	</class>
+</hibernate-mapping>

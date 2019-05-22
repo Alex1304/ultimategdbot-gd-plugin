@@ -2,18 +2,18 @@ package com.github.alex1304.ultimategdbot.gdplugin.leaderboard;
 
 import java.util.Objects;
 
-import com.github.alex1304.jdash.entity.GDUser;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDUserStats;
 
 public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 	private final String emoji;
 	private final int value;
-	private final GDUser gdUser;
+	private final GDUserStats stats;
 	private final String discordUser;
 	
-	public LeaderboardEntry(String emoji, int value, GDUser gdUser, String discordUser) {
+	public LeaderboardEntry(String emoji, int value, GDUserStats stats, String discordUser) {
 		this.emoji = Objects.requireNonNull(emoji);
 		this.value = value;
-		this.gdUser = Objects.requireNonNull(gdUser);
+		this.stats = Objects.requireNonNull(stats);
 		this.discordUser = Objects.requireNonNull(discordUser);
 	}
 	
@@ -25,8 +25,8 @@ public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 		return value;
 	}
 
-	public GDUser getGdUser() {
-		return gdUser;
+	public GDUserStats getStats() {
+		return stats;
 	}
 
 	public String getDiscordUser() {
@@ -35,11 +35,11 @@ public class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 
 	@Override
 	public int compareTo(LeaderboardEntry o) {
-		return value == o.value ? gdUser.getName().compareToIgnoreCase(o.gdUser.getName()) : o.value - value;
+		return value == o.value ? stats.getName().compareToIgnoreCase(o.stats.getName()) : o.value - value;
 	}
 
 	@Override
 	public String toString() {
-		return "LeaderboardEntry{" + gdUser.getName() + ": " + value + " " + emoji + "}";
+		return "LeaderboardEntry{" + stats.getName() + ": " + value + " " + emoji + "}";
 	}
 }
