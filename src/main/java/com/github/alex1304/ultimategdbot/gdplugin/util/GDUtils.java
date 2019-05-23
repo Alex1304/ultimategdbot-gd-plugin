@@ -554,8 +554,10 @@ public final class GDUtils {
 				}
 			}
 			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n\n" + sb.toString());
-			embed.addField("Last refreshed: " + BotUtils.formatTimeMillis(refreshed) + " ago", "Note that members of this server must have linked their Geometry Dash account with `"
-					+ ctx.getPrefixUsed() + "account` in order to be displayed on this leaderboard.", false);
+			embed.addField("Last refreshed: " + BotUtils.formatTimeMillis(refreshed) + " ago", "Note that members of this server must have "
+					+ "linked their Geometry Dash account with `" + ctx.getPrefixUsed() + "account` in order to be displayed on this "
+					+ "leaderboard. If you have just freshly linked your account, you will need to wait for next leaderboard refresh "
+					+ "in order to be displayed.", false);
 		});
 	}
 	

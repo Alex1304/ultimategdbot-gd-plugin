@@ -43,14 +43,15 @@ public class LeaderboardRefreshCommand implements Command {
 			return Mono.error(new CommandFailedException("Refresh is already in progress."));
 		}
 		var cooldown = new AtomicReference<Duration>();
+		var isSaving = new AtomicBoolean();
 		var loaded = new AtomicLong();
 		var total = new AtomicLong();
 		var now = Timestamp.from(Instant.now());
 		var progressRefreshRate = Duration.ofSeconds(2);
 		var progress = ctx.reply("Refreshing leaderboards...")
 				.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
-						.map(tick -> "Refreshing leaderboards..." + (total.get() == 0 ? ""
-								: " (" + loaded.get() + "/" + total.get() + " users processed)"))
+						.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
+								+ (total.get() == 0 ? "" : " (" + loaded.get() + "/" + total.get() + " users processed)"))
 						.flatMap(text -> message.edit(spec -> spec.setContent(text)))
 						.doFinally(signal -> message.delete().then(ctx.reply("Leaderboards refreshed!")).subscribe()))
 				.subscribe();
@@ -88,6 +89,7 @@ public class LeaderboardRefreshCommand implements Command {
 					return s;
 				})
 				.collectList()
+				.doOnNext(stats -> isSaving.set(true))
 				.flatMap(stats -> ctx.getBot().getDatabase().performEmptyTransaction(session -> stats.forEach(session::saveOrUpdate)))
 				.doFinally(signal -> {
 					progress.dispose();
