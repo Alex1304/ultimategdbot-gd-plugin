@@ -92,6 +92,7 @@ public class GDPlugin implements Plugin {
 	private int eventFluxBufferSize;
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
+	private boolean autostartScannerLoop;
 	private Scheduler gdEventScheduler;
 	private Set<Long> cachedSubmissionChannelIds;
 	
@@ -115,6 +116,7 @@ public class GDPlugin implements Plugin {
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
+		this.autostartScannerLoop = parser.parseOrDefault("gdplugin.autostart_scanner_loop", Boolean::parseBoolean, true);
 		this.gdEventScheduler = Schedulers.newElastic("gdevent-broadcast");
 		try {
 			this.gdClient = GDClientBuilder.create()
@@ -283,10 +285,16 @@ public class GDPlugin implements Plugin {
 							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
 									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
 									+ BotUtils.formatTimeMillis(Duration.ofMillis(result.getT1())) + "**!")))
-							.doAfterTerminate(scannerLoop::start)
+							.doAfterTerminate(this::startScannerLoopIfAutostart)
 							.then();
 		}
-		return Mono.fromRunnable(scannerLoop::start);
+		return Mono.fromRunnable(this::startScannerLoopIfAutostart);
+	}
+	
+	private void startScannerLoopIfAutostart() {
+		if (autostartScannerLoop) {
+			scannerLoop.start();
+		}
 	}
 
 	private Collection<? extends GDEventScanner> initScanners() {

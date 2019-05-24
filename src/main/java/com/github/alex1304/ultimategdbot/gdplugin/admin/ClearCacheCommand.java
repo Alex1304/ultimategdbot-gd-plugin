@@ -21,8 +21,9 @@ public class ClearCacheCommand implements Command {
 
 	@Override
 	public Mono<Void> execute(Context ctx) {
-		plugin.getGdClient().clearCache();
-		return ctx.reply("GD client cache has been cleared.").then();
+		return Mono.fromRunnable(plugin.getGdClient()::clearCache)
+				.then(ctx.reply("GD client cache has been cleared."))
+				.then();
 	}
 
 	@Override

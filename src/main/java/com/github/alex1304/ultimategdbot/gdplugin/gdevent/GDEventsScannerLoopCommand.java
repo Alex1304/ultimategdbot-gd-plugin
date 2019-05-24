@@ -26,11 +26,13 @@ public class GDEventsScannerLoopCommand implements Command {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
 		switch (ctx.getArgs().get(1)) {
 			case "start":
-				plugin.getScannerLoop().start();
-				return ctx.reply("GD event scanner loop has been started.").then();
+				return Mono.fromRunnable(plugin.getScannerLoop()::start)
+						.then(ctx.reply("GD event scanner loop has been started."))
+						.then();
 			case "stop":
-				plugin.getScannerLoop().stop();
-				return ctx.reply("GD event scanner loop has been stopped.").then();
+				return Mono.fromRunnable(plugin.getScannerLoop()::stop)
+						.then(ctx.reply("GD event scanner loop has been stopped."))
+						.then();
 			default:
 				return Mono.error(new InvalidSyntaxException(this));
 		}
