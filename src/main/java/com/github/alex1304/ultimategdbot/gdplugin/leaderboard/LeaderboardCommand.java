@@ -73,7 +73,7 @@ public class LeaderboardCommand implements Command {
 		if (entryList != null) {
 			final var elementsPerPage = 20;
 			final var size = entryList.size();
-			final var maxPage = size / elementsPerPage;
+			final var maxPage = (size - 1) / elementsPerPage;
 			final var offset = page * elementsPerPage;
 			final var subList = entryList.subList(offset, Math.min(offset + elementsPerPage, size));
 			var rb = new ReplyMenuBuilder(ctx, true, false);
