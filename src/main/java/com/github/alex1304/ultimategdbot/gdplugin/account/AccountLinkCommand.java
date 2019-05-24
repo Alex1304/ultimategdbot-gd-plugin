@@ -35,16 +35,23 @@ public class AccountLinkCommand implements Command {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
 		final var input = ArgUtils.concatArgs(ctx, 1);
 		final var authorId = ctx.getEvent().getMessage().getAuthor().get().getId().asLong();
-		return ctx.getBot().getDatabase().findByIDOrCreate(GDLinkedUsers.class, authorId, GDLinkedUsers::setDiscordUserId)
-				.filter(linkedUser -> !linkedUser.getIsLinkActivated())
+		return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
+				.switchIfEmpty(Mono.fromCallable(() -> {
+					var linkedUser = new GDLinkedUsers();
+					linkedUser.setDiscordUserId(authorId);
+					return linkedUser;
+				})).filter(linkedUser -> !linkedUser.getIsLinkActivated())
 				.switchIfEmpty(Mono.error(new CommandFailedException("You are already linked to a Geometry Dash account.")))
 				.flatMap(linkedUser -> plugin.getGdClient().searchUser(input)
 						.flatMap(user -> plugin.getGdClient().getUserByAccountId(plugin.getGdClient().getAccountID())
 								.filter(gdUser -> gdUser.getAccountId() > 0)
-								.switchIfEmpty(Mono.error(new CommandFailedException("This Geometry Dash user is green/unregistered. Cannot proceed to linking.")))
-								.doOnNext(__ -> linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
-										GDUtils.generateAlphanumericToken(TOKEN_LENGTH))))
-								.doOnNext(__ -> linkedUser.setGdAccountId(user.getAccountId()))
+								.switchIfEmpty(Mono.error(new CommandFailedException("This user is unregistered in Geometry Dash.")))
+								.flatMap(botUser -> {
+									linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
+											GDUtils.generateAlphanumericToken(TOKEN_LENGTH)));
+									linkedUser.setGdAccountId(user.getAccountId());
+									return ctx.getBot().getDatabase().save(linkedUser).thenReturn(botUser);
+								})
 								.flatMap(botUser -> {
 									var menuEmbedContent = new StringBuilder();
 									menuEmbedContent.append("Step 1: Open Geometry Dash\n");
@@ -62,8 +69,7 @@ public class AccountLinkCommand implements Command {
 											+ "account **" + user.getName() + "**. Now you need to prove that you are the owner of "
 											+ "this account. Please follow the instructions below to finalize the linking "
 											+ "process.\n");
-								}))
-						.then(ctx.getBot().getDatabase().save(linkedUser)))
+								})))
 				.then();
 	}
 	
@@ -81,12 +87,12 @@ public class AccountLinkCommand implements Command {
 								+ "Make sure you have typed it correctly and retry by typing `done` again. Note that it's case sensitive.")))
 						.doOnNext(__ -> linkedUser.setConfirmationToken(null))
 						.doOnNext(__ -> linkedUser.setIsLinkActivated(true))
-						.thenEmpty(ctx.getBot().getDatabase().save(linkedUser))
+						.then(ctx.getBot().getDatabase().save(linkedUser))
 						.then(ctx.getBot().getEmoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
 								+ "Geometry Dash account **" + user.getName() + "**!")))
 						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
 								+ "Retry later."))
-						.doOnSuccessOrError((m, e) -> waitMessage.delete().subscribe())
+						.doFinally(signal -> waitMessage.delete().subscribe())
 						.then());
 	}
 

@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -53,9 +54,10 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 								.buffer()
 								.doOnNext(buffer -> timeStart.set(System.nanoTime()))
 								.flatMap(Flux::fromIterable)
-								.publishOn(plugin.getGdEventScheduler())
+								.parallel()
+								.runOn(plugin.getGdEventScheduler())
 								.flatMap(TupleUtils.function((channel, roleToTag) -> sendOne(t, channel, roleToTag)))
-								.collectList()
+								.collectSortedList(Comparator.comparing(Message::getId), 2000)
 								.flatMap(messageList -> {
 									var time = System.nanoTime() - timeStart.get();
 									var formattedTime = BotUtils.formatTimeMillis(Duration.ofNanos(time));
