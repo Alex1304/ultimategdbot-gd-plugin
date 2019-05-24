@@ -42,6 +42,7 @@ public class LeaderboardRefreshCommand implements Command {
 		if (isLocked.get()) {
 			return Mono.error(new CommandFailedException("Refresh is already in progress."));
 		}
+		isLocked.set(true);
 		var cooldown = new AtomicReference<Duration>();
 		var isSaving = new AtomicBoolean();
 		var loaded = new AtomicLong();
@@ -70,7 +71,6 @@ public class LeaderboardRefreshCommand implements Command {
 				.distinct(GDLinkedUsers::getGdAccountId)
 				.buffer()
 				.doOnNext(buf -> total.set(buf.size()))
-				.doOnNext(buf -> isLocked.compareAndSet(false, true))
 				.flatMap(Flux::fromIterable)
 				.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId()))
 				.onErrorContinue((error, obj) -> LOGGER.warn("Failed to refresh user " + obj, error))
