@@ -332,7 +332,7 @@ public class GDPlugin implements Plugin {
 	public Set<String> getDatabaseMappingResources() {
 		return Set.of("/GDLinkedUsers.hbm.xml", "/GDSubscribedGuilds.hbm.xml", "/GDModList.hbm.xml",
 				"/GDLeaderboardBans.hbm.xml", "/GDAwardedLevels.hbm.xml", "/GDLevelRequestsSettings.hbm.xml",
-				"/GDLevelRequestSubmissions.hbm.xml", "/GDLevelRequestReviews.hbm.xml");
+				"/GDLevelRequestSubmissions.hbm.xml", "/GDLevelRequestReviews.hbm.xml", "/GDUserStats.hbm.xml");
 	}
 
 	@Override
