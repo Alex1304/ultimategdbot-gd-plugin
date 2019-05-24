@@ -2,6 +2,7 @@ package com.github.alex1304.ultimategdbot.gdplugin.admin;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -17,6 +18,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Mono;
@@ -71,9 +73,11 @@ public class ChangelogCommand implements Command {
 				.then(GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
 						.map(GDSubscribedGuilds::getChannelChangelogId)
 						.map(Snowflake::of)
-						.concatMap(plugin.getPreloader()::preloadChannel)
-						.publishOn(plugin.getGdEventScheduler())
+						.flatMap(plugin.getPreloader()::preloadChannel)
+						.parallel()
+						.runOn(plugin.getGdEventScheduler())
 						.flatMap(channel -> channel.createMessage(changelog).onErrorResume(e -> Mono.empty()))
+						.collectSortedList(Comparator.comparing(Message::getId), 2000)
 						.then(ctx.reply("Changelog sent to all guilds!")))
 				.then();
 	}

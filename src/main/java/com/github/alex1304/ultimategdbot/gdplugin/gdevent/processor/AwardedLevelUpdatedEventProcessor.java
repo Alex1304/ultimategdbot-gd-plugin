@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -13,6 +14,7 @@ import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 
+import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -39,11 +41,12 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 						.then(Mono.fromRunnable(() -> timeStart.set(System.nanoTime())))
 						.then(Flux.fromIterable(messageList)
 								.filter(message -> message.getEmbeds().size() > 0)
-								.publishOn(plugin.getGdEventScheduler())
+								.parallel()
+								.runOn(plugin.getGdEventScheduler())
 								.flatMap(message -> GDUtils.shortLevelView(plugin.getBot(), t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())))
-								.collectList()
+								.collectSortedList(Comparator.comparing(Message::getId), 2000)
 								.flatMap(newMessageList -> {
 									var time = System.nanoTime() - timeStart.get();
 									var formattedTime = BotUtils.formatTimeMillis(Duration.ofNanos(time));
