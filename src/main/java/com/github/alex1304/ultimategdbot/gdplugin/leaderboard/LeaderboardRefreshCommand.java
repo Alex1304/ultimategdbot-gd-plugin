@@ -81,7 +81,7 @@ public class LeaderboardRefreshCommand implements Command {
 					s.setName(gdUser.getName());
 					s.setLastRefreshed(now);
 					s.setStars(gdUser.getStars());
-					s.setDiamonds(gdUser.getDemons());
+					s.setDiamonds(gdUser.getDiamonds());
 					s.setUserCoins(gdUser.getUserCoins());
 					s.setSecretCoins(gdUser.getSecretCoins());
 					s.setDemons(gdUser.getDemons());
