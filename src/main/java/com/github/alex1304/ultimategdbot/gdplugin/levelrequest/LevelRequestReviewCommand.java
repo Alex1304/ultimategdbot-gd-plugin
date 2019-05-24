@@ -155,7 +155,7 @@ public class LevelRequestReviewCommand implements Command {
 				+ "- You have the reviewer role, as configured in this server\n"
 				+ "- You run this command in the submission channel\n"
 				+ "- The targeted submission exists and hasn't already been moved out of the queue.\n"
-				+ "Note that you can still add reviews to queue levels while level requests are closed, and"
+				+ "Note that you can still add reviews to queue levels while level requests are closed, and "
 				+ "each review must not exceed 1000 characters.\n\n"
 				+ "To revoke your review from a submission, the syntax is `review <submission_ID> revoke`.";
 	}

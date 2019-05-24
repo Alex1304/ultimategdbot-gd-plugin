@@ -35,8 +35,8 @@ public class LevelRequestCommand implements Command {
 						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getMainDiscordClient()
 								.getRoleById(guildId, Snowflake.of(lvlReqSettings.getReviewerRoleId()))
 								.map(Role::getName)
-								.defaultIfEmpty("*unknown role*")
-								.onErrorReturn("*unknown role*"))
+								.onErrorResume(e -> Mono.empty())
+								.defaultIfEmpty("*unknown role*"))
 						.flatMap(TupleUtils.function((lvlReqSettings, reviewerRole) -> ctx.reply(HEADER + (lvlReqSettings.getIsOpen()
 								? success + " level requests are OPENED" : failed + " level requests are CLOSED") + "\n\n"
 								+ "**Submission channel:** " + formatChannel(lvlReqSettings.getSubmissionQueueChannelId()) + "\n"
@@ -78,7 +78,9 @@ public class LevelRequestCommand implements Command {
 		return "Submit your levels in the submission queue channel using `levelrequest submit <your_level_ID>`. Then people with the "
 				+ "reviewer role will review your submission, and once you get a certain number of reviews your level will be moved to "
 				+ "the reveiwed levels channel and you will be notified in DMs. You are only allowed to submit a limited number of "
-				+ "levels at once.";
+				+ "levels at once.\n\n"
+				+ "For more details on how level requests work, check out this guide: <https://github.com/Alex1304/ultimategdbot-gd-plugin"
+				+ "/wiki/Level-Requests-Tutorial>";
 	}
 
 	@Override
