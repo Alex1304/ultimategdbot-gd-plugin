@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
+import com.github.alex1304.jdash.client.GDClientBuilder.Credentials;
 import com.github.alex1304.jdash.exception.BadResponseException;
 import com.github.alex1304.jdash.exception.CorruptedResponseContentException;
 import com.github.alex1304.jdash.exception.GDLoginFailedException;
@@ -124,7 +125,8 @@ public class GDPlugin implements Plugin {
 					.withCacheTtl(cacheTtl)
 					.withMaxConnections(maxConnections)
 					.withRequestTimeout(requestTimeout)
-					.buildAuthenticated(username, password);
+					.buildAuthenticated(new Credentials(username, password))
+					.block();
 		} catch (GDLoginFailedException e) {
 			throw new RuntimeException("Failed to login with the given Geometry Dash credentials", e);
 		}
@@ -222,14 +224,18 @@ public class GDPlugin implements Plugin {
 				GDLevelRequestsSettings.class,
 				GDLevelRequestsSettings::getMaxReviewsRequired,
 				GDLevelRequestsSettings::setMaxReviewsRequired,
-				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 5, "Must be between 1 and 5"),
+				(v, guildId) -> v.equalsIgnoreCase(GuildSettingsValueConverter.NONE_VALUE)
+						? Mono.just(0)
+						: valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 5, "Must be between 1 and 5"),
 				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
 		));
 		configEntries.put("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
 				GDLevelRequestsSettings.class,
 				GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
 				GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
-				(v, guildId) -> valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 20, "Must be between 1 and 20"),
+				(v, guildId) -> v.equalsIgnoreCase(GuildSettingsValueConverter.NONE_VALUE)
+						? Mono.just(0)
+						: valueConverter.toNumberWithCheck(v, guildId, Integer::parseInt, i -> i > 0 && i <= 20, "Must be between 1 and 20"),
 				(i, guildId) -> Mono.just(i == 0 ? "Not configured" : "" + i)
 		));
 		

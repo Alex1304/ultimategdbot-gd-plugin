@@ -153,7 +153,7 @@ public class LevelRequestUtils {
 			.flatMap(event -> Flux.fromIterable(cachedSubmissionChannelIds)
 					.filter(id -> id == event.getMessage().getChannelId().asLong())
 					.next()
-					.delayElement(Duration.ofSeconds(8))
+					.delayElement(Duration.ofSeconds(15))
 					.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
 			.onErrorContinue((error, obj) -> LOGGER.error("Error while cleaning level requests submission queue channels on " + obj, error))
 			.subscribe();

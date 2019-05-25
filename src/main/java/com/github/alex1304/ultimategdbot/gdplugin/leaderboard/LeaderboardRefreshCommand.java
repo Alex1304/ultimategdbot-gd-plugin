@@ -22,6 +22,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDUserStats;
 
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -43,19 +44,30 @@ public class LeaderboardRefreshCommand implements Command {
 			return Mono.error(new CommandFailedException("Refresh is already in progress."));
 		}
 		isLocked.set(true);
+		LOGGER.debug("Locked leaderboards");
 		var cooldown = new AtomicReference<Duration>();
+		var disposableProgress = new AtomicReference<Disposable>();
 		var isSaving = new AtomicBoolean();
 		var loaded = new AtomicLong();
 		var total = new AtomicLong();
 		var now = Timestamp.from(Instant.now());
 		var progressRefreshRate = Duration.ofSeconds(2);
-		var progress = ctx.reply("Refreshing leaderboards...")
+		var progress = ctx.getBot().getEmoji("info")
+				.flatMap(info -> ctx.getBot().log(info + " Leaderboard refresh triggered by **" + ctx.getEvent()
+						.getMessage()
+						.getAuthor()
+						.map(BotUtils::formatDiscordUsername)
+						.orElse("Unknown User#0000") + "**"))
+				.then(ctx.reply("Refreshing leaderboards..."))
 				.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
 						.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
 								+ (total.get() == 0 ? "" : " (" + loaded.get() + "/" + total.get() + " users processed)"))
 						.flatMap(text -> message.edit(spec -> spec.setContent(text)))
-						.doFinally(signal -> message.delete().then(ctx.reply("Leaderboards refreshed!")).subscribe()))
-				.subscribe();
+						.doFinally(signal -> message.delete()
+								.then(ctx.getBot().getEmoji("success"))
+								.flatMap(success -> ctx.getBot().log(success + " Leaderboard refresh finished with success!")
+										.then(ctx.reply(success + " Leaderboards refreshed!")))
+								.subscribe()));
 		
 		return ctx.getBot().getDatabase().query(GDUserStats.class, "from GDUserStats s order by s.lastRefreshed desc")
 				.next()
@@ -66,11 +78,12 @@ public class LeaderboardRefreshCommand implements Command {
 				.doOnNext(cooldown::set)
 				.filter(Duration::isNegative)
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
-						+ "Try again in " + BotUtils.formatTimeMillis(cooldown.get()))))
+						+ "Try again in " + BotUtils.formatTimeMillis(cooldown.get().withNanos(0)))))
 				.thenMany(ctx.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1"))
 				.distinct(GDLinkedUsers::getGdAccountId)
 				.buffer()
 				.doOnNext(buf -> total.set(buf.size()))
+				.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
 				.flatMap(Flux::fromIterable)
 				.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId()))
 				.onErrorContinue((error, obj) -> LOGGER.warn("Failed to refresh user " + obj, error))
@@ -92,8 +105,11 @@ public class LeaderboardRefreshCommand implements Command {
 				.doOnNext(stats -> isSaving.set(true))
 				.flatMap(stats -> ctx.getBot().getDatabase().performEmptyTransaction(session -> stats.forEach(session::saveOrUpdate)))
 				.doFinally(signal -> {
-					progress.dispose();
 					isLocked.set(false);
+					LOGGER.debug("Unlocked leaderboards");
+					if (disposableProgress.get() != null) {
+						disposableProgress.get().dispose();
+					}
 				})
 				.then();
 	}

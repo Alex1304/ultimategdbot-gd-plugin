@@ -9,6 +9,7 @@ import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
@@ -38,7 +39,14 @@ public class LeaderboardBanCommand implements Command {
 										.map(Snowflake::asLong)
 										.orElse(0L)))
 								.flatMap(ctx.getBot().getDatabase()::save))
-						.then(ctx.reply("**" + gdUser.getName() + "** is now banned from leaderboards!")))
+						.then(ctx.reply("**" + gdUser.getName() + "** is now banned from leaderboards!"))
+						.then(ctx.getBot().getEmoji("info")
+								.flatMap(info -> ctx.getBot().log(info + " Leaderboard ban added: **" + gdUser.getName()
+										+ "**, by **" + ctx.getEvent()
+										.getMessage()
+										.getAuthor()
+										.map(BotUtils::formatDiscordUsername)
+										.orElse("Unknown User#0000") + "**"))))
 				.then();
 	}
 

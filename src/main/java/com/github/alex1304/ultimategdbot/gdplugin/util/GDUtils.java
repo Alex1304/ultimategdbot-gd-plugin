@@ -520,7 +520,7 @@ public final class GDUtils {
 
 	public static Mono<Consumer<EmbedCreateSpec>> leaderboardView(Context ctx, List<LeaderboardEntry> subList, int page,
 			int elementsPerPage, int size) {
-		var refreshed = Duration.between(ctx.getVar("lastRefreshed", Instant.class), Instant.now());
+		var refreshed = Duration.between(ctx.getVar("lastRefreshed", Instant.class), Instant.now()).withNanos(0);
 		var highlighted = ctx.getVar("highlighted", String.class);
 		return ctx.getEvent().getGuild().map(guild -> embed -> {
 			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");

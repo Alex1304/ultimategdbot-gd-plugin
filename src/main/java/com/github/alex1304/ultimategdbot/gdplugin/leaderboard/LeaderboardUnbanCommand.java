@@ -9,6 +9,7 @@ import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
+import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
@@ -30,7 +31,14 @@ public class LeaderboardUnbanCommand implements Command {
 				.flatMap(gdUser -> ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
 						.switchIfEmpty(Mono.error(new CommandFailedException("This user is already unbanned.")))
 						.flatMap(ctx.getBot().getDatabase()::delete)
-						.then(ctx.reply("**" + gdUser.getName() + "** has been unbanned from leaderboards!")))
+						.then(ctx.reply("**" + gdUser.getName() + "** has been unbanned from leaderboards!"))
+						.then(ctx.getBot().getEmoji("info")
+								.flatMap(info -> ctx.getBot().log(info + " Leaderboard ban removed: **" + gdUser.getName()
+										+ "**, by **" + ctx.getEvent()
+										.getMessage()
+										.getAuthor()
+										.map(BotUtils::formatDiscordUsername)
+										.orElse("Unknown User#0000") + "**"))))
 				.then();
 	}
 
