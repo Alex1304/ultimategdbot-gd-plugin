@@ -108,7 +108,7 @@ public class LeaderboardCommand implements Command {
 				return GDUtils.stringToUser(ctx.getBot(), plugin.getGdClient(), ArgUtils.concatArgs(ctx0, 1))
 						.flatMap(gdUser -> {
 							final var ids = entryList.stream().map(entry -> entry.getStats().getAccountId()).collect(Collectors.toList());
-							final var rank = ids.indexOf(gdUser.getId());
+							final var rank = ids.indexOf(gdUser.getAccountId());
 							if (rank == -1) {
 								return Mono.error(new CommandFailedException("This user wasn't found on this leaderboard."));
 							}
