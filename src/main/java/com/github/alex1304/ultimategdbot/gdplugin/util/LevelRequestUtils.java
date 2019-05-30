@@ -161,7 +161,7 @@ public class LevelRequestUtils {
 		bot.getDiscordClients()
 			.map(DiscordClient::getEventDispatcher)
 			.flatMap(dispatcher -> dispatcher.on(MessageDeleteEvent.class))
-			.filter(event -> event.getMessage().map(m -> cachedSubmissionChannelIds.contains(m.getChannelId().asLong())).orElse(false))
+			.filter(event -> cachedSubmissionChannelIds.contains(event.getChannelId().asLong()))
 			.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
 			.filter(id -> id > 0)
 			.flatMap(id -> bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))

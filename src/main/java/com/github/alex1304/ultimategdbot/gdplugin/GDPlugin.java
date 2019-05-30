@@ -96,6 +96,7 @@ public class GDPlugin implements Plugin {
 	private boolean autostartScannerLoop;
 	private Scheduler gdEventScheduler;
 	private Set<Long> cachedSubmissionChannelIds;
+	private int maxConnections;
 	
 	private final Map<String, GuildSettingsEntry<?, ?>> configEntries = new HashMap<String, GuildSettingsEntry<?, ?>>();
 	private final CommandErrorHandler cmdErrorHandler = new CommandErrorHandler();
@@ -112,18 +113,17 @@ public class GDPlugin implements Plugin {
 		var password = parser.parseAsString("gdplugin.password");
 		var host = parser.parseAsStringOrDefault("gdplugin.host", Routes.BASE_URL);
 		var cacheTtl = parser.parseOrDefault("gdplugin.cache_ttl", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_CACHE_TTL);
-		var maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", GDClientBuilder.DEFAULT_MAX_CONNECTIONS);
 		var requestTimeout = parser.parseOrDefault("gdplugin.request_timeout", v -> Duration.ofMillis(Long.parseLong(v)), GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
 		var scannerLoopInterval = Duration.ofSeconds(parser.parseAsIntOrDefault("gdplugin.scanner_loop_interval", 10));
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
 		this.autostartScannerLoop = parser.parseOrDefault("gdplugin.autostart_scanner_loop", Boolean::parseBoolean, true);
 		this.gdEventScheduler = Schedulers.parallel();
+		this.maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", 100);
 		try {
 			this.gdClient = GDClientBuilder.create()
 					.withHost(host)
 					.withCacheTtl(cacheTtl)
-					.withMaxConnections(maxConnections)
 					.withRequestTimeout(requestTimeout)
 					.buildAuthenticated(new Credentials(username, password))
 					.block();
@@ -405,5 +405,9 @@ public class GDPlugin implements Plugin {
 
 	public Scheduler getGdEventScheduler() {
 		return gdEventScheduler;
+	}
+
+	public int getMaxConnections() {
+		return maxConnections;
 	}
 }
