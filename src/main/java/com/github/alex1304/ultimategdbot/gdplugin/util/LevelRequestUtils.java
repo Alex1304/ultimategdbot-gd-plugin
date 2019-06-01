@@ -45,7 +45,12 @@ public class LevelRequestUtils {
 		Objects.requireNonNull(ctx, "ctx was null");
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		return ctx.getBot().getDatabase()
-				.findByIDOrCreate(GDLevelRequestsSettings.class, guildId.asLong(), GDLevelRequestsSettings::setGuildId)
+				.findByID(GDLevelRequestsSettings.class, guildId.asLong())
+				.switchIfEmpty(Mono.fromCallable(() -> {
+					var lvlReqSettings = new GDLevelRequestsSettings();
+					lvlReqSettings.setGuildId(guildId.asLong());
+					return lvlReqSettings;
+				}).flatMap(lvlReqSettings -> ctx.getBot().getDatabase().save(lvlReqSettings).thenReturn(lvlReqSettings)))
 				.flatMap(lvlReqSettings -> !lvlReqSettings.getIsOpen() && (lvlReqSettings.getMaxQueuedSubmissionsPerPerson() == 0
 						|| lvlReqSettings.getMaxReviewsRequired() == 0
 						|| lvlReqSettings.getReviewedLevelsChannelId() == 0

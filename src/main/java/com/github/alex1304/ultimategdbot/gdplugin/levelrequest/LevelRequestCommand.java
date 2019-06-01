@@ -31,7 +31,13 @@ public class LevelRequestCommand implements Command {
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		return Mono.zip(ctx.getBot().getEmoji("success"), ctx.getBot().getEmoji("failed"))
 				.flatMap(TupleUtils.function((success, failed) -> ctx.getBot().getDatabase()
-						.findByIDOrCreate(GDLevelRequestsSettings.class, guildId.asLong(), GDLevelRequestsSettings::setGuildId)
+						//.findByIDOrCreate(GDLevelRequestsSettings.class, guildId.asLong(), GDLevelRequestsSettings::setGuildId)
+						.findByID(GDLevelRequestsSettings.class, guildId.asLong())
+						.switchIfEmpty(Mono.fromCallable(() -> {
+							var lvlReqSettings = new GDLevelRequestsSettings();
+							lvlReqSettings.setGuildId(guildId.asLong());
+							return lvlReqSettings;
+						}).flatMap(lvlReqSettings -> ctx.getBot().getDatabase().save(lvlReqSettings).thenReturn(lvlReqSettings)))
 						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getMainDiscordClient()
 								.getRoleById(guildId, Snowflake.of(lvlReqSettings.getReviewerRoleId()))
 								.map(Role::getName)

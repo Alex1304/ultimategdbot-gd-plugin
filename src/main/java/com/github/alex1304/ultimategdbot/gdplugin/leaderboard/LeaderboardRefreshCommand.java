@@ -84,6 +84,7 @@ public class LeaderboardRefreshCommand implements Command {
 				.buffer()
 				.doOnNext(buf -> total.set(buf.size()))
 				.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
+				.doOnNext(buf -> plugin.getGdClient().clearCache())
 				.flatMap(Flux::fromIterable)
 				.flatMap(linkedUser -> plugin.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())
 						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
