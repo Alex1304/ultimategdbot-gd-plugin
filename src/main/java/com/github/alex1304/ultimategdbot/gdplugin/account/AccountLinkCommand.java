@@ -82,7 +82,7 @@ public class AccountLinkCommand implements Command {
 								+ "Have you sent it? Read and follow the steps again and retry by typing `done` again.")))
 						.next()
 						.flatMap(GDMessage::getBody)
-						.filter(linkedUser.getConfirmationToken()::equals)
+						.filter(body -> body.equals(linkedUser.getConfirmationToken()))
 						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
 								+ "Make sure you have typed it correctly and retry by typing `done` again. Note that it's case sensitive.")))
 						.doOnNext(__ -> linkedUser.setConfirmationToken(null))

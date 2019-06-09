@@ -218,11 +218,9 @@ public class LeaderboardCommand implements Command {
 
 	@Override
 	public String getLongDescription() {
-		return "All members of the current server that has a Geometry Dash account linked may be shown in the leaderboards provided by this command."
-				+ "You can choose which leaderboard to show (stars, demons, creator points, etc), and there is an internal ban system to remove cheaters"
-				+ "from them.\n"
-				+ "This command might take a while to execute, because it needs to fetch the profile of every single user that is on the server and "
-				+ "that has an account linked.\n";
+		return "All members of the current server that have a Geometry Dash account linked may be shown in the leaderboards provided by this command.\n"
+				+ "`[<stat_name>]` can be one of: `stars`, `demons`, `diamonds`, `ucoins`, `scoins`, `cp` to show respectively stars, demons, diamonds, "
+				+ "user coins, secret coins and creator points leaderboards. Leaderboards are refreshed once in a while, up to 4 times per day.";
 	}
 
 	@Override
