@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,15 +49,18 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 		return Mono.zip(plugin.getBot().getEmoji("info"), plugin.getBot().getEmoji("success"))
 				.flatMap(emojis -> plugin.getBot().log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
-						.then(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
+						.log("gdevent.before_dbload", Level.FINE)
+						.and(congrat(t).mergeWith(GDUtils.getExistingSubscribedGuilds(plugin.getBot(), "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
+								.log("gdevent.after_dbload", Level.FINE)
 								.buffer()
 								.doOnNext(buffer -> timeStart.set(System.nanoTime()))
 								.flatMap(Flux::fromIterable)
 								.parallel()
 								.runOn(plugin.getGdEventScheduler())
 								.flatMap(TupleUtils.function((channel, roleToTag) -> sendOne(t, channel, roleToTag)))
+								.log("gdevent.message_sent", Level.FINE)
 								.collectSortedList(Comparator.comparing(Message::getId), 2000)
 								.flatMap(messageList -> {
 									var time = System.nanoTime() - timeStart.get();
@@ -69,7 +73,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 											+ "**Execution time: " + formattedTime + "**\n"
 											+ "**Average broadcast speed: " + broadcastSpeed + " messages/s**")
 													.onErrorResume(e -> Mono.empty());
-								}))).then();
+								})));
 	}
 	
 	abstract String databaseField();
@@ -82,6 +86,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 	private Mono<Tuple2<GDSubscribedGuilds, MessageChannel>> findChannel(GDSubscribedGuilds subscribedGuild) {
 		return plugin.getPreloader().preloadChannel(Snowflake.of(entityFieldChannel(subscribedGuild)))
 				.map(channel -> Tuples.of(subscribedGuild, channel))
+				.log("gdevent.channel_found", Level.FINE)
 				.onErrorResume(e -> Mono.empty());
 	}
 	
@@ -92,6 +97,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.map(Optional::of)
 				.onErrorReturn(Optional.empty())
 				.defaultIfEmpty(Optional.empty())
+				.log("gdevent.role_found", Level.FINE)
 				.map(role -> Tuples.of(channel, role));
 	}
 	
@@ -101,6 +107,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.flatMap(linkedUser -> plugin.getBot().getMainDiscordClient().getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
 				.flatMap(User::getPrivateChannel)
 				.onErrorResume(e -> Mono.empty())
+				.log("gdevent.congrat", Level.FINE)
 				.map(channel -> Tuples.of(channel, Optional.empty()));
 	}
 }
