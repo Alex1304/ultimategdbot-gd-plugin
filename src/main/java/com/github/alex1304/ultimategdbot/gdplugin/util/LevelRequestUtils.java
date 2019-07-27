@@ -12,6 +12,7 @@ import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
+import com.github.alex1304.ultimategdbot.api.Database;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
@@ -66,15 +67,10 @@ public class LevelRequestUtils {
 	 * @param ctx the context
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissions> getSubmissionsForUser(Context ctx) {
-		Objects.requireNonNull(ctx, "ctx was null");
-		var guildId = ctx.getEvent().getGuildId().orElseThrow().asLong();
-		var userId = ctx.getEvent().getMessage().getAuthor().orElseThrow().getId().asLong();
-		return ctx.getBot().getDatabase()
-				.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
+	public static Flux<GDLevelRequestSubmissions> getSubmissionsForGuild(Database db, long guildId) {
+		return db.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 "
-						+ "and s.submitterId = ?1 "
-						+ "order by s.submissionTimestamp", guildId, userId);
+						+ "order by s.submissionTimestamp", guildId);
 	}
 
 	/**

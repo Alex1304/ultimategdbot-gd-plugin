@@ -36,13 +36,12 @@ public class LevelRequestSubmitCommand implements Command {
 	public Mono<Void> execute(Context ctx) {
 		ArgUtils.requireMinimumArgCount(ctx, 2);
 		final var guildId = ctx.getEvent().getGuildId().orElseThrow().asLong();
-		final var userId = ctx.getEvent().getMessage().getAuthor().orElseThrow().getId().asLong();
+		final var user = ctx.getEvent().getMessage().getAuthor().orElseThrow();
 		final var levelId = ArgUtils.getArgAsLong(ctx, 1);
 		final var youtubeLink = extractYouTubeLink(ctx);
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
-		final var submission = new AtomicReference<GDLevelRequestSubmissions>();
-		final var userSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
+		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
 		return LevelRequestUtils.getLevelRequestsSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
@@ -50,10 +49,10 @@ public class LevelRequestSubmitCommand implements Command {
 						+ lvlReqSettings.get().getSubmissionQueueChannelId() + ">.")))
 				.filter(GDLevelRequestsSettings::getIsOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
-				.doOnNext(__ -> userSubmissions.set(LevelRequestUtils.getSubmissionsForUser(ctx).cache()))
-				.filterWhen(lrs -> userSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId || s.getGuildId() != guildId))
+				.doOnNext(__ -> guildSubmissions.set(LevelRequestUtils.getSubmissionsForGuild(ctx.getBot().getDatabase(), guildId).cache()))
+				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
-				.filterWhen(lrs -> userSubmissions.get().count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
+				.filterWhen(lrs -> guildSubmissions.get().filter(s -> !s.getIsReviewed()).count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You've reached the maximum number of submissions allowed in queue per person ("
 						+ lvlReqSettings.get().getMaxQueuedSubmissionsPerPerson() + "). Wait for one of your queued requests to be "
 						+ "reviewed before trying again.")))
@@ -66,19 +65,20 @@ public class LevelRequestSubmitCommand implements Command {
 							s.setGuildId(guildId);
 							s.setLevelId(levelId);
 							s.setSubmissionTimestamp(Timestamp.from(Instant.now()));
-							s.setSubmitterId(userId);
+							s.setSubmitterId(user.getId().asLong());
 							s.setYoutubeLink(youtubeLink);
 							s.setIsReviewed(false);
-							submission.set(s);
 							return s;
-						}).flatMap(ctx.getBot().getDatabase()::save))
-				.then(Mono.defer(() -> LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), ctx.getEvent().getMessage().getAuthor().orElseThrow(), 
-						level.get(), lvlReqSettings.get(), submission.get(), List.of())
-						.map(SubmissionMessage::toMessageCreateSpec)
-						.flatMap(ctx::reply)
-						.doOnNext(message -> submission.get().setMessageId(message.getId().asLong()))
-						.then(ctx.getBot().getDatabase().save(submission.get()))
-						.onErrorResume(e -> ctx.getBot().getDatabase().delete(submission.get()).then(Mono.error(e)))))
+						})
+						.flatMap(s -> ctx.getBot().getDatabase().save(s).thenReturn(s).onErrorReturn(s)) // First save to know the submission ID
+						.flatMap(s -> LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), user, level.get(), lvlReqSettings.get(), s, List.of())
+								.map(SubmissionMessage::toMessageCreateSpec)
+								.flatMap(ctx::reply)
+								.flatMap(message -> {
+									s.setMessageId(message.getId().asLong());
+									return ctx.getBot().getDatabase().save(s);
+								})
+								.onErrorResume(e -> ctx.getBot().getDatabase().delete(s).then(Mono.error(e)))))
 				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!")))
 				.then();
 	}
@@ -88,7 +88,7 @@ public class LevelRequestSubmitCommand implements Command {
 			return "";
 		} else {
 			var arg2 = ctx.getArgs().get(2);
-			if (arg2.matches("https?://youtu\\.be/.*") || arg2.matches("https?://www\\.youtube\\.com/watch\\?v=.*")) {
+			if (arg2.matches("https?://youtu\\.be/.*") || arg2.matches("https?://www\\.youtube\\.com/watch\\?.*")) {
 				return arg2;
 			} else {
 				throw new CommandFailedException("Invalid YouTube link");

@@ -5,8 +5,10 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.github.alex1304.ultimategdbot.api.Command;
+import com.github.alex1304.ultimategdbot.api.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.Plugin;
+import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 
@@ -29,6 +31,7 @@ public class LevelRequestCommand implements Command {
 	@Override
 	public Mono<Void> execute(Context ctx) {
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
+		var channelId = ctx.getEvent().getMessage().getChannelId().asLong();
 		return Mono.zip(ctx.getBot().getEmoji("success"), ctx.getBot().getEmoji("failed"))
 				.flatMap(TupleUtils.function((success, failed) -> ctx.getBot().getDatabase()
 						//.findByIDOrCreate(GDLevelRequestsSettings.class, guildId.asLong(), GDLevelRequestsSettings::setGuildId)
@@ -38,6 +41,10 @@ public class LevelRequestCommand implements Command {
 							lvlReqSettings.setGuildId(guildId.asLong());
 							return lvlReqSettings;
 						}).flatMap(lvlReqSettings -> ctx.getBot().getDatabase().save(lvlReqSettings).thenReturn(lvlReqSettings)))
+						.flatMap(lvlReqSettings -> channelId == lvlReqSettings.getSubmissionQueueChannelId() && ctx.getArgs().size() > 1
+								? Mono.error(new CommandFailedException(failed + "Hmm, did you mean \"" + ctx.getPrefixUsed()
+										+ "lvlreq **submit** " + ArgUtils.concatArgs(ctx, 1) + "\"?"))
+								: Mono.just(lvlReqSettings))
 						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getMainDiscordClient()
 								.getRoleById(guildId, Snowflake.of(lvlReqSettings.getReviewerRoleId()))
 								.map(Role::getName)
