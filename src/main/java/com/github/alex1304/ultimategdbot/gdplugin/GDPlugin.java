@@ -118,7 +118,7 @@ public class GDPlugin implements Plugin {
 		this.eventFluxBufferSize = parser.parseAsIntOrDefault("gdplugin.event_flux_buffer_size", 20);
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
 		this.autostartScannerLoop = parser.parseOrDefault("gdplugin.autostart_scanner_loop", Boolean::parseBoolean, true);
-		this.gdEventScheduler = Schedulers.parallel();
+		this.gdEventScheduler = Schedulers.elastic();
 		this.maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", 100);
 		try {
 			this.gdClient = GDClientBuilder.create()

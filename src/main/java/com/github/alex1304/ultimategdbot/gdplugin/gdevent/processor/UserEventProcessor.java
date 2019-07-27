@@ -52,10 +52,7 @@ abstract class UserEventProcessor<E extends UserEvent> extends AbstractGDEventPr
 						+ (channel instanceof PrivateChannel ? isPromotion() ? "Congratulations for being " : "I'm sorry to announce this, but you have been " // GNOMED
 						: "A user has been ") + messageContent())))
 				.flatMap(channel::createMessage)
-				.onErrorResume(e -> {
-					e.printStackTrace();
-					return Mono.empty();
-				});
+				.onErrorResume(e -> Mono.empty());
 	}
 
 	@Override
