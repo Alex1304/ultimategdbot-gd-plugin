@@ -126,7 +126,7 @@ public class LevelRequestReviewCommand implements Command {
 											submission.get().setIsReviewed(true);
 											return ctx.getBot().getDatabase().save(submission.get());
 										}))
-								.then(Mono.defer(() -> submitter.get().getPrivateChannel()
+								.and(Mono.defer(() -> submitter.get().getPrivateChannel()
 										.zipWith(updatedMessage.map(m -> new SubmissionMessage("Your level request from **"
 												+ guild.get().getName() + "** has been reviewed!", m.getEmbed()).toMessageCreateSpec()))
 										.flatMap(TupleUtils.function(PrivateChannel::createMessage))

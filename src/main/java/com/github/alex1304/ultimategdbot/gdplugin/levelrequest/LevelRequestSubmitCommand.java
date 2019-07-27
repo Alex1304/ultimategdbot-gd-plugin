@@ -52,7 +52,8 @@ public class LevelRequestSubmitCommand implements Command {
 				.doOnNext(__ -> guildSubmissions.set(LevelRequestUtils.getSubmissionsForGuild(ctx.getBot().getDatabase(), guildId).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
-				.filterWhen(lrs -> guildSubmissions.get().filter(s -> !s.getIsReviewed()).count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
+				.filterWhen(lrs -> guildSubmissions.get().filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
+						.count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You've reached the maximum number of submissions allowed in queue per person ("
 						+ lvlReqSettings.get().getMaxQueuedSubmissionsPerPerson() + "). Wait for one of your queued requests to be "
 						+ "reviewed before trying again.")))

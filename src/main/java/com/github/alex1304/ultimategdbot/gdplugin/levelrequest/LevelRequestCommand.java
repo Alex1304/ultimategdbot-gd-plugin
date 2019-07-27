@@ -42,7 +42,7 @@ public class LevelRequestCommand implements Command {
 							return lvlReqSettings;
 						}).flatMap(lvlReqSettings -> ctx.getBot().getDatabase().save(lvlReqSettings).thenReturn(lvlReqSettings)))
 						.flatMap(lvlReqSettings -> channelId == lvlReqSettings.getSubmissionQueueChannelId() && ctx.getArgs().size() > 1
-								? Mono.error(new CommandFailedException(failed + "Hmm, did you mean \"" + ctx.getPrefixUsed()
+								? Mono.error(new CommandFailedException("Hmm, did you mean \"" + ctx.getPrefixUsed()
 										+ "lvlreq **submit** " + ArgUtils.concatArgs(ctx, 1) + "\"?"))
 								: Mono.just(lvlReqSettings))
 						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getMainDiscordClient()
