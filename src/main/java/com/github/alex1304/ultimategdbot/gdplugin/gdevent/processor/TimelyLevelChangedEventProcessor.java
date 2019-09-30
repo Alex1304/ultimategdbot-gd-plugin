@@ -7,7 +7,8 @@ import java.util.function.Consumer;
 import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateTimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
@@ -21,8 +22,8 @@ import reactor.core.publisher.Mono;
 
 public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<TimelyLevelChangedEvent> {
 	
-	public TimelyLevelChangedEventProcessor(GDPlugin plugin) {
-		super(TimelyLevelChangedEvent.class, plugin);
+	public TimelyLevelChangedEventProcessor(GDServiceMediator gdServiceMediator, Bot bot) {
+		super(TimelyLevelChangedEvent.class, gdServiceMediator, bot);
 	}
 
 	@Override
@@ -42,7 +43,7 @@ public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<T
 		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return event.getTimelyLevel().getLevel()
-				.flatMap(level -> GDUtils.shortLevelView(plugin.getBot(), level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
+				.flatMap(level -> GDUtils.shortLevelView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
 						.<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 							mcs.setContent((event instanceof LateTimelyLevelChangedEvent
 									? "[Late announcement] "
@@ -70,7 +71,7 @@ public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<T
 	@Override
 	Mono<Long> accountIdGetter(TimelyLevelChangedEvent event) {
 		return event.getTimelyLevel().getLevel()
-				.flatMap(level -> plugin.getGdClient().searchUser("" + level.getCreatorID()))
+				.flatMap(level -> gdServiceMediator.getGdClient().searchUser("" + level.getCreatorID()))
 				.map(GDUser::getAccountId);
 	}
 }

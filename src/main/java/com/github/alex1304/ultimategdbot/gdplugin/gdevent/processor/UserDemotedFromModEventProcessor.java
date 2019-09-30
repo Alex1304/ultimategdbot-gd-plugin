@@ -1,12 +1,13 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor;
 
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserDemotedFromModEvent;
 
 public class UserDemotedFromModEventProcessor extends UserEventProcessor<UserDemotedFromModEvent> {
 
-	public UserDemotedFromModEventProcessor(GDPlugin plugin) {
-		super(UserDemotedFromModEvent.class, plugin);
+	public UserDemotedFromModEventProcessor(GDServiceMediator gdServiceMediator, Bot bot) {
+		super(UserDemotedFromModEvent.class, gdServiceMediator, bot);
 	}
 
 	@Override

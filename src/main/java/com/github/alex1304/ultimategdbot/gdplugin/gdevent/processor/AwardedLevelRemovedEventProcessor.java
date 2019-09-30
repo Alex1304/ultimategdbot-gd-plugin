@@ -6,7 +6,8 @@ import java.util.function.Consumer;
 
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
@@ -28,8 +29,8 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 			"NOOOOOOO I liked this level... No more stars :'("
 	};
 
-	public AwardedLevelRemovedEventProcessor(GDPlugin plugin) {
-		super(AwardedLevelRemovedEvent.class, plugin);
+	public AwardedLevelRemovedEventProcessor(GDServiceMediator gdServiceMediator, Bot bot) {
+		super(AwardedLevelRemovedEvent.class, gdServiceMediator, bot);
 	}
 
 	@Override
@@ -44,7 +45,7 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	Mono<Message> sendOne(AwardedLevelRemovedEvent event, MessageChannel channel, Optional<Role> roleToTag) {
-		return GDUtils.shortLevelView(plugin.getBot(), event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+		return GDUtils.shortLevelView(bot, event.getRemovedLevel(), "Level un-rated...", "https://i.imgur.com/fPECXUz.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelRemovedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "I'm sorry to announce this, but your level got unrated..."
 							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));
@@ -68,6 +69,6 @@ public class AwardedLevelRemovedEventProcessor extends AbstractGDEventProcessor<
 
 	@Override
 	Mono<Long> accountIdGetter(AwardedLevelRemovedEvent event) {
-		return plugin.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId);
+		return gdServiceMediator.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId);
 	}
 }

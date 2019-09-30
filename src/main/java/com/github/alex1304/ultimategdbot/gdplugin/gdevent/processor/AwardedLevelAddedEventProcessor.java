@@ -8,7 +8,8 @@ import java.util.function.Consumer;
 
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelAddedEvent;
@@ -35,19 +36,19 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 			"Roses are red. Violets are blue. This newly awarded level is waiting for you."
 	};
 
-	public AwardedLevelAddedEventProcessor(GDPlugin plugin) {
-		super(AwardedLevelAddedEvent.class, plugin);
+	public AwardedLevelAddedEventProcessor(GDServiceMediator gdServiceMediator, Bot bot) {
+		super(AwardedLevelAddedEvent.class, gdServiceMediator, bot);
 	}
 	
 	@Override
 	public Mono<Void> process0(AwardedLevelAddedEvent t) {
-		plugin.getBot().getDatabase().findByID(GDAwardedLevels.class, t.getAddedLevel().getId())
+		bot.getDatabase().findByID(GDAwardedLevels.class, t.getAddedLevel().getId())
 				.switchIfEmpty(Mono.just(new GDAwardedLevels()).doOnNext(awarded -> {
 					awarded.setLevelId(t.getAddedLevel().getId());
 					awarded.setInsertDate(Timestamp.from(Instant.now()));
 					awarded.setDownloads(t.getAddedLevel().getDownloads());
 					awarded.setLikes(t.getAddedLevel().getLikes());
-				})).flatMap(plugin.getBot().getDatabase()::save).subscribe();
+				})).flatMap(bot.getDatabase()::save).subscribe();
 		return super.process0(t);
 	}
 
@@ -63,7 +64,7 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	Mono<Message> sendOne(AwardedLevelAddedEvent event, MessageChannel channel, Optional<Role> roleToTag)  {
-		return GDUtils.shortLevelView(plugin.getBot(), event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelAddedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "Congratulations for getting your level rated!"
 							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));
@@ -73,11 +74,11 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	void onBroadcastSuccess(AwardedLevelAddedEvent event, List<Message> broadcastResult) {
-		if (plugin.getBroadcastedLevels().size() >= 10) {
-			var firstKey = plugin.getBroadcastedLevels().entrySet().stream().findFirst().get().getKey();
-			plugin.getBroadcastedLevels().remove(firstKey);
+		if (gdServiceMediator.getBroadcastedLevels().size() >= 10) {
+			var firstKey = gdServiceMediator.getBroadcastedLevels().entrySet().stream().findFirst().get().getKey();
+			gdServiceMediator.getBroadcastedLevels().remove(firstKey);
 		}
-		plugin.getBroadcastedLevels().put(event.getAddedLevel().getId(), broadcastResult);
+		gdServiceMediator.getBroadcastedLevels().put(event.getAddedLevel().getId(), broadcastResult);
 	}
 
 	@Override
@@ -92,6 +93,6 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	Mono<Long> accountIdGetter(AwardedLevelAddedEvent event) {
-		return plugin.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId);
+		return gdServiceMediator.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId);
 	}
 }

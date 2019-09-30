@@ -1,12 +1,13 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor;
 
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserPromotedToElderEvent;
 
 public class UserPromotedToElderEventProcessor extends UserEventProcessor<UserPromotedToElderEvent> {
 
-	public UserPromotedToElderEventProcessor(GDPlugin plugin) {
-		super(UserPromotedToElderEvent.class, plugin);
+	public UserPromotedToElderEventProcessor(GDServiceMediator gdServiceMediator, Bot bot) {
+		super(UserPromotedToElderEvent.class, gdServiceMediator, bot);
 	}
 
 	@Override
