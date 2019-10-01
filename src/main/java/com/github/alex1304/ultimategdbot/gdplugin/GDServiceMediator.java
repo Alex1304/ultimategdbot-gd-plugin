@@ -1,6 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -58,7 +59,7 @@ public class GDServiceMediator {
 		return spriteFactory;
 	}
 
-	public ConcurrentHashMap<GDUserIconSet, String[]> getIconsCache() {
+	public Map<GDUserIconSet, String[]> getIconsCache() {
 		return iconsCache;
 	}
 
@@ -70,7 +71,7 @@ public class GDServiceMediator {
 		return gdEventscannerLoop;
 	}
 
-	public ConcurrentHashMap<Long, List<Message>> getBroadcastedLevels() {
+	public Map<Long, List<Message>> getBroadcastedLevels() {
 		return broadcastedLevels;
 	}
 

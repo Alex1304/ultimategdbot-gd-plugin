@@ -59,7 +59,7 @@ public class AccountCommand {
 	
 	@CommandAction("link")
 	@CommandDoc("Allows you to link a Geometry Dash account to your Discord account.")
-	public Mono<Void> runLink(Context ctx, GDUser user) {
+	public Mono<Void> runLink(Context ctx, GDUser gdUsername) {
 		final var authorId = ctx.getAuthor().getId().asLong();
 		return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, authorId)
 				.switchIfEmpty(Mono.fromCallable(() -> {
@@ -74,7 +74,7 @@ public class AccountCommand {
 						.flatMap(botUser -> {
 							linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
 									GDUtils.generateAlphanumericToken(TOKEN_LENGTH)));
-							linkedUser.setGdAccountId(user.getAccountId());
+							linkedUser.setGdAccountId(gdUsername.getAccountId());
 							return ctx.getBot().getDatabase().save(linkedUser).thenReturn(botUser);
 						})
 						.flatMap(botUser -> {
@@ -88,7 +88,7 @@ public class AccountCommand {
 							menuEmbedContent.append("Step 6: React below to indicate that you're done sending the confirmation message\n");
 							return InteractiveMenu.create(message -> {
 										message.setContent("You have requested to link your Discord account with the Geometry Dash "
-											+ "account **" + user.getName() + "**. Now you need to prove that you are the owner of "
+											+ "account **" + gdUsername.getName() + "**. Now you need to prove that you are the owner of "
 											+ "this account. Please follow the instructions below to finalize the linking "
 											+ "process.\n");
 										message.setEmbed(embed -> {
@@ -96,7 +96,7 @@ public class AccountCommand {
 											embed.setDescription(menuEmbedContent.toString());
 										});
 									})
-									.addReactionItem("success", interaction -> handleDone(ctx, linkedUser, user, botUser))
+									.addReactionItem("success", interaction -> handleDone(ctx, linkedUser, gdUsername, botUser))
 									.addReactionItem("cross", interaction -> Mono.empty())
 									.deleteMenuOnClose(true)
 									.deleteMenuOnTimeout(true)
