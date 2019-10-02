@@ -1,9 +1,10 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 
 import static com.github.alex1304.ultimategdbot.api.utils.BotUtils.sendPaginatedMessage;
+import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
+import static com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils.getExistingSubscribedGuilds;
 import static com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils.preloadBroadcastChannelsAndRoles;
-
-import java.util.stream.Collectors;
+import static java.util.stream.Collectors.toSet;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
 import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
@@ -16,9 +17,7 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
-import com.github.alex1304.ultimategdbot.api.utils.Markdown;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.util.Snowflake;
@@ -59,15 +58,14 @@ public class GDEventsCommand {
 				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Broadcast results cleared!")).then();
 			case "remove":
 				if (levelId == null) {
-					return Mono.error(new CommandFailedException("Unknown action. See " + Markdown.code(ctx.getPrefixUsed()
-							+ "help gdevents") + " broadcast_results` to see the different actions possible"));
+					return Mono.error(new CommandFailedException("Please specify a level ID."));
 				}
 				gdServiceMediator.getBroadcastedLevels().remove(levelId);
 				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Data for " + levelId + " has been removed."))
 						.then();
 			default:
-				return Mono.error(new CommandFailedException("Please specify an action. See " + Markdown.code(ctx.getPrefixUsed()
-						+ "help gdevents") + " broadcast_results` to see the different actions possible"));
+				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.getPrefixUsed()
+						+ "help gdevents broadcast_results") + " to see the different actions possible"));
 		}
 	}
 	
@@ -97,15 +95,15 @@ public class GDEventsCommand {
 					return Mono.error(new CommandFailedException("Nothing to clean. Maybe try preloading again first?"));
 				}
 				return ctx.reply("Processing...")
-						.flatMap(wait -> GDUtils.getExistingSubscribedGuilds(ctx.getBot(), "").collectList()
+						.flatMap(wait -> getExistingSubscribedGuilds(ctx.getBot(), "").collectList()
 								.flatMap(subscribedList -> ctx.getBot().getDatabase().performTransaction(session -> {
 									var invalidChannels = preloader.getInvalidChannelSnowflakes().stream()
 											.map(Snowflake::asLong)
 											.filter(x -> x > 0)
-											.collect(Collectors.toSet());
+											.collect(toSet());
 									var invalidRoles = preloader.getInvalidRoleSnowflakes().stream()
 											.map(Snowflake::asLong)
-											.collect(Collectors.toSet());
+											.collect(toSet());
 									var updatedCount = 0;
 									for (var subscribedGuild : subscribedList) {
 										var updated = false;
@@ -201,8 +199,8 @@ public class GDEventsCommand {
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
-						return Mono.error(new CommandFailedException("Unknown event. See " + Markdown.code(ctx.getPrefixUsed()
-								+ "help gdevents") + " dispatch` to see the existing events."));
+						return Mono.error(new CommandFailedException("Unknown event. See " + code(ctx.getPrefixUsed()
+								+ "help gdevents dispatch") + " to see the existing events."));
 				}
 		}
 		
@@ -225,8 +223,8 @@ public class GDEventsCommand {
 						.then(ctx.reply("GD event scanner loop has been stopped."))
 						.then();
 			default:
-				return Mono.error(new CommandFailedException("Unknown action. See " + Markdown.code(ctx.getPrefixUsed()
-						+ "help gdevents") + " scanner_loop` to see the different actions possible"));
+				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.getPrefixUsed()
+						+ "help gdevents scanner_loop") + " to see the different actions possible"));
 		}
 	}
 }

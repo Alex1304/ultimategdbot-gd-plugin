@@ -6,13 +6,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -43,7 +40,6 @@ import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
-import com.github.alex1304.ultimategdbot.gdplugin.leaderboard.LeaderboardEntry;
 
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.MessageChannel;
@@ -189,7 +185,7 @@ public final class GDUtils {
 		return  privacy.name().charAt(0) + privacy.name().substring(1).replaceAll("_", " ").toLowerCase();
 	}
 	
-	private static String formatCode(Object val, int n) {
+	public static String formatCode(Object val, int n) {
 		var sb = new StringBuilder("" + val);
 		for (var i = sb.length() ; i <= n ; i++) {
 			sb.insert(0, " ‌‌");
@@ -518,48 +514,7 @@ public final class GDUtils {
 						.take(1));
 	}
 
-	public static Mono<Consumer<EmbedCreateSpec>> leaderboardView(Context ctx, List<LeaderboardEntry> subList, int page,
-			int elementsPerPage, int size) {
-		var refreshed = Duration.between(ctx.getVar("lastRefreshed", Instant.class), Instant.now()).withNanos(0);
-		var highlighted = ctx.getVar("highlighted", String.class);
-		return ctx.getEvent().getGuild().map(guild -> embed -> {
-			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");
-			if (size == 0 || subList.isEmpty()) {
-				embed.setDescription("No entries.");
-				return;
-			}
-			var sb = new StringBuilder();
-			var rankWidth = (int) Math.log10(size) + 1;
-			var statWidth = (int) Math.log10(subList.get(0).getValue()) + 1;
-			final var maxRowLength = 100;
-			for (var i = 1 ; i <= subList.size() ; i++) {
-				var entry = subList.get(i - 1);
-				var isHighlighted = entry.getStats().getName().equalsIgnoreCase(highlighted);
-				var rank = page * elementsPerPage + i;
-				if (isHighlighted) {
-					sb.append("**");
-				}
-				var row = String.format("%s | %s %s | %s (%s)",
-						String.format("`#%" + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
-						entry.getEmoji(),
-						formatCode(entry.getValue(), statWidth),
-						entry.getStats().getName(),
-						entry.getDiscordUser());
-				if (row.length() > maxRowLength) {
-					row = row.substring(0, maxRowLength - 3) + "...";
-				}
-				sb.append(row).append("\n");
-				if (isHighlighted) {
-					sb.append("**");
-				}
-			}
-			embed.setDescription("**Total players: " + size + ", " + subList.get(0).getEmoji() + " leaderboard**\n\n" + sb.toString());
-			embed.addField("Last refreshed: " + BotUtils.formatTimeMillis(refreshed) + " ago", "Note that members of this server must have "
-					+ "linked their Geometry Dash account with `" + ctx.getPrefixUsed() + "account` in order to be displayed on this "
-					+ "leaderboard. If you have just freshly linked your account, you will need to wait for next leaderboard refresh "
-					+ "in order to be displayed.", false);
-		});
-	}
+	
 	
 	// =============================================================
 	
