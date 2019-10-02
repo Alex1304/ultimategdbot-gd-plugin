@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
 import com.github.alex1304.jdash.client.GDClientBuilder.Credentials;
+import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.exception.BadResponseException;
 import com.github.alex1304.jdash.exception.CorruptedResponseContentException;
@@ -25,6 +26,7 @@ import com.github.alex1304.jdash.exception.MissingAccessException;
 import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
+import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.jdash.util.Routes;
 import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
@@ -301,6 +303,18 @@ public class GDPlugin implements Plugin {
 			@Override
 			public Class<GDUser> type() {
 				return GDUser.class;
+			}
+		});
+		cmdProvider.addParamConverter(new ParamConverter<GDLevel>() {
+			@Override
+			public Mono<GDLevel> convert(Context ctx, String input) {
+				return gdClient.searchLevels(input, LevelSearchFilters.create(), 0)
+						.flatMapMany(Flux::fromIterable)
+						.next();
+			}
+			@Override
+			public Class<GDLevel> type() {
+				return GDLevel.class;
 			}
 		});
 	}

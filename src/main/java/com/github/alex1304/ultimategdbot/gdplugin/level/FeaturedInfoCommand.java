@@ -1,146 +1,104 @@
 package com.github.alex1304.ultimategdbot.gdplugin.level;
 
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.alex1304.jdash.entity.GDLevel;
-import com.github.alex1304.jdash.exception.MissingAccessException;
-import com.github.alex1304.jdash.util.LevelSearchFilters;
-import com.github.alex1304.ultimategdbot.api.Command;
-import com.github.alex1304.ultimategdbot.api.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.Context;
-import com.github.alex1304.ultimategdbot.api.Plugin;
-import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
-import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
+import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
+import com.github.alex1304.ultimategdbot.api.command.Context;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
-public class FeaturedInfoCommand implements Command {
+@CommandSpec(
+		aliases = "featuredinfo",
+		shortDescription = "Finds the exact position of a level in the Featured section."
+)
+public class FeaturedInfoCommand {
+
+	private final GDServiceMediator gdServiceMediator;
 	
-	private final GDPlugin plugin;
-
-	public FeaturedInfoCommand(GDPlugin plugin) {
-		this.plugin = Objects.requireNonNull(plugin);
+	public FeaturedInfoCommand(GDServiceMediator gdServiceMediator) {
+		this.gdServiceMediator = gdServiceMediator;
 	}
 
-	@Override
-	public Mono<Void> execute(Context ctx) {
-		ArgUtils.requireMinimumArgCount(ctx, 2);
-		var searchedLevelId = ctx.getVar("id", Long.class);
-		if (searchedLevelId == null) {
-			var input = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size()));
-			return ctx.reply("Searching, please wait...")
-					.flatMap(waitMessage -> plugin.getGdClient().searchLevels(input, LevelSearchFilters.create(), 0)
-							.map(paginator -> paginator.asList().get(0))
-							.filter(level -> level.getFeaturedScore() != 0)
-							.switchIfEmpty(Mono.just(waitMessage).flatMap(message -> {
-								ctx.setVar("wait", waitMessage);
-								return cleanError(ctx, "This level is not featured.");
-							}))
-							.flatMap(level -> {
-								ctx.setVar("min", 0);
-								ctx.setVar("max", 10000);
-								ctx.setVar("current", 500);
-								ctx.setVar("id", level.getId());
-								ctx.setVar("score", level.getFeaturedScore());
-								ctx.setVar("linear", false);
-								ctx.setVar("wait", waitMessage);
-								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
-							})).then();
+	@CommandAction
+	@CommandDoc("Levels are sorted in the Featured section by a score. This score is given by "
+			+ "RobTop and determines its position in the Featured section. The bot uses this "
+			+ "score in order to perform a dichotomous search in the Featured section, "
+			+ "allowing it to find the position of any level in only a few seconds, regardless "
+			+ "of how far back it is.")
+	public Mono<Void> run(Context ctx, GDLevel level) {
+		final var score = level.getFeaturedScore();
+		if (score <= 0) {
+			return Mono.error(new CommandFailedException("This level is not featured."));
 		}
-		var minPageVisited = ctx.getVar("min", Integer.class);
-		var maxPageVisited = ctx.getVar("max", Integer.class);
-		var currentPage = ctx.getVar("current", Integer.class);
-		var targetScore = ctx.getVar("score", Integer.class);
-		var isLinear = ctx.getVar("linear", Boolean.class);
-		
-		return plugin.getGdClient().browseFeaturedLevels(currentPage)
-				.flatMap(paginator -> {
-					var first = paginator.asList().get(0);
-					var i = 1;
-					for (var level : paginator.asList()) {
-						if (level.getId() == searchedLevelId) {
-							return sendResult(ctx, level, currentPage, i);
-						}
-						i++;
-					}
-					if (first.getFeaturedScore() < targetScore) {
-						ctx.setVar("max", currentPage - 1);
-						ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-						return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
-					} else if (first.getFeaturedScore() > targetScore) {
-						ctx.setVar("min", currentPage);
-						ctx.setVar("current", (maxPageVisited + currentPage) / 2 + ((maxPageVisited - currentPage) / 2 == 0 ? 1 : 0));
-						return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
-					} else {
-						if (!isLinear) {
-							if (currentPage.intValue() == maxPageVisited.intValue()) {
-								ctx.setVar("linear", true);
-								ctx.setVar("max", currentPage - 1);
-								ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
+		final var min = new AtomicInteger();
+		final var max = new AtomicInteger(1000);
+		final var currentPage = new AtomicInteger(500);
+		final var isFindingFirstPageWithMatchingScore = new AtomicBoolean();
+		final var continueAlgo = new AtomicBoolean();
+		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
+		final var alreadyVisitedPages = new HashSet<Integer>();
+		return ctx.reply("Searching, please wait...")
+				.flatMap(waitMessage -> Mono.defer(() -> gdServiceMediator.getGdClient().browseFeaturedLevels(currentPage.get())
+						.flatMap(paginator -> {
+							alreadyVisitedPages.add(currentPage.get());
+							final var scoreOfFirst = paginator.asList().get(0).getFeaturedScore();
+							if (isFindingFirstPageWithMatchingScore.get()) {
+								var i = 1;
+								for (var l : paginator) {
+									if (level.equals(l)) {
+										result.set(Tuples.of(currentPage.get(), i));
+										continueAlgo.set(false);
+										break;
+									}
+									if (l.getFeaturedScore() > score) {
+										continueAlgo.set(false);
+										break;
+									}
+									i++;
+								}
+								if (continueAlgo.get()) {
+									currentPage.incrementAndGet();
+								}
 							} else {
-								ctx.setVar("current", currentPage + 1);
-								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
+								if (scoreOfFirst == score) {
+									isFindingFirstPageWithMatchingScore.set(true);
+									currentPage.decrementAndGet();
+								} else if (scoreOfFirst > score) {
+									min.set(currentPage.get());
+									currentPage.set(Math.max(currentPage.get() + 1, (min.get() + max.get()) / 2));
+								} else {
+									max.set(currentPage.get() - 1);
+									currentPage.set((min.get() + max.get()) / 2);
+								}
+								if (alreadyVisitedPages.contains(currentPage.get())) {
+									isFindingFirstPageWithMatchingScore.set(true);
+								}
 							}
-						} else {
-							if (currentPage.intValue() != minPageVisited.intValue()) {
-								ctx.setVar("current", currentPage - 1);
-								return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
-							}
-						}
-					}
-					return cleanError(ctx, "This level couldn't be found in the Featured section.");
-				})
-				.onErrorResume(MissingAccessException.class, e -> {
-					ctx.setVar("max", currentPage - 1);
-					ctx.setVar("current", ((currentPage - 1) + minPageVisited) / 2);
-					return ctx.getBot().getCommandKernel().invokeCommand(this, ctx);
-				})
-				.then();
+							return Mono.empty();
+						}))
+						.repeat(continueAlgo::get)
+						.then(Mono.defer(() -> result.get() == null
+								? Mono.error(new CommandFailedException("Unable to find " + GDUtils.levelToString(level) + " in the Featured section."))
+								: sendResult(waitMessage, ctx, level, result.get().getT1(), result.get().getT2())))
+						.doOnTerminate(() -> waitMessage.delete().onErrorResume(e -> Mono.empty()).subscribe())
+						.then());
 	}
 	
-	private Mono<Message> sendResult(Context ctx, GDLevel level, int page, int position) {
-		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
-				.map(Message::delete).orElse(Mono.empty());
-		return deleteWait.then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
+	private Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
+		return waitMessage.delete().then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
 						+ GDUtils.levelToString(level) + " is currently placed in page **" + (page + 1)
 						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
-	}
-	
-	private <X> Mono<X> cleanError(Context ctx, String text) {
-		var deleteWait = Optional.ofNullable(ctx.getVar("wait", Message.class))
-				.map(Message::delete).orElse(Mono.empty());
-		return deleteWait.then(Mono.error(new CommandFailedException(text)));
-	}
-
-	@Override
-	public Set<String> getAliases() {
-		return Set.of("featuredinfo");
-	}
-
-	@Override
-	public String getDescription() {
-		return "Finds the exact position of a level in the Featured section.";
-	}
-
-	@Override
-	public String getLongDescription() {
-		return "Levels are sorted in the Featured section by a score. This score is given by RobTop and determines its position in the Featured section. "
-				+ "The bot uses this score in order to perform a dichotomous search in the Featured section, allowing it to find the position of any "
-				+ "level in only a few seconds, regardless of how far back it is.";
-	}
-
-	@Override
-	public String getSyntax() {
-		return "<level_name_or_ID>";
-	}
-
-	@Override
-	public Plugin getPlugin() {
-		return plugin;
 	}
 }
