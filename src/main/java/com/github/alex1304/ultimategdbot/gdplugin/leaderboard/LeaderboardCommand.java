@@ -69,8 +69,9 @@ public class LeaderboardCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("All members of the current server that have a Geometry Dash account linked may be shown in the leaderboards provided by this command.\n"
-			+ "`[<stat_name>]` can be one of: `stars`, `demons`, `diamonds`, `ucoins`, `scoins`, `cp` to show respectively stars, demons, diamonds, "
+	@CommandDoc("Displays a server-wide Geometry Dash leaderboard of the given type. All members of the current server that have a Geometry "
+			+ "Dash account linked may be shown in the leaderboards provided by this command.\n"
+			+ "`stat_name` can be one of: `stars`, `demons`, `diamonds`, `ucoins`, `scoins`, `cp` to show respectively stars, demons, diamonds, "
 			+ "user coins, secret coins and creator points leaderboards. Leaderboards are refreshed once in a while, up to 4 times per day.")
 	public Mono<Void> run(Context ctx, @Nullable String statName) {
 		if (isLocked) {

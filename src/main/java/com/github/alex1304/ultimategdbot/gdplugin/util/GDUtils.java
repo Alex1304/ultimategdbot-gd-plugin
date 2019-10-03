@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,22 +27,23 @@ import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
 import com.github.alex1304.jdash.entity.PrivacySetting;
 import com.github.alex1304.jdash.entity.Role;
+import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
 import com.github.alex1304.jdash.exception.SongNotAllowedForUseException;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.api.command.Command;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.utils.ArgUtils;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
-import com.github.alex1304.ultimategdbot.api.utils.reply.ReplyMenuBuilder;
+import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.utils.Markdown;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 
 import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
@@ -60,36 +62,6 @@ public final class GDUtils {
 
 	public static final Map<String, String> DIFFICULTY_IMAGES = difficultyImages();
 	public static final Map<Integer, String> GAME_VERSIONS = gameVersions();
-
-	public static <T> void addPaginatorItems(ReplyMenuBuilder rb, Command cmd, Context ctx, GDPaginator<T> paginator) {
-		if (paginator.hasNextPage()) {
-			rb.addItem("next", "To go to next page, type `next`", ctx0 -> {
-				ctx.setVar("paginator", paginator.goToNextPage());
-				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
-				return Mono.empty();
-			});
-		}
-		if (paginator.hasPreviousPage()) {
-			rb.addItem("prev", "To go to previous page, type `prev`", ctx0 -> {
-				ctx.setVar("paginator", paginator.hasPreviousPage());
-				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
-				return Mono.empty();
-			});
-		}
-		if (paginator.getTotalSize() == 0 || paginator.getTotalNumberOfPages() > 1) {
-			rb.addItem("page", "To go to a specific page, type `page <number>`, e.g `page 3`", ctx0 -> {
-				ArgUtils.requireMinimumArgCount(ctx0, 2, "Please specify a page number");
-				var page = ArgUtils.getArgAsInt(ctx0, 1) - 1;
-				if (page < 0 || (paginator.getTotalSize() > 0 && page >= paginator.getTotalNumberOfPages())) {
-					return Mono.error(new CommandFailedException("Page number out of range"));
-				}
-				ctx.setVar("paginator", paginator.goTo(page).onErrorMap(IllegalArgumentException.class, __ -> new CommandFailedException("Page number out of range")));
-				ctx.getBot().getCommandKernel().invokeCommand(cmd, ctx).subscribe();
-				return Mono.empty();
-			});
-		}
-		rb.setHeader("Page " + (paginator.getPageNumber() + 1));
-	}
 	
 	public static Flux<GDSubscribedGuilds> getExistingSubscribedGuilds(Bot bot, String hql) {
 		return Mono.zip(bot.getMainDiscordClient().getGuilds().collectList(),
@@ -168,7 +140,7 @@ public final class GDUtils {
 										+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
 										+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
 									+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? "*unknown*" : linkedAccounts.stream()
-											.reduce(new StringJoiner(", "), (sj, l) -> sj.add(BotUtils.formatDiscordUsername(l)), (a, b) -> a).toString())
+											.reduce(new StringJoiner(", "), (sj, l) -> sj.add(DiscordFormatter.formatUser(l)), (a, b) -> a).toString())
 									+ "\n───────────\n"
 									+ emojis[13] + "  **Friend requests:** " + (user.hasFriendRequestsEnabled() ? "Enabled" : "Disabled") + "\n"
 									+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
@@ -316,7 +288,7 @@ public final class GDUtils {
 						embed.setThumbnail(getDifficultyImageForLevel(level));
 						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
 						var description = "**Description:** " + (level.getDescription().isEmpty() ? "*(No description provided)*"
-								: BotUtils.escapeMarkdown(level.getDescription()));
+								: Markdown.escape(level.getDescription()));
 						var coins = "Coins: " + coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 8 : 9], level.getCoinCount(), false);
 						var downloadLikesLength = emojis[1] + " " + formatCode(level.getDownloads(), dlWidth) + "\n"
 								+ (level.getLikes() < 0 ? emojis[2] + " " : emojis[3] + " ") + formatCode(level.getLikes(), dlWidth) + "\n"
@@ -380,6 +352,27 @@ public final class GDUtils {
 						embed.setFooter("Level ID: " + level.getId(), null);
 					};
 				});
+	}
+	
+	public static Mono<Message> displayTimelyInfo(Context ctx, AuthenticatedGDClient gdClient, boolean isWeekly) {
+		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
+		var headerTitle = isWeekly ? "Weekly demon" : "Daily level" ;
+		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
+		return timelyMono
+				.flatMap(timely -> timely.getLevel()
+						.flatMap(level -> GDUtils.levelView(ctx, level, headerTitle + " #" + timely.getId(), headerLink)
+								.flatMap(embed -> {
+									var cooldown = Duration.ofSeconds(timely.getCooldown());
+									var formattedCooldown = BotUtils.formatDuration(cooldown);
+									return ctx.reply(message -> {
+										message.setContent(ctx.getEvent().getMessage().getAuthor().get().getMention()
+												+ ", here is the " + headerTitle + " of today. "
+												+ "Next " + headerTitle + " in " + formattedCooldown + ".");
+										message.setEmbed(embed);
+									});
+								})))
+				.onErrorMap(NoTimelyAvailableException.class, e -> new CommandFailedException("There is no "
+						+ headerTitle + " set in-game at the moment. Come back later!"));
 	}
 	
 	private static String getDifficultyImageForLevel(GDLevel level) {

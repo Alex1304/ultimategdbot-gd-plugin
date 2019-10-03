@@ -152,7 +152,7 @@ public class GDEventsCommand {
 	}
 	
 	@CommandAction("dispatch")
-	@CommandDoc("<event_name> can be one of:\n"
+	@CommandDoc("Manually dispatches a new GD event. <event_name> can be one of:\n"
 				+ "- `daily_level_changed`\n"
 				+ "- `late_daily_level_changed`\n"
 				+ "- `weekly_demon_changed`\n"

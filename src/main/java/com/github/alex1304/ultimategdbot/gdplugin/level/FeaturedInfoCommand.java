@@ -72,10 +72,7 @@ public class FeaturedInfoCommand {
 									currentPage.incrementAndGet();
 								}
 							} else {
-								if (scoreOfFirst == score) {
-									isFindingFirstPageWithMatchingScore.set(true);
-									currentPage.decrementAndGet();
-								} else if (scoreOfFirst > score) {
+								if (scoreOfFirst > score) {
 									min.set(currentPage.get());
 									currentPage.set(Math.max(currentPage.get() + 1, (min.get() + max.get()) / 2));
 								} else {

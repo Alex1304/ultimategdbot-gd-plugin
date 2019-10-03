@@ -10,14 +10,14 @@ import org.slf4j.LoggerFactory;
 
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.api.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.Context;
 import com.github.alex1304.ultimategdbot.api.Database;
-import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
+import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
+import com.github.alex1304.ultimategdbot.api.command.Context;
+import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.utils.UniversalMessageSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
-import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.SubmissionMessage;
 
 import discord4j.core.DiscordClient;
 import discord4j.core.event.domain.message.MessageCreateEvent;
@@ -84,14 +84,14 @@ public class LevelRequestUtils {
 	 * @param reviews        the list of reviews
 	 * @return a Mono emitting the submission message
 	 */
-	public static Mono<SubmissionMessage> buildSubmissionMessage(Bot bot, User author, GDLevel level,
+	public static Mono<UniversalMessageSpec> buildSubmissionMessage(Bot bot, User author, GDLevel level,
 			GDLevelRequestsSettings lvlReqSettings, GDLevelRequestSubmissions submission, List<GDLevelRequestReviews> reviews) {
 		Objects.requireNonNull(bot, "bot was null");
 		Objects.requireNonNull(author, "author was null");
 		Objects.requireNonNull(level, "level was null");
 		Objects.requireNonNull(submission.getYoutubeLink(), "youtubeLink was null");
 		Objects.requireNonNull(reviews, "reviews was null");
-		final var formatUser = BotUtils.formatDiscordUsername(author) + " (`" + author.getId().asLong() + "`)";
+		final var formatUser = DiscordFormatter.formatUser(author) + " (`" + author.getId().asLong() + "`)";
 		return Mono.zip(GDUtils.shortLevelView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviews::getReviewerId)
@@ -109,14 +109,14 @@ public class LevelRequestUtils {
 						for (var review : reviews) {
 							var reviewerName = reviewers.stream()
 									.filter(r -> r.getId().asLong() == review.getReviewerId())
-									.map(BotUtils::formatDiscordUsername)
+									.map(DiscordFormatter::formatUser)
 									.findAny()
 									.orElse("Unknown User\\#0000")
 									+ " (`" + review.getReviewerId() + "`)";
 							embedSpec.addField(":pencil: " + reviewerName, review.getReviewContent(), false);
 						}
 					});
-					return new SubmissionMessage(content, embed);
+					return new UniversalMessageSpec(content, embed);
 				}));
 	}
 	
