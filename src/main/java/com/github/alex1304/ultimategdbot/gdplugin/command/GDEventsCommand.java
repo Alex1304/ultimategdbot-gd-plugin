@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static com.github.alex1304.ultimategdbot.api.utils.BotUtils.sendPaginatedMessage;
 import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
@@ -18,6 +18,9 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelAddedEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelRemovedEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateTimelyLevelChangedEvent;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.util.Snowflake;
@@ -37,40 +40,44 @@ public class GDEventsCommand {
 		this.gdServiceMediator = gdServiceMediator;
 	}
 	
-	@CommandAction("broadcast_results")
-	@CommandDoc("View or clear the GD events broadcast results.")
-	public Mono<Void> runBroadcastResults(Context ctx, String action, @Nullable Long levelId) {
+	@CommandAction("dispatch_results")
+	@CommandDoc("View or clear the GD events dispatch results.\n`action` can be one of:\n"
+			+ "- `view`: Check the list of levels that were successfully dispatched\n"
+			+ "- `clear`: Clears the dispatch result list.\n"
+			+ "- `remove <level_id>`: Removes one entry from the dispatch result list")
+	public Mono<Void> runDispatchResults(Context ctx, String action, @Nullable Long levelId) {
 		switch (action) {
 			case "view":
-				var sb = new StringBuilder("__**GD events broadcast results:**__\n")
+				var sb = new StringBuilder("__**GD events dispatch results:**__\n")
 						.append( "Data below is collected in order to have the ability to edit previous announcement messages")
 						.append( " in case an **Awarded Level Updated** event is dispatched.\n")
 						.append( "Only the last 10 results are saved here. Older ones automatically get deleted in order to ")
 						.append("save resources and avoid memory leaks.\n\n");
-				if (gdServiceMediator.getBroadcastedLevels().isEmpty()) {
+				if (gdServiceMediator.getDispatchedLevels().isEmpty()) {
 					sb.append("There is nothing here yet!");
 				}
-				gdServiceMediator.getBroadcastedLevels().forEach((k, v) -> sb.append("LevelID **")
+				gdServiceMediator.getDispatchedLevels().forEach((k, v) -> sb.append("LevelID **")
 						.append(k).append("** => **").append(v.size()).append("** messages sent\n"));
 				return sendPaginatedMessage(ctx, sb.toString(), Message.MAX_CONTENT_LENGTH).then();
 			case "clear":
-				gdServiceMediator.getBroadcastedLevels().clear();
-				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Broadcast results cleared!")).then();
+				gdServiceMediator.getDispatchedLevels().clear();
+				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Dispatch results cleared!")).then();
 			case "remove":
 				if (levelId == null) {
 					return Mono.error(new CommandFailedException("Please specify a level ID."));
 				}
-				gdServiceMediator.getBroadcastedLevels().remove(levelId);
+				gdServiceMediator.getDispatchedLevels().remove(levelId);
 				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Data for " + levelId + " has been removed."))
 						.then();
 			default:
 				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.getPrefixUsed()
-						+ "help gdevents broadcast_results") + " to see the different actions possible"));
+						+ "help gdevents dispatch_results") + " to see the different actions possible"));
 		}
 	}
 	
 	@CommandAction("channels_and_roles")
-	@CommandDoc("In order to improve performances when broadcasting GD events to servers, the bot first need to "
+	@CommandDoc("Performance optimization tool for channel/role preloading. In order to improve performances when "
+			+ "broadcasting GD events to servers, the bot first need to "
 			+ "preload all channels that are configured to receive the announcements, as well as the roles to "
 			+ "tag, if configured. This is usually done on bot startup, but it can also be done manually via "
 			+ "this command with the `preload` argument.\n"
@@ -152,16 +159,19 @@ public class GDEventsCommand {
 	}
 	
 	@CommandAction("dispatch")
-	@CommandDoc("Manually dispatches a new GD event. <event_name> can be one of:\n"
-				+ "- `daily_level_changed`\n"
-				+ "- `late_daily_level_changed`\n"
-				+ "- `weekly_demon_changed`\n"
-				+ "- `late_weekly_demon_changed`\n"
-				+ "- `awarded_level_added <level_id>`\n"
-				+ "- `late_awarded_level_added <level_id>`\n"
-				+ "- `awarded_level_removed <level_id>`\n"
-				+ "- `late_awarded_level_removed <level_id>`\n"
-				+ "- `awarded_level_updated <level_id>`\n")
+	@CommandDoc("Manually dispatches a new GD event.\n`event_name` can be one of:\n"
+				+ "- `daily_level_changed`: dispatches the current Daily level\n"
+				+ "- `late_daily_level_changed`: dispatches the current Daily level, without tagging subscriber roles\n"
+				+ "- `weekly_demon_changed`: dispatches the current Weekly demon\n"
+				+ "- `late_weekly_demon_changed`: dispatches the current Weekly demon, without tagging subscriber roles\n"
+				+ "- `awarded_level_added <level_id>`: dispatches the level with the specified ID as a newly awarded level\n"
+				+ "- `late_awarded_level_added <level_id>`: dispatches the level with the specified ID as a newly awarded "
+				+ "level, without tagging subscriber roles\n"
+				+ "- `awarded_level_removed <level_id>`: dispatches the level with the specified ID as a level that got unrated\n"
+				+ "- `late_awarded_level_removed <level_id>`: dispatches the level with the specified ID as a level that got "
+				+ "unrated, without tagging subscriber roles\n"
+				+ "- `awarded_level_updated <level_id>`: dispatches the level with the specified ID as a level that got its "
+				+ "rating changed. Only works for levels that were previously dispatched as new rates.\n")
 	public Mono<Void> runDispatch(Context ctx, String eventName, @Nullable Long levelId) {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
@@ -211,7 +221,7 @@ public class GDEventsCommand {
 	
 	@CommandAction("scanner_loop")
 	@CommandDoc("Starts or stops the GD event scanner loop. If stopped, GD events will no longer be dispatched "
-			+ "automatically when they happen in game.")
+			+ "automatically when they happen in game. The possible `action`s are `start` and `stop`, respectively.")
 	public Mono<Void> runScannerLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":

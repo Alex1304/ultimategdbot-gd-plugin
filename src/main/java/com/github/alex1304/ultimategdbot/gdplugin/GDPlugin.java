@@ -48,6 +48,19 @@ import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.DatabaseInputFunction;
 import com.github.alex1304.ultimategdbot.api.utils.DatabaseOutputFunction;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
+import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.DailyCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.FeaturedInfoCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.GDEventsCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.LeaderboardCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.LevelCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.LevelRequestCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.LevelsbyCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.ModListCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.ProfileCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.WeeklyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
@@ -78,19 +91,19 @@ public class GDPlugin implements Plugin {
 	private Bot bot;
 	private volatile AuthenticatedGDClient gdClient;
 	private volatile SpriteFactory spriteFactory;
-	private ConcurrentHashMap<GDUserIconSet, String[]> iconsCache;
-	private GDEventDispatcher gdEventDispatcher;
 	private GDEventScannerLoop scannerLoop;
-	private ConcurrentHashMap<Long, List<Message>> broadcastedLevels;
 	private BroadcastPreloader preloader;
 	private GDEventSubscriber subscriber;
 	private boolean preloadChannelsOnStartup;
 	private boolean autostartScannerLoop;
-	private Scheduler gdEventScheduler;
-	private Set<Long> cachedSubmissionChannelIds;
 	private int maxConnections;
 	private volatile GDServiceMediator gdServiceMediator;
-	
+
+	private final Scheduler gdEventScheduler = Schedulers.elastic();
+	private final ConcurrentHashMap<GDUserIconSet, String[]> iconsCache = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<Long, List<Message>> dispatchedLevels = new ConcurrentHashMap<>();
+	private final Set<Long> cachedSubmissionChannelIds = Collections.synchronizedSet(new HashSet<>());
+	private final GDEventDispatcher gdEventDispatcher = new GDEventDispatcher();
 	private final Map<String, GuildSettingsEntry<?, ?>> configEntries = new HashMap<String, GuildSettingsEntry<?, ?>>();
 	private final AnnotatedCommandProvider cmdProvider = new AnnotatedCommandProvider();
 
@@ -105,14 +118,8 @@ public class GDPlugin implements Plugin {
 		this.bot = bot;
 		this.preloadChannelsOnStartup = parser.parseOrDefault("gdplugin.preload_channels_on_startup", Boolean::parseBoolean, true);
 		this.autostartScannerLoop = parser.parseOrDefault("gdplugin.autostart_scanner_loop", Boolean::parseBoolean, true);
-		this.gdEventScheduler = Schedulers.elastic();
 		this.maxConnections = parser.parseAsIntOrDefault("gdplugin.max_connections", 100);
-		this.iconsCache = new ConcurrentHashMap<>();
-		this.gdEventDispatcher = new GDEventDispatcher();
-		this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
-		this.broadcastedLevels = new ConcurrentHashMap<>();
 		this.preloader = new BroadcastPreloader(bot.getMainDiscordClient());
-		this.cachedSubmissionChannelIds = Collections.synchronizedSet(new HashSet<>());
 		return Mono.when(
 				GDClientBuilder.create()
 						.withHost(host)
@@ -120,17 +127,33 @@ public class GDPlugin implements Plugin {
 						.withRequestTimeout(requestTimeout)
 						.buildAuthenticated(new Credentials(username, password))
 						.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e))
-						.doOnNext(gdClient -> this.gdClient = gdClient)
-						.then(Mono.fromRunnable(this::initParamConverters)),
+						.doOnNext(gdClient -> this.gdClient = gdClient),
 				Mono.fromCallable(SpriteFactory::create)
 						.onErrorMap(e -> new RuntimeException("An error occured when loading the GD icons sprite factory", e))
 						.doOnNext(spriteFactory -> this.spriteFactory = spriteFactory),
-				Mono.fromRunnable(this::initGDEventSubscribers),
 				Mono.fromRunnable(this::initConfigEntries),
 				Mono.fromRunnable(this::initErrorHandler))
-				.then(Mono.fromRunnable(() -> this.gdServiceMediator = new GDServiceMediator(gdClient, spriteFactory,
-						iconsCache, gdEventDispatcher, scannerLoop, broadcastedLevels, preloader, subscriber,
-						gdEventScheduler, cachedSubmissionChannelIds, maxConnections)));
+				.then(Mono.fromRunnable(() -> {
+					this.scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
+					this.gdServiceMediator = new GDServiceMediator(gdClient, spriteFactory, iconsCache,
+							gdEventDispatcher, scannerLoop, dispatchedLevels, preloader, subscriber, gdEventScheduler,
+							cachedSubmissionChannelIds, maxConnections);
+					initParamConverters();
+					initGDEventSubscribers();
+					cmdProvider.addAnnotated(new AccountCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new CheckModCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new ClearGdCacheCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new DailyCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new FeaturedInfoCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new GDEventsCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new LeaderboardCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new LevelCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new LevelRequestCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new LevelsbyCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new ModListCommand());
+					cmdProvider.addAnnotated(new ProfileCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new WeeklyCommand(gdServiceMediator));
+				}));
 	}
 	
 	@Override

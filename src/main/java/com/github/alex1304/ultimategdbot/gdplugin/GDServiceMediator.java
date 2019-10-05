@@ -71,7 +71,7 @@ public class GDServiceMediator {
 		return gdEventscannerLoop;
 	}
 
-	public Map<Long, List<Message>> getBroadcastedLevels() {
+	public Map<Long, List<Message>> getDispatchedLevels() {
 		return broadcastedLevels;
 	}
 

@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.level;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
@@ -10,20 +10,20 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
 import reactor.core.publisher.Mono;
 
 @CommandSpec(
-		aliases = { "weekly", "weeklydemon" },
-		shortDescription = "Displays info on the current Weekly demon."
+		aliases = { "daily", "dailylevel" },
+		shortDescription = "Displays info on the current Daily level."
 )
-public class WeeklyCommand {
+public class DailyCommand {
 
 	private final GDServiceMediator gdServiceMediator;
 	
-	public WeeklyCommand(GDServiceMediator gdServiceMediator) {
+	public DailyCommand(GDServiceMediator gdServiceMediator) {
 		this.gdServiceMediator = gdServiceMediator;
 	}
 
 	@CommandAction
-	@CommandDoc("Displays level info as well as cooldown until the next Weekly demon.")
+	@CommandDoc("Displays level info as well as cooldown until the next Daily level.")
 	public Mono<Void> run(Context ctx) {
-		return GDUtils.displayTimelyInfo(ctx, gdServiceMediator.getGdClient(), true).then();
+		return GDUtils.displayTimelyInfo(ctx, gdServiceMediator.getGdClient(), false).then();
 	}
 }

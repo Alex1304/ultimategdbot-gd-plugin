@@ -1,13 +1,15 @@
-package com.github.alex1304.ultimategdbot.gdplugin.leaderboard;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
 
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -136,42 +138,40 @@ public class LeaderboardCommand {
 						+ code("diamonds") + ", " + code("ucoins") + ", " + code("scoins") + ", " + code("demons") + " or "
 						+ code("cp") + "."));
 		}
-		var lastRefreshed = new AtomicReference<Instant>();
+		var now = Instant.now();
+		var lastRefreshed = new AtomicReference<Instant>(now);
 		var emojiRef = new AtomicReference<String>();
 		return ctx.getEvent().getGuild()
-				.flatMap(guild -> Mono.zip(emojiMono, ctx.getBot().getDatabase()
-						.query(GDUserStats.class, "from GDUserStats u order by u.lastRefreshed desc").collectList(), ctx.getBot().getDatabase()
-						.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1").collectList(), guild.getMembers().collectList(),
-						ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans").collectList())
-						.map(TupleUtils.function((emoji, userStats, linkedUsers, guildMembers, leaderboardBans) -> {
-							lastRefreshed.set(userStats.stream()
-									.map(GDUserStats::getLastRefreshed)
-									.map(Timestamp::toInstant)
-									.findFirst()
-									.orElse(Instant.now()));
-							emojiRef.set(emoji);
-							var bannedAccountIds = noBanList ? Set.of() : leaderboardBans.stream()
-									.map(GDLeaderboardBans::getAccountId)
-									.collect(Collectors.toSet());
-							var ids = linkedUsers.stream()
-									.filter(linkedUser -> !bannedAccountIds.contains(linkedUser.getGdAccountId()))
-									.map(GDLinkedUsers::getDiscordUserId)
-									.collect(Collectors.toSet());
-							ids.retainAll(guildMembers.stream().map(member -> member.getId().asLong()).collect(Collectors.toSet()));
-							linkedUsers.removeIf(linkedUser -> !ids.contains(linkedUser.getDiscordUserId()));
-							userStats.removeIf(ustat -> linkedUsers.stream().map(GDLinkedUsers::getGdAccountId).noneMatch(id -> id == ustat.getAccountId()));
-							guildMembers.removeIf(member -> !ids.contains(member.getId().asLong()));
-							var discordTags = guildMembers.stream().collect(Collectors.groupingBy(m -> m.getId().asLong(),
-									Collectors.mapping(DiscordFormatter::formatUser, Collectors.joining())));
-							return Tuples.of(linkedUsers, userStats, discordTags);
-						}))
-						.flatMapMany(TupleUtils.function((linkedUsers, userStats, discordTags) -> Flux.fromIterable(linkedUsers)
-								.flatMap(linkedUser -> Mono.justOrEmpty(userStats.stream().filter(u -> u.getAccountId() == linkedUser.getGdAccountId()).findAny())
-										.map(userStat -> new LeaderboardEntry(stat.applyAsInt(userStat),
-												userStat, discordTags.get(linkedUser.getDiscordUserId()))))))
-						.distinct(LeaderboardEntry::getStats)
-						.collectSortedList(Comparator.naturalOrder())
+				.flatMap(guild -> guild.getMembers()
+						.collect(Collectors.toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser))
+						.flatMap(members -> ctx.getBot().getDatabase()
+								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId " + in(members.keySet()))
+								.collectList()
+								.flatMap(linkedUsers -> Mono.zip(
+												emojiMono.doOnNext(emojiRef::set),
+												ctx.getBot().getDatabase()
+														.query(GDUserStats.class, "from GDUserStats u where u.accountId " + in(gdAccIds(linkedUsers))
+																+ " order by u.lastRefreshed desc")
+														.collectList(),
+												ctx.getBot().getDatabase()
+														.query(GDLeaderboardBans.class, "from GDLeaderboardBans b where b.accountId " + in(gdAccIds(linkedUsers)))
+														.map(GDLeaderboardBans::getAccountId)
+														.collect(Collectors.toUnmodifiableSet()))
+										.map(TupleUtils.function((emoji, userStats, bans) -> userStats.stream()
+												.peek(u -> lastRefreshed.compareAndSet(now, userStats.get(0).getLastRefreshed().toInstant()))
+												.filter(u -> noBanList || !bans.contains(u.getAccountId()))
+												.flatMap(u -> linkedUsers.stream()
+														.filter(l -> l.getGdAccountId() == u.getAccountId())
+														.map(GDLinkedUsers::getDiscordUserId)
+														.map(members::get)
+														.map(tag -> new LeaderboardEntry(stat.applyAsInt(u), u, tag)))
+												.collect(Collectors.toCollection(() -> new TreeSet<LeaderboardEntry>()))))))
+						.map(List::copyOf)
 						.flatMap(list -> {
+							if (list.size() <= ENTRIES_PER_PAGE) {
+								return ctx.reply(m -> m.setEmbed(leaderboardView(ctx.getPrefixUsed(), guild, list, 0,
+										lastRefreshed.get(), null, emojiRef.get()))).then();
+							}
 							var highlighted = new AtomicReference<String>();
 							var pageNum = new AtomicInteger();
 							IntFunction<UniversalMessageSpec> paginator = page -> {
@@ -196,12 +196,13 @@ public class LeaderboardCommand {
 														.then();
 											}))
 									.open(ctx);
-						}));
+						})).then();
 	}
 	
 	@CommandAction("refresh")
-	@CommandDoc("Leaderboard refresh is an heavy process that consists of loading profiles of all users that have linked their account "
-			+ "to the bot. This command may be run once in 6 hours.")
+	@CommandDoc("Refreshes the leaderboard (bot admin only). Leaderboard refresh is an heavy process that consists of "
+			+ "loading profiles of all users that have linked their account to the bot. This command "
+			+ "may be run once in 6 hours.")
 	public Mono<Void> runRefresh(Context ctx) {
 		return PermissionLevel.BOT_ADMIN.checkGranted(ctx)
 				.then(Mono.defer(() -> {
@@ -282,7 +283,7 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("ban")
-	@CommandDoc("Bans a player from server leaderboards. Players that are banned from leaderboards won't be displayed in the results of "
+	@CommandDoc("Bans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
@@ -307,7 +308,7 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("unban")
-	@CommandDoc("Unbans a player from server leaderboards. Players that are banned from leaderboards won't be displayed in the results of "
+	@CommandDoc("Unbans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
@@ -325,8 +326,8 @@ public class LeaderboardCommand {
 										.orElse("Unknown User#0000") + "**")));
 	}
 
-	@CommandAction({ "banlist", "ban_list" })
-	@CommandDoc("Displays the list of banned players. Players that are banned from leaderboards won't be displayed in the results of "
+	@CommandAction("ban_list")
+	@CommandDoc("Displays the list of banned players (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
 	public Mono<Void> runBanList(Context ctx) {
@@ -391,9 +392,55 @@ public class LeaderboardCommand {
 					+ "linked their Geometry Dash account with `" + prefix + "account` in order to be displayed on this "
 					+ "leaderboard. If you have just freshly linked your account, you will need to wait for next leaderboard refresh "
 					+ "in order to be displayed.", false);
-			embed.addField("Page " + (page + 1) + "/" + (maxPage + 1),
-					"To go to a specific page, type `page <number>`, e.g `page 3`\n"
-					+ "To jump to the page where a specific user is, type `finduser <GD_username>`", false);
+			if (maxPage > 0) {
+				embed.addField("Page " + (page + 1) + "/" + (maxPage + 1),
+						"To go to a specific page, type `page <number>`, e.g `page 3`\n"
+						+ "To jump to the page where a specific user is, type `finduser <GD_username>`", false);
+			}
 		};
+	}
+	
+	private static String in(Collection<?> l) {
+		return l.stream()
+				.map(Object::toString)
+				.collect(Collectors.joining(",", "in (", ")"));
+	}
+	
+	private static List<Long> gdAccIds(List<GDLinkedUsers> l) {
+		return l.stream().map(GDLinkedUsers::getGdAccountId).collect(Collectors.toList());
+	}
+	
+	private static class LeaderboardEntry implements Comparable<LeaderboardEntry> {
+		private final int value;
+		private final GDUserStats stats;
+		private final String discordUser;
+		
+		public LeaderboardEntry(int value, GDUserStats stats, String discordUser) {
+			this.value = value;
+			this.stats = Objects.requireNonNull(stats);
+			this.discordUser = Objects.requireNonNull(discordUser);
+		}
+
+		public int getValue() {
+			return value;
+		}
+
+		public GDUserStats getStats() {
+			return stats;
+		}
+
+		public String getDiscordUser() {
+			return discordUser;
+		}
+
+		@Override
+		public int compareTo(LeaderboardEntry o) {
+			return value == o.value ? stats.getName().compareToIgnoreCase(o.stats.getName()) : o.value - value;
+		}
+
+		@Override
+		public String toString() {
+			return "LeaderboardEntry{" + stats.getName() + ": " + value + "}";
+		}
 	}
 }

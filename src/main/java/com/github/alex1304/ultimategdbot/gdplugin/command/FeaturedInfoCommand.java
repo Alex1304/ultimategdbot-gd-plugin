@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.level;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.alex1304.jdash.entity.GDLevel;
+import com.github.alex1304.jdash.exception.MissingAccessException;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
@@ -32,21 +33,23 @@ public class FeaturedInfoCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Levels are sorted in the Featured section by a score. This score is given by "
+	@CommandDoc("Finds the exact position of a level in the Featured section. Levels are sorted "
+			+ "in the Featured section by a score. This score is given by "
 			+ "RobTop and determines its position in the Featured section. The bot uses this "
 			+ "score in order to perform a dichotomous search in the Featured section, "
 			+ "allowing it to find the position of any level in only a few seconds, regardless "
 			+ "of how far back it is.")
 	public Mono<Void> run(Context ctx, GDLevel level) {
 		final var score = level.getFeaturedScore();
-		if (score <= 0) {
+		if (score == 0) {
 			return Mono.error(new CommandFailedException("This level is not featured."));
 		}
+		final var initialMax = 3000;
 		final var min = new AtomicInteger();
-		final var max = new AtomicInteger(1000);
-		final var currentPage = new AtomicInteger(500);
+		final var max = new AtomicInteger(initialMax);
+		final var currentPage = new AtomicInteger();
 		final var isFindingFirstPageWithMatchingScore = new AtomicBoolean();
-		final var continueAlgo = new AtomicBoolean();
+		final var continueAlgo = new AtomicBoolean(true);
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
 		return ctx.reply("Searching, please wait...")
@@ -62,7 +65,7 @@ public class FeaturedInfoCommand {
 										continueAlgo.set(false);
 										break;
 									}
-									if (l.getFeaturedScore() > score) {
+									if (l.getFeaturedScore() < score) {
 										continueAlgo.set(false);
 										break;
 									}
@@ -75,6 +78,9 @@ public class FeaturedInfoCommand {
 								if (scoreOfFirst > score) {
 									min.set(currentPage.get());
 									currentPage.set(Math.max(currentPage.get() + 1, (min.get() + max.get()) / 2));
+									if (currentPage.get() > initialMax) {
+										max.addAndGet(initialMax);
+									}
 								} else {
 									max.set(currentPage.get() - 1);
 									currentPage.set((min.get() + max.get()) / 2);
@@ -84,7 +90,18 @@ public class FeaturedInfoCommand {
 								}
 							}
 							return Mono.empty();
-						}))
+						})
+						.onErrorResume(MissingAccessException.class, e -> Mono.fromRunnable(() -> {
+							if (isFindingFirstPageWithMatchingScore.get()) {
+								continueAlgo.set(false);
+							} else {
+								max.set(currentPage.get() - 1);
+								currentPage.set((min.get() + max.get()) / 2);
+								if (alreadyVisitedPages.contains(currentPage.get())) {
+									isFindingFirstPageWithMatchingScore.set(true);
+								}
+							}
+						})))
 						.repeat(continueAlgo::get)
 						.then(Mono.defer(() -> result.get() == null
 								? Mono.error(new CommandFailedException("Unable to find " + GDUtils.levelToString(level) + " in the Featured section."))

@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.account;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import com.github.alex1304.jdash.entity.GDMessage;
 import com.github.alex1304.jdash.entity.GDUser;
@@ -32,15 +32,15 @@ public class AccountCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Linking your account allows UltimateGDBot to etablish a mapping between Geometry Dash users and Discord users, "
-				+ "which can unlock a lot of possibilities. For example you can use some commands by tagging directly a "
-				+ "Discord user instead of typing his GD username, build a server-wide Geometry Dash leaderboard "
-				+ "(see leaderboard command), and more. Use the `link` subcommand to start linking your account, "
-				+ "then you need to follow instructions given by the command to complete the linking process. "
-				+ "When you have followed all instructions, type `done` in chat. To unlink your account, use the subcommand `unlink`. "
-				+ "Note that you can link several Discord accounts to the same GD account, but you can't link several GD accounts to "
-				+ "the same Discord account. This is designed so if you lose access to your Discord account, you can still use a new "
-				+ "Discord account to link.")
+	@CommandDoc("Shows your account linking status. Linking your account allows UltimateGDBot to etablish a mapping between Geometry "
+			+ "Dash users and Discord users, which can unlock a lot of possibilities. For example you can use some commands by "
+			+ "tagging directly a Discord user instead of typing his GD username, build a server-wide Geometry Dash leaderboard "
+			+ "(see leaderboard command), and more. Use the `link` subcommand to start linking your account, "
+			+ "then you need to follow instructions given by the command to complete the linking process. "
+			+ "When you have followed all instructions, type `done` in chat. To unlink your account, use the subcommand `unlink`. "
+			+ "Note that you can link several Discord accounts to the same GD account, but you can't link several GD accounts to "
+			+ "the same Discord account. This is designed so if you lose access to your Discord account, you can still use a new "
+			+ "Discord account to link.")
 	public Mono<Void> run(Context ctx) {
 		return ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, ctx.getAuthor().getId().asLong())
 				.filter(GDLinkedUsers::getIsLinkActivated)

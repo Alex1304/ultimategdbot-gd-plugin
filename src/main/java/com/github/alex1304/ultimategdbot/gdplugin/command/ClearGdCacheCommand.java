@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.admin;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;

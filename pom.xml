@@ -52,6 +52,9 @@
 					<release>${java.version}</release>
 					<source>${java.version}</source>
 					<target>${java.version}</target>
+					<compilerArgs>
+						<compilerArg>-parameters</compilerArg>
+					</compilerArgs>
 				</configuration>
 			</plugin><plugin>
 				<groupId>org.apache.maven.plugins</groupId>

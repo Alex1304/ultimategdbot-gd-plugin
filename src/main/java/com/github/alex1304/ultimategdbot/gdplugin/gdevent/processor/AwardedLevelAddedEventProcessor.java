@@ -74,11 +74,11 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	void onBroadcastSuccess(AwardedLevelAddedEvent event, List<Message> broadcastResult) {
-		if (gdServiceMediator.getBroadcastedLevels().size() >= 10) {
-			var firstKey = gdServiceMediator.getBroadcastedLevels().entrySet().stream().findFirst().get().getKey();
-			gdServiceMediator.getBroadcastedLevels().remove(firstKey);
+		if (gdServiceMediator.getDispatchedLevels().size() >= 10) {
+			var firstKey = gdServiceMediator.getDispatchedLevels().entrySet().stream().findFirst().get().getKey();
+			gdServiceMediator.getDispatchedLevels().remove(firstKey);
 		}
-		gdServiceMediator.getBroadcastedLevels().put(event.getAddedLevel().getId(), broadcastResult);
+		gdServiceMediator.getDispatchedLevels().put(event.getAddedLevel().getId(), broadcastResult);
 	}
 
 	@Override

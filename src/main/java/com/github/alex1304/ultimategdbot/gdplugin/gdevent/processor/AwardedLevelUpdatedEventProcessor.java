@@ -36,7 +36,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 	@Override
 	public Mono<Void> process0(AwardedLevelUpdatedEvent t) {
 		var timeStart = new AtomicLong();
-		var messageList = gdServiceMediator.getBroadcastedLevels().getOrDefault(t.getNewLevel().getId(), List.of());
+		var messageList = gdServiceMediator.getDispatchedLevels().getOrDefault(t.getNewLevel().getId(), List.of());
 		var logText = "**Awarded Level Updated** for level " + GDUtils.levelToString(t.getNewLevel());
 		LOGGER.info("Processing Geometry Dash event: {}", logText);
 		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
@@ -54,7 +54,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 								.flatMap(newMessageList -> {
 									var time = System.nanoTime() - timeStart.get();
 									var formattedTime = BotUtils.formatDuration(Duration.ofNanos(time));
-									var oldList = gdServiceMediator.getBroadcastedLevels().put(t.getNewLevel().getId(), newMessageList);
+									var oldList = gdServiceMediator.getDispatchedLevels().put(t.getNewLevel().getId(), newMessageList);
 									var broadcastSpeed = ((int) ((newMessageList.size() / (double) time) * 1_000_000_000));
 									if (oldList == null) {
 										LOGGER.info("Skipping Geometry Dash event {}: list of messages to edit is no longer available.", logText);

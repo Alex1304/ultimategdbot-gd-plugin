@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.level;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,9 +36,9 @@ public class LevelCommand {
 	}
 	
 	@CommandAction
-	@CommandDoc("You can specify the level either by its name or its ID. If several results are "
-			+ "found, an interactive menu will open allowing you to navigate through results and "
-			+ "select the result you want.")
+	@CommandDoc("Searches for online levels in Geometry Dash. You can specify the level either by "
+			+ "its name or its ID. If several results are found, an interactive menu will open "
+			+ "allowing you to navigate through results and select the result you want.")
 	public Mono<Void> execute(Context ctx, String query) {
 		if (!query.matches("[a-zA-Z0-9 _-]+")) {
 			return Mono.error(new CommandFailedException("Your query contains invalid characters."));

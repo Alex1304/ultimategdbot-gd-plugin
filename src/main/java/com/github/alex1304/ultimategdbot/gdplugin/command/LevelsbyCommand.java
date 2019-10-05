@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.level;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,9 +35,10 @@ public class LevelsbyCommand {
 	}
 	
 	@CommandAction
-	@CommandDoc("You can specify the user either by their name or their player ID. If several "
-			+ "results are found, an interactive menu will open allowing you to navigate "
-			+ "through results and select the result you want.")
+	@CommandDoc("Browse levels from a specific player in Geometry Dash. You can specify "
+			+ "the user either by their name or their player ID. If several results are "
+			+ "found, an interactive menu will open allowing you to navigate through "
+			+ "results and select the result you want.")
 	public Mono<Void> execute(Context ctx, GDUser user) {
 		var currentPage = new AtomicInteger();
 		var resultsOfCurrentPage = new AtomicReference<GDPaginator<GDLevel>>();

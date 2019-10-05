@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.levelrequest;
+package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static java.util.Objects.requireNonNullElse;
 
@@ -51,12 +51,12 @@ public class LevelRequestCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Submit your levels in the submission queue channel using `levelrequest submit <your_level_ID>`. Then people with the "
-				+ "reviewer role will review your submission, and once you get a certain number of reviews your level will be moved to "
-				+ "the reveiwed levels channel and you will be notified in DMs. You are only allowed to submit a limited number of "
-				+ "levels at once.\n\n"
-				+ "For more details on how level requests work, check out this guide: <https://github.com/Alex1304/ultimategdbot-gd-plugin"
-				+ "/wiki/Level-Requests-Tutorial>")
+	@CommandDoc("Check level request status in the current server. Submit your levels in the submission queue channel using "
+			+ "`levelrequest submit <your_level_ID>`. Then people with the reviewer role will review your submission, and "
+			+ "once you get a certain number of reviews your level will be moved to the reveiwed levels channel and you will "
+			+ "be notified in DMs. You are only allowed to submit a limited number of levels at once.\n\n"
+			+ "For more details on how level requests work, check out this guide: <https://github.com/Alex1304/ultimategdbot-gd-plugin"
+			+ "/wiki/Level-Requests-Tutorial>")
 	public Mono<Void> run(Context ctx) {
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		return Mono.zip(ctx.getBot().getEmoji("success"), ctx.getBot().getEmoji("failed"))
