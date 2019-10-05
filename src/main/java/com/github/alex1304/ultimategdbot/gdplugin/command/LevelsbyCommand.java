@@ -50,7 +50,7 @@ public class LevelsbyCommand {
 						.onErrorMap(e -> e instanceof MissingAccessException && page > 0,
 								e -> new PageNumberOutOfRangeException(0, page - 1)))
 				.addMessageItem("select", interaction -> Mono
-						.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(0))))
+						.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(1))))
 						.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
 								interaction.getArgs().tokenCount() == 1 ? "Please secify a result number"
 										: "Your input refers to a non-existing result."))
