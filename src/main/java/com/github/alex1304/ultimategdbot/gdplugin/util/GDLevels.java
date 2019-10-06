@@ -179,7 +179,8 @@ public class GDLevels {
 								.doOnNext(resultsOfCurrentPage::set)
 								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get()))
 								.map(UniversalMessageSpec::new)
-								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, page - 1)))
+								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, page - 1))
+								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(0, page - 1)))
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(1))))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
