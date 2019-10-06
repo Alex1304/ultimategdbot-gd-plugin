@@ -76,11 +76,11 @@ public class GDLevels {
 											"" + emojis[4],
 											"" + level.getLength(),
 											song), false);
-							embed.addField("Page " + (page + 1),
-									"To go to a specific page, type `page <number>`, e.g `page 3`\n"
-									+ "To view more details on a specific search result item, type `select <result_number>`", false);
 							i++;
 						}
+						embed.addField("Page " + (page + 1),
+								"To go to a specific page, type `page <number>`, e.g `page 3`\n"
+								+ "To view more details on a specific search result item, type `select <result_number>`", false);
 					};
 				});
 	}
