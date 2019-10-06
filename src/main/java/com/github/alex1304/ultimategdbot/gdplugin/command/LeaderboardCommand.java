@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.alex1304.jdash.entity.GDUser;
+import com.github.alex1304.jdash.exception.GDClientException;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
@@ -185,6 +186,7 @@ public class LeaderboardCommand {
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
 											.flatMap(userName -> GDUsers.stringToUser(ctx.getBot(), gdServiceMediator.getGdClient(), userName))
+											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException("Unable to fetch info from that user in Geometry Dash."))
 											.flatMap(gdUser -> {
 												final var ids = list.stream().map(entry -> entry.getStats().getAccountId()).collect(Collectors.toList());
 												final var rank = ids.indexOf(gdUser.getAccountId());

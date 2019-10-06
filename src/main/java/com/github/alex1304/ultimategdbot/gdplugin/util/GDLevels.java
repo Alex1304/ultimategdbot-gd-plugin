@@ -44,7 +44,7 @@ public class GDLevels {
 	private GDLevels() {
 	}
 	
-	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, GDPaginator<GDLevel> results, String title) {
+	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, GDPaginator<GDLevel> results, String title, int page) {
 		return Mono.zip(o -> o, ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"), ctx.getBot().getEmoji("downloads"),
 				ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"), ctx.getBot().getEmoji("user_coin"),
 				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("dislike"))
@@ -76,6 +76,9 @@ public class GDLevels {
 											"" + emojis[4],
 											"" + level.getLength(),
 											song), false);
+							embed.addField("Page " + (page + 1),
+									"To go to a specific page, type `page <number>`, e.g `page 3`\n"
+									+ "To view more details on a specific search result item, type `select <result_number>`", false);
 							i++;
 						}
 					};
@@ -174,7 +177,7 @@ public class GDLevels {
 						: InteractiveMenu.createPaginatedWhen(currentPage, page -> results
 								.goTo(page)
 								.doOnNext(resultsOfCurrentPage::set)
-								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header))
+								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get()))
 								.map(UniversalMessageSpec::new)
 								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, page - 1)))
 						.addMessageItem("select", interaction -> Mono
