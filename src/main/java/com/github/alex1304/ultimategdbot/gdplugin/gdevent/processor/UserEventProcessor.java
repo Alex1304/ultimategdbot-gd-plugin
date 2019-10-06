@@ -7,7 +7,7 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
@@ -43,8 +43,8 @@ abstract class UserEventProcessor<E extends UserEvent> extends AbstractGDEventPr
 
 	@Override
 	Mono<Message> sendOne(E event, MessageChannel channel, Optional<Role> roleToTag) {
-		return GDUtils.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
-				.flatMap(urls -> GDUtils.userProfileView(bot, Optional.empty(), event.getUser(), authorName(), authorIconUrl(), urls[0], urls[1]))
+		return GDUsers.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
+				.flatMap(urls -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(), authorName(), authorIconUrl(), urls[0], urls[1]))
 				.map(mcs -> mcs.andThen(mcs2 -> mcs2.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 						+ (channel instanceof PrivateChannel ? isPromotion() ? "Congratulations for being " : "I'm sorry to announce this, but you have been " // GNOMED
 						: "A user has been ") + messageContent())))

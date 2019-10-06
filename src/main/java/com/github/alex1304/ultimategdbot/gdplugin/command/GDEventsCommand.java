@@ -2,8 +2,6 @@ package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static com.github.alex1304.ultimategdbot.api.utils.BotUtils.sendPaginatedMessage;
 import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
-import static com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils.getExistingSubscribedGuilds;
-import static com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils.preloadBroadcastChannelsAndRoles;
 import static java.util.stream.Collectors.toSet;
 
 import com.github.alex1304.jdashevents.event.AwardedLevelAddedEvent;
@@ -21,6 +19,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelAddedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelRemovedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateTimelyLevelChangedEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.util.Snowflake;
@@ -90,7 +89,7 @@ public class GDEventsCommand {
 		switch (action) {
 			case "preload":
 				return ctx.reply("Processing...")
-						.flatMap(wait -> preloadBroadcastChannelsAndRoles(ctx.getBot(), preloader)
+						.flatMap(wait -> GDEvents.preloadBroadcastChannelsAndRoles(ctx.getBot(), preloader)
 								.flatMap(count -> ctx.reply("Sucessfully preloaded **" + count.getT1() + "** channels and **" + count.getT2() + "** roles!"))
 								.then(wait.delete()));
 			case "unload":
@@ -102,7 +101,7 @@ public class GDEventsCommand {
 					return Mono.error(new CommandFailedException("Nothing to clean. Maybe try preloading again first?"));
 				}
 				return ctx.reply("Processing...")
-						.flatMap(wait -> getExistingSubscribedGuilds(ctx.getBot(), "").collectList()
+						.flatMap(wait -> GDEvents.getExistingSubscribedGuilds(ctx.getBot(), "").collectList()
 								.flatMap(subscribedList -> ctx.getBot().getDatabase().performTransaction(session -> {
 									var invalidChannels = preloader.getInvalidChannelSnowflakes().stream()
 											.map(Snowflake::asLong)

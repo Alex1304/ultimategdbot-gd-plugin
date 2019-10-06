@@ -14,7 +14,7 @@ import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Flux;
@@ -37,7 +37,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 	public Mono<Void> process0(AwardedLevelUpdatedEvent t) {
 		var timeStart = new AtomicLong();
 		var messageList = gdServiceMediator.getDispatchedLevels().getOrDefault(t.getNewLevel().getId(), List.of());
-		var logText = "**Awarded Level Updated** for level " + GDUtils.levelToString(t.getNewLevel());
+		var logText = "**Awarded Level Updated** for level " + GDLevels.toString(t.getNewLevel());
 		LOGGER.info("Processing Geometry Dash event: {}", logText);
 		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText)
@@ -47,7 +47,7 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 								.filter(message -> message.getEmbeds().size() > 0)
 								.parallel()
 								.runOn(gdServiceMediator.getGdEventScheduler())
-								.flatMap(message -> GDUtils.shortLevelView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
+								.flatMap(message -> GDLevels.compactView(bot, t.getNewLevel(), message.getEmbeds().get(0).getAuthor().get().getName(),
 												message.getEmbeds().get(0).getAuthor().get().getIconUrl())
 										.flatMap(embed -> message.edit(mes -> mes.setEmbed(embed)).onErrorResume(e -> Mono.empty())))
 								.collectSortedList(Comparator.comparing(Message::getId), 2000)
@@ -71,6 +71,6 @@ public class AwardedLevelUpdatedEventProcessor extends TypeSafeGDEventProcessor<
 
 	@Override
 	String logText0(AwardedLevelUpdatedEvent event) {
-		return "**Awarded Level Updated** for level " + GDUtils.levelToString(event.getNewLevel());
+		return "**Awarded Level Updated** for level " + GDLevels.toString(event.getNewLevel());
 	}
 }

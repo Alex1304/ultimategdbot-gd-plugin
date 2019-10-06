@@ -74,7 +74,8 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserDemotedF
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToElderEventProcessor;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToModEventProcessor;
 import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
 
 import discord4j.core.object.entity.Message;
@@ -162,7 +163,7 @@ public class GDPlugin implements Plugin {
 		if (preloadChannelsOnStartup) {
 			return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")
-							.flatMap(__ -> GDUtils.preloadBroadcastChannelsAndRoles(bot, preloader))
+							.flatMap(__ -> GDEvents.preloadBroadcastChannelsAndRoles(bot, preloader))
 							.elapsed()
 							.flatMap(result -> bot.log(emojis.getT2() + " Successfully preloaded **" + result.getT2().getT1()
 									+ "** channels and **" + result.getT2().getT2() + "** roles in **"
@@ -321,7 +322,7 @@ public class GDPlugin implements Plugin {
 		cmdProvider.addParamConverter(new ParamConverter<GDUser>() {
 			@Override
 			public Mono<GDUser> convert(Context ctx, String input) {
-				return GDUtils.stringToUser(bot, gdClient, input);
+				return GDUsers.stringToUser(bot, gdClient, input);
 			}
 			@Override
 			public Class<GDUser> type() {

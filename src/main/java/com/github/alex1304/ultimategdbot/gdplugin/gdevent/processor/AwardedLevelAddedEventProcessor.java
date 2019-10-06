@@ -13,7 +13,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelAddedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
@@ -54,7 +54,7 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	String logText0(AwardedLevelAddedEvent event) {
-		return "**Awarded Level Added** for level " + GDUtils.levelToString(event.getAddedLevel());
+		return "**Awarded Level Added** for level " + GDLevels.toString(event.getAddedLevel());
 	}
 
 	@Override
@@ -64,7 +64,7 @@ public class AwardedLevelAddedEventProcessor extends AbstractGDEventProcessor<Aw
 
 	@Override
 	Mono<Message> sendOne(AwardedLevelAddedEvent event, MessageChannel channel, Optional<Role> roleToTag)  {
-		return GDUtils.shortLevelView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
+		return GDLevels.compactView(bot, event.getAddedLevel(), "New rated level!", "https://i.imgur.com/asoMj1W.png").<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 			mcs.setContent((event instanceof LateAwardedLevelAddedEvent ? "[Late announcement] " : roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 					+ (channel instanceof PrivateChannel ? "Congratulations for getting your level rated!"
 							: RANDOM_MESSAGES[AbstractGDEventProcessor.RANDOM_GENERATOR.nextInt(RANDOM_MESSAGES.length)]));

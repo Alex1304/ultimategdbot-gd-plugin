@@ -92,7 +92,7 @@ public class LevelRequestUtils {
 		Objects.requireNonNull(submission.getYoutubeLink(), "youtubeLink was null");
 		Objects.requireNonNull(reviews, "reviews was null");
 		final var formatUser = DiscordFormatter.formatUser(author) + " (`" + author.getId().asLong() + "`)";
-		return Mono.zip(GDUtils.shortLevelView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
+		return Mono.zip(GDLevels.compactView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviews::getReviewerId)
 						.map(Snowflake::of)

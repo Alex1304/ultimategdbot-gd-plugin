@@ -40,7 +40,8 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDUserStats;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
@@ -183,7 +184,7 @@ public class LeaderboardCommand {
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
-											.flatMap(userName -> GDUtils.stringToUser(ctx.getBot(), gdServiceMediator.getGdClient(), userName))
+											.flatMap(userName -> GDUsers.stringToUser(ctx.getBot(), gdServiceMediator.getGdClient(), userName))
 											.flatMap(gdUser -> {
 												final var ids = list.stream().map(entry -> entry.getStats().getAccountId()).collect(Collectors.toList());
 												final var rank = ids.indexOf(gdUser.getAccountId());
@@ -376,7 +377,7 @@ public class LeaderboardCommand {
 				var row = String.format("%s | %s %s | %s (%s)",
 						String.format("`#%" + rankWidth + "d`", rank).replaceAll(" ", " ‌‌"),
 						emoji,
-						GDUtils.formatCode(entry.getValue(), statWidth),
+						GDFormatter.formatCode(entry.getValue(), statWidth),
 						entry.getStats().getName(),
 						entry.getDiscordUser());
 				if (row.length() > maxRowLength) {

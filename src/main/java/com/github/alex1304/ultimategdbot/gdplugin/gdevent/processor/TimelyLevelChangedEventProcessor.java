@@ -11,7 +11,7 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateTimelyLevelChangedEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
@@ -43,7 +43,7 @@ public class TimelyLevelChangedEventProcessor extends AbstractGDEventProcessor<T
 		var headerTitle = isWeekly ? "Weekly Demon" : "Daily Level";
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return event.getTimelyLevel().getLevel()
-				.flatMap(level -> GDUtils.shortLevelView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
+				.flatMap(level -> GDLevels.compactView(bot, level, headerTitle + " #" + event.getTimelyLevel().getId(), headerLink)
 						.<Consumer<MessageCreateSpec>>map(embed -> mcs -> {
 							mcs.setContent((event instanceof LateTimelyLevelChangedEvent
 									? "[Late announcement] "

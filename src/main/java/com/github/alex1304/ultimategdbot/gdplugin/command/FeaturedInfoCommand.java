@@ -13,7 +13,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
@@ -104,7 +104,7 @@ public class FeaturedInfoCommand {
 						})))
 						.repeat(continueAlgo::get)
 						.then(Mono.defer(() -> result.get() == null
-								? Mono.error(new CommandFailedException("Unable to find " + GDUtils.levelToString(level) + " in the Featured section."))
+								? Mono.error(new CommandFailedException("Unable to find " + GDLevels.toString(level) + " in the Featured section."))
 								: sendResult(waitMessage, ctx, level, result.get().getT1(), result.get().getT2())))
 						.doOnTerminate(() -> waitMessage.delete().onErrorResume(e -> Mono.empty()).subscribe())
 						.then());
@@ -112,7 +112,7 @@ public class FeaturedInfoCommand {
 	
 	private Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
 		return waitMessage.delete().then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
-						+ GDUtils.levelToString(level) + " is currently placed in page **" + (page + 1)
+						+ GDLevels.toString(level) + " is currently placed in page **" + (page + 1)
 						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
 	}
 }

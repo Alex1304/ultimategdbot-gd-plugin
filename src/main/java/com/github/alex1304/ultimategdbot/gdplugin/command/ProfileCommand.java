@@ -8,7 +8,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import reactor.core.publisher.Mono;
 import reactor.util.annotation.Nullable;
@@ -46,8 +46,8 @@ public class ProfileCommand {
 										+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))
 						.map(GDLinkedUsers::getGdAccountId)
 						.flatMap(gdServiceMediator.getGdClient()::getUserByAccountId))
-				.flatMap(user -> GDUtils.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
-						.flatMap(urls -> GDUtils.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
+				.flatMap(user -> GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
+						.flatMap(urls -> GDUsers.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
 										"User profile", "https://i.imgur.com/ppg4HqJ.png", urls[0], urls[1])
 								.flatMap(ctx::reply)))
 				.then();

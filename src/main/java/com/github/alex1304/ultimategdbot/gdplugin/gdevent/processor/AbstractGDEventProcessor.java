@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor;
 
-import static com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils.getExistingSubscribedGuilds;
 import static java.util.Objects.requireNonNull;
 import static reactor.function.TupleUtils.function;
 
@@ -21,6 +20,7 @@ import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
@@ -54,7 +54,7 @@ abstract class AbstractGDEventProcessor<E extends GDEvent> extends TypeSafeGDEve
 				.flatMap(emojis -> bot.log(emojis.getT1() + " GD event fired: " + logText)
 						.onErrorResume(e -> Mono.empty())
 						.log("gdevent.before_dbload", Level.FINE)
-						.and(congrat(t).mergeWith(getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
+						.and(congrat(t).mergeWith(GDEvents.getExistingSubscribedGuilds(bot, "where " + databaseField() + " > 0")
 										.flatMap(this::findChannel)
 										.flatMap(this::findRole))
 								.log("gdevent.after_dbload", Level.FINE)

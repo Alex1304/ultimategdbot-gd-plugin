@@ -12,7 +12,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
 import com.github.alex1304.ultimategdbot.api.utils.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -73,7 +73,7 @@ public class AccountCommand {
 						.switchIfEmpty(Mono.error(new CommandFailedException("This user is unregistered in Geometry Dash.")))
 						.flatMap(botUser -> {
 							linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
-									GDUtils.generateAlphanumericToken(TOKEN_LENGTH)));
+									GDUsers.generateAlphanumericToken(TOKEN_LENGTH)));
 							linkedUser.setGdAccountId(gdUsername.getAccountId());
 							return ctx.getBot().getDatabase().save(linkedUser).thenReturn(botUser);
 						})

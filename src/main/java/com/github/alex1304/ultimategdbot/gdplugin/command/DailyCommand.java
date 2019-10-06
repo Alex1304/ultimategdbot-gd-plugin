@@ -5,7 +5,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import reactor.core.publisher.Mono;
 
@@ -24,6 +24,6 @@ public class DailyCommand {
 	@CommandAction
 	@CommandDoc("Displays level info as well as cooldown until the next Daily level.")
 	public Mono<Void> run(Context ctx) {
-		return GDUtils.displayTimelyInfo(ctx, gdServiceMediator.getGdClient(), false).then();
+		return GDLevels.sendTimelyInfo(ctx, gdServiceMediator.getGdClient(), false).then();
 	}
 }
