@@ -14,5 +14,9 @@
 		<property name="submitterId" type="long" column="submitter_id" />
 		<property name="submissionTimestamp" type="timestamp" column="submission_timestamp" />
 		<property name="isReviewed" type="boolean" column="is_reviewed" />
+		<set name="reviews" cascade="delete" inverse="true">
+		      <key column="submission_id" not-null="true" />
+		      <one-to-many class="com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews" />
+		</set>
 	</class>
 </hibernate-mapping>

@@ -1,6 +1,8 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
 import java.sql.Timestamp;
+import java.util.Objects;
+import java.util.Set;
 
 public class GDLevelRequestSubmissions {
 	
@@ -13,6 +15,7 @@ public class GDLevelRequestSubmissions {
 	private long submitterId;
 	private Timestamp submissionTimestamp;
 	private boolean isReviewed;
+	private Set<GDLevelRequestReviews> reviews;
 	
 	public long getId() {
 		return id;
@@ -50,8 +53,8 @@ public class GDLevelRequestSubmissions {
 		return messageChannelId;
 	}
 	
-	public void setMessageChannelId(long messageChannelId) {
-		this.messageChannelId = messageChannelId;
+	public void setMessageChannelId(Long messageChannelId) {
+		this.messageChannelId = Objects.requireNonNullElse(messageChannelId, 0L);
 	}
 	
 	public long getGuildId() {
@@ -83,5 +86,13 @@ public class GDLevelRequestSubmissions {
 
 	public void setIsReviewed(boolean isReviewed) {
 		this.isReviewed = isReviewed;
+	}
+
+	public Set<GDLevelRequestReviews> getReviews() {
+		return reviews;
+	}
+
+	public void setReviews(Set<GDLevelRequestReviews> reviews) {
+		this.reviews = reviews;
 	}
 }

@@ -91,6 +91,21 @@ public class LevelRequestCommand {
 				.then();
 	}
 	
+	@CommandAction("clean_orphan_submissions")
+	@CommandDoc("Cleans orphan submissions from database (bot owner only). When a submission message is deleted "
+			+ "manually from the queue, it is possible that the associated "
+			+ "submission in the database does not get properly removed (for example if the MessageDeleteEvent "
+			+ "isn't received). It may lead to orphan submissions, that is submissions that don't exist on Discord "
+			+ "but still exist in database. This command removes those orphan submissions from database. Note that "
+			+ "this orphan removal process is automatically ran once a day.")
+	public Mono<Void> runCleanOrphanSubmissions(Context ctx) {
+		return PermissionLevel.BOT_OWNER.checkGranted(ctx)
+				.then(GDLevelRequests.cleanOrphanSubmissions(ctx.getBot()))
+				.then(ctx.getBot().getEmoji("success")
+						.flatMap(success -> ctx.reply(success + " Orphan submissions have been removed from database.")))
+				.then();
+	}
+	
 	@CommandAction("review")
 	@CommandDoc("Add a review on a level request. You can only use this command if:\n"
 				+ "- You have the reviewer role, as configured in this server\n"
@@ -220,7 +235,7 @@ public class LevelRequestCommand {
 						+ lvlReqSettings.get().getSubmissionQueueChannelId() + ">.")))
 				.filter(GDLevelRequestsSettings::getIsOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
-				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.getBot(), lvlReqSettings.get().getSubmissionQueueChannelId(), guildId).cache()))
+				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.getBot(), guildId).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
 				.filterWhen(lrs -> guildSubmissions.get()

@@ -1,5 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.util;
 
+import static com.github.alex1304.ultimategdbot.api.utils.Markdown.bold;
 import static com.github.alex1304.ultimategdbot.gdplugin.util.DatabaseUtils.in;
 
 import java.time.Duration;
@@ -70,12 +71,12 @@ public class GDLevelRequests {
 	 * @param ctx the context
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Bot bot, long channelId, long guildId) {
+	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Bot bot, long guildId) {
 		return bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 "
 						+ "order by s.submissionTimestamp", guildId)
 				.filterWhen(submission -> bot.getMainDiscordClient()
-						.getMessageById(Snowflake.of(channelId), Snowflake.of(submission.getMessageId()))
+						.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
 						.hasElement()
 						.onErrorReturn(true));
 	}
@@ -142,6 +143,35 @@ public class GDLevelRequests {
 	}
 	
 	/**
+	 * Removes from database the submissions which associated Discord message is
+	 * deleted. If the Discord message is inaccessible (e.g the bot can't see the
+	 * submission channel or the message history anymore), the submission is
+	 * untouched.
+	 * 
+	 * @param bot the bot
+	 * @return a Mono completing when the process is done.
+	 */
+	public static Mono<Void> cleanOrphanSubmissions(Bot bot) {
+		return bot.getDatabase()
+				.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId > 0 and s.messageId > 0 and s.isReviewed = 0")
+				.filterWhen(submission -> bot.getMainDiscordClient()
+						.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
+						.hasElement()
+						.onErrorReturn(true)
+						.map(b -> !b))
+				.map(GDLevelRequestSubmissions::getId)
+				.collectList()
+				.flatMap(submissionsToDelete -> submissionsToDelete.isEmpty() ? Mono.just(0) : bot.getDatabase()
+						.performTransaction(session -> session
+								.createQuery("delete from GDLevelRequestSubmissions where id " + in(submissionsToDelete))
+								.executeUpdate()))
+				.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
+				.flatMap(count -> bot.getEmoji("info")
+						.flatMap(info -> bot.log(info + " Cleaned from database " + bold("" + count) + " orphan level request submissions.")))
+				.then();
+	}
+	
+	/**
 	 * Keep submission queue channels for level requests clean from messages that
 	 * aren't submissions.
 	 * 
@@ -186,7 +216,7 @@ public class GDLevelRequests {
 				.query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
 				.collect(Collectors.toMap(GDLevelRequestsSettings::getGuildId, GDLevelRequestsSettings::getSubmissionQueueChannelId))
 				.flatMap(submissionChannels -> bot.getDatabase()
-						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId = 0 and s.isReviewed = 0")
+						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where (s.messageChannelId = 0 or s.messageChannelId is null) and s.isReviewed = 0")
 						.collectList()
 						.flatMap(submissions -> bot.getDatabase().performEmptyTransaction(session -> {
 							for (var submission : submissions) {
@@ -194,29 +224,13 @@ public class GDLevelRequests {
 								if (channelId != null && channelId > 0) {
 									submission.setMessageChannelId(channelId);
 									session.saveOrUpdate(submission);
-								} else {
-									session.delete(submission);
 								}
 							}
 						})))
 				.subscribe();
 		
 		Flux.interval(Duration.ofHours(12), Duration.ofDays(1))
-				.flatMap(tick -> bot.getDatabase()
-						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId > 0 s.messageId > 0 and s.isReviewed = 0")
-						.filterWhen(submission -> bot.getMainDiscordClient()
-								.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
-								.hasElement()
-								.onErrorReturn(true)
-								.map(b -> !b))
-						.map(GDLevelRequestSubmissions::getId)
-						.collectList()
-						.flatMap(submissionsToDelete -> bot.getDatabase().performTransaction(session -> session
-								.createQuery("delete from GDLevelRequestSubmissions s where s.id " + in(submissionsToDelete))
-								.executeUpdate()))
-						.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
-						.flatMap(count -> bot.getEmoji("info")
-								.flatMap(info -> bot.log(info + " Cleaned from database " + count + " orphan level request submissions.")))
+				.flatMap(tick -> cleanOrphanSubmissions(bot)
 						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Error while cleaning orphan level request submissions", e))))
 				.subscribe();
 		
