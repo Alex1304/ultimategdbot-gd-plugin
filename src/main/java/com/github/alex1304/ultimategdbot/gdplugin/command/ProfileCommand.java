@@ -47,8 +47,8 @@ public class ProfileCommand {
 						.map(GDLinkedUsers::getGdAccountId)
 						.flatMap(gdServiceMediator.getGdClient()::getUserByAccountId))
 				.flatMap(user -> GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
-						.flatMap(urls -> GDUsers.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
-										"User profile", "https://i.imgur.com/ppg4HqJ.png", urls[0], urls[1])
+						.flatMap(icons -> GDUsers.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
+										"User profile", "https://i.imgur.com/ppg4HqJ.png", icons)
 								.flatMap(ctx::reply)))
 				.then();
 	}

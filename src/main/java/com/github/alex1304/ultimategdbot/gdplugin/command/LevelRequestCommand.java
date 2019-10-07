@@ -185,6 +185,7 @@ public class LevelRequestCommand {
 													.flatMap(channel -> channel.createMessage(spec))
 													.flatMap(message -> {
 														submission.get().setMessageId(message.getId().asLong());
+														submission.get().setMessageChannelId(message.getChannelId().asLong());
 														submission.get().setIsReviewed(true);
 														return ctx.getBot().getDatabase().save(submission.get());
 													}))
@@ -219,10 +220,11 @@ public class LevelRequestCommand {
 						+ lvlReqSettings.get().getSubmissionQueueChannelId() + ">.")))
 				.filter(GDLevelRequestsSettings::getIsOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
-				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.getBot().getDatabase(), guildId).cache()))
+				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.getBot(), lvlReqSettings.get().getSubmissionQueueChannelId(), guildId).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
-				.filterWhen(lrs -> guildSubmissions.get().filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
+				.filterWhen(lrs -> guildSubmissions.get()
+						.filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
 						.count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You've reached the maximum number of submissions allowed in queue per person ("
 						+ lvlReqSettings.get().getMaxQueuedSubmissionsPerPerson() + "). Wait for one of your queued requests to be "
@@ -247,6 +249,7 @@ public class LevelRequestCommand {
 								.flatMap(ctx::reply)
 								.flatMap(message -> {
 									s.setMessageId(message.getId().asLong());
+									s.setMessageChannelId(message.getChannelId().asLong());
 									return ctx.getBot().getDatabase().save(s);
 								})
 								.onErrorResume(e -> ctx.getBot().getDatabase().delete(s).then(Mono.error(e)))))

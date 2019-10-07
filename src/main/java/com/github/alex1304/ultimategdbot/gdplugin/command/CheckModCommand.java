@@ -14,6 +14,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserDemotedFromElderEv
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserDemotedFromModEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserPromotedToElderEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserPromotedToModEvent;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import reactor.core.publisher.Mono;
 import reactor.util.annotation.Nullable;
@@ -50,6 +51,7 @@ public class CheckModCommand {
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + " Failed. Nothing found."
 								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
+						.then(GDUsers.makeIconSet(ctx.getBot(), gdUser, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache()))
 						.then(ctx.getBot().getDatabase().findByID(GDModList.class, user.getAccountId()))
 						.switchIfEmpty(Mono.defer(() -> {
 							if (user.getRole() == Role.USER) {

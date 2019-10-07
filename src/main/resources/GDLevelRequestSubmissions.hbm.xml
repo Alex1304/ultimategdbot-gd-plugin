@@ -9,6 +9,7 @@
 		<property name="levelId" type="long" column="level_id" />
 		<property name="youtubeLink" type="string" column="youtube_link" />
 		<property name="messageId" type="long" column="message_id" />
+		<property name="messageChannelId" type="long" column="message_channel_id" />
 		<property name="guildId" type="long" column="guild_id" />
 		<property name="submitterId" type="long" column="submitter_id" />
 		<property name="submissionTimestamp" type="timestamp" column="submission_timestamp" />

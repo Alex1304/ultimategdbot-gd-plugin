@@ -1,11 +1,11 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
+import static com.github.alex1304.ultimategdbot.gdplugin.util.DatabaseUtils.in;
 
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -401,12 +401,6 @@ public class LeaderboardCommand {
 						+ "To jump to the page where a specific user is, type `finduser <GD_username>`", false);
 			}
 		};
-	}
-	
-	private static String in(Collection<?> l) {
-		return l.stream()
-				.map(Object::toString)
-				.collect(Collectors.joining(",", "in (", ")"));
 	}
 	
 	private static List<Long> gdAccIds(List<GDLinkedUsers> l) {

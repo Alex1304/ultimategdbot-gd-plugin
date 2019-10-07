@@ -44,7 +44,7 @@ abstract class UserEventProcessor<E extends UserEvent> extends AbstractGDEventPr
 	@Override
 	Mono<Message> sendOne(E event, MessageChannel channel, Optional<Role> roleToTag) {
 		return GDUsers.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
-				.flatMap(urls -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(), authorName(), authorIconUrl(), urls[0], urls[1]))
+				.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(), authorName(), authorIconUrl(), icons))
 				.map(mcs -> mcs.andThen(mcs2 -> mcs2.setContent((roleToTag.isPresent() ? roleToTag.get().getMention() + " " : "")
 						+ (channel instanceof PrivateChannel ? isPromotion() ? "Congratulations for being " : "I'm sorry to announce this, but you have been " // GNOMED
 						: "A user has been ") + messageContent())))

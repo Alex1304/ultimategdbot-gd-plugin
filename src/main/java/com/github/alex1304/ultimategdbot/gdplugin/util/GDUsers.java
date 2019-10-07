@@ -30,6 +30,7 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 
+import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.util.Snowflake;
@@ -43,7 +44,7 @@ public final class GDUsers {
 	}
 	
 	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Bot bot, Optional<User> author, GDUser user, 
-			String authorName, String authorIconUrl, String iconUrl, String iconSetUrl) {
+			String authorName, String authorIconUrl, String iconSetUrl) {
 		return Mono.zip(o -> o, bot.getEmoji("star"), bot.getEmoji("diamond"), bot.getEmoji("user_coin"),
 				bot.getEmoji("secret_coin"), bot.getEmoji("demon"), bot.getEmoji("creator_points"),
 				bot.getEmoji("mod"), bot.getEmoji("elder_mod"), bot.getEmoji("global_rank"),
@@ -88,25 +89,23 @@ public final class GDUsers {
 									+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
 									+ emojis[15] + "  **Comment history:** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
 							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
-							embed.setThumbnail(iconUrl);
 							embed.setImage(iconSetUrl);
 						});
 					};
 				});
 	}
 	
-	public static Mono<String[]> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String[]> iconsCache) {
+	public static Mono<String> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String> iconsCache) {
 		final var iconSet = new GDUserIconSet(user, sf);
 		final var cached = iconsCache.get(iconSet);
 		if (cached != null) {
 			return Mono.just(cached);
 		}
-		final var mainIcon = iconSet.generateIcon(user.getMainIconType());
 		final var icons = new ArrayList<BufferedImage>();
 		for (var iconType : IconType.values()) {
 			icons.add(iconSet.generateIcon(iconType));
 		}
-		final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), mainIcon.getHeight(), mainIcon.getType());
+		final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), icons.get(0).getHeight(), icons.get(0).getType());
 		final var g = iconSetImg.createGraphics();
 		var offset = 0;
 		for (var icon : icons) {
@@ -114,20 +113,15 @@ public final class GDUsers {
 			offset += icon.getWidth();
 		}
 		g.dispose();
-		final var istreamMain = imageToInputStream(mainIcon);
 		final var istreamIconSet = imageToInputStream(iconSetImg);
 		
-		return bot.getAttachmentsChannel().ofType(MessageChannel.class).flatMap(c -> c.createMessage(mcs -> {
-			mcs.addFile(user.getId() + "-Main.png", istreamMain);
-			mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet);
-		})).map(msg -> {
-			var urls = new String[2];
-			for (var a : msg.getAttachments()) {
-				urls[a.getFilename().endsWith("Main.png") ? 0 : 1] = a.getUrl();
-			}
-			iconsCache.put(iconSet, urls);
-			return urls;
-		});
+		return bot.getAttachmentsChannel()
+				.ofType(MessageChannel.class)
+				.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
+				.flatMap(msg -> Flux.fromIterable(msg.getAttachments())
+						.next()
+						.map(Attachment::getUrl))
+				.doOnNext(url -> iconsCache.put(iconSet, url));
 	}
 	
 	private static InputStream imageToInputStream(BufferedImage img) {

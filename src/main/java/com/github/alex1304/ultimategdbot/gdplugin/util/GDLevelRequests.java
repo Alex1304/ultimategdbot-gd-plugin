@@ -1,16 +1,18 @@
 package com.github.alex1304.ultimategdbot.gdplugin.util;
 
+import static com.github.alex1304.ultimategdbot.gdplugin.util.DatabaseUtils.in;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.api.Database;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
@@ -68,10 +70,14 @@ public class GDLevelRequests {
 	 * @param ctx the context
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Database db, long guildId) {
-		return db.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
+	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Bot bot, long channelId, long guildId) {
+		return bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 "
-						+ "order by s.submissionTimestamp", guildId);
+						+ "order by s.submissionTimestamp", guildId)
+				.filterWhen(submission -> bot.getMainDiscordClient()
+						.getMessageById(Snowflake.of(channelId), Snowflake.of(submission.getMessageId()))
+						.hasElement()
+						.onErrorReturn(true));
 	}
 
 	/**
@@ -143,32 +149,76 @@ public class GDLevelRequests {
 	 */
 	public static void listenAndCleanSubmissionQueueChannels(Bot bot, Set<Long> cachedSubmissionChannelIds) {
 		bot.getDatabase().query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
-			.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
-			.collect(() -> cachedSubmissionChannelIds, Set::add)
-			.onErrorResume(e -> Mono.empty())
-			.thenMany(bot.getDiscordClients())
-			.map(DiscordClient::getEventDispatcher)
-			.flatMap(dispatcher -> dispatcher.on(MessageCreateEvent.class))
-			.filter(event -> cachedSubmissionChannelIds.contains(event.getMessage().getChannelId().asLong()))
-			.filter(event -> !event.getMessage().getAuthor().map(User::getId).equals(event.getClient().getSelfId())
-					|| !event.getMessage().getContent().orElse("").startsWith("**Submission ID:**"))
-			.flatMap(event -> Flux.fromIterable(cachedSubmissionChannelIds)
-					.filter(id -> id == event.getMessage().getChannelId().asLong())
-					.next()
-					.delayElement(Duration.ofSeconds(15))
-					.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
-			.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while cleaning level requests submission queue channels", retryCtx.exception())))
-			.subscribe();
+				.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
+				.collect(() -> cachedSubmissionChannelIds, Set::add)
+				.onErrorResume(e -> Mono.empty())
+				.thenMany(bot.getDiscordClients())
+				.map(DiscordClient::getEventDispatcher)
+				.flatMap(dispatcher -> dispatcher.on(MessageCreateEvent.class))
+				.filter(event -> cachedSubmissionChannelIds.contains(event.getMessage().getChannelId().asLong()))
+				.filter(event -> !event.getMessage().getAuthor().map(User::getId).equals(event.getClient().getSelfId())
+						|| !event.getMessage().getContent().orElse("").startsWith("**Submission ID:**"))
+				.flatMap(event -> Flux.fromIterable(cachedSubmissionChannelIds)
+						.filter(id -> id == event.getMessage().getChannelId().asLong())
+						.next()
+						.delayElement(Duration.ofSeconds(15))
+						.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
+				.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while cleaning level requests submission queue channels", retryCtx.exception())))
+				.subscribe();
 		
 		bot.getDiscordClients()
-			.map(DiscordClient::getEventDispatcher)
-			.flatMap(dispatcher -> dispatcher.on(MessageDeleteEvent.class))
-			.filter(event -> cachedSubmissionChannelIds.contains(event.getChannelId().asLong()))
-			.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
-			.filter(id -> id > 0)
-			.flatMap(id -> bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
-			.flatMap(bot.getDatabase()::delete)
-			.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels", retryCtx.exception())))
-			.subscribe();
+				.map(DiscordClient::getEventDispatcher)
+				.flatMap(dispatcher -> dispatcher.on(MessageDeleteEvent.class))
+				.filter(event -> cachedSubmissionChannelIds.contains(event.getChannelId().asLong()))
+				.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
+				.filter(id -> id > 0)
+				.flatMap(id -> bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
+				.flatMap(submission -> retrieveReviewsForSubmission(bot, submission)
+						.flatMap(bot.getDatabase()::delete)
+						.then()
+						.thenReturn(submission))
+				.flatMap(bot.getDatabase()::delete)
+				.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels", retryCtx.exception())))
+				.subscribe();
+		
+		// Backward compatibility process
+		bot.getDatabase()
+				.query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
+				.collect(Collectors.toMap(GDLevelRequestsSettings::getGuildId, GDLevelRequestsSettings::getSubmissionQueueChannelId))
+				.flatMap(submissionChannels -> bot.getDatabase()
+						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId = 0 and s.isReviewed = 0")
+						.collectList()
+						.flatMap(submissions -> bot.getDatabase().performEmptyTransaction(session -> {
+							for (var submission : submissions) {
+								var channelId = submissionChannels.get(submission.getGuildId());
+								if (channelId != null && channelId > 0) {
+									submission.setMessageChannelId(channelId);
+									session.saveOrUpdate(submission);
+								} else {
+									session.delete(submission);
+								}
+							}
+						})))
+				.subscribe();
+		
+		Flux.interval(Duration.ofHours(12), Duration.ofDays(1))
+				.flatMap(tick -> bot.getDatabase()
+						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId > 0 s.messageId > 0 and s.isReviewed = 0")
+						.filterWhen(submission -> bot.getMainDiscordClient()
+								.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
+								.hasElement()
+								.onErrorReturn(true)
+								.map(b -> !b))
+						.map(GDLevelRequestSubmissions::getId)
+						.collectList()
+						.flatMap(submissionsToDelete -> bot.getDatabase().performTransaction(session -> session
+								.createQuery("delete from GDLevelRequestSubmissions s where s.id " + in(submissionsToDelete))
+								.executeUpdate()))
+						.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
+						.flatMap(count -> bot.getEmoji("info")
+								.flatMap(info -> bot.log(info + " Cleaned from database " + count + " orphan level request submissions.")))
+						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Error while cleaning orphan level request submissions", e))))
+				.subscribe();
+		
 	}
 }

@@ -49,6 +49,7 @@ import com.github.alex1304.ultimategdbot.api.utils.DatabaseInputFunction;
 import com.github.alex1304.ultimategdbot.api.utils.DatabaseOutputFunction;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.AnnouncementCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.DailyCommand;
@@ -75,8 +76,8 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromoted
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToModEventProcessor;
 import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.TextChannel;
@@ -101,7 +102,7 @@ public class GDPlugin implements Plugin {
 	private volatile GDServiceMediator gdServiceMediator;
 
 	private final Scheduler gdEventScheduler = Schedulers.elastic();
-	private final ConcurrentHashMap<GDUserIconSet, String[]> iconsCache = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<GDUserIconSet, String> iconsCache = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<Long, List<Message>> dispatchedLevels = new ConcurrentHashMap<>();
 	private final Set<Long> cachedSubmissionChannelIds = Collections.synchronizedSet(new HashSet<>());
 	private final GDEventDispatcher gdEventDispatcher = new GDEventDispatcher();
@@ -142,6 +143,7 @@ public class GDPlugin implements Plugin {
 					initParamConverters();
 					initGDEventSubscribers();
 					cmdProvider.addAnnotated(new AccountCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new AnnouncementCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new CheckModCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new ClearGdCacheCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new DailyCommand(gdServiceMediator));

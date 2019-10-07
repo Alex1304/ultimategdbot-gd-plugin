@@ -23,7 +23,7 @@ public class GDServiceMediator {
 
 	private final AuthenticatedGDClient gdClient;
 	private final SpriteFactory spriteFactory;
-	private final ConcurrentHashMap<GDUserIconSet, String[]> iconsCache;
+	private final ConcurrentHashMap<GDUserIconSet, String> iconsCache;
 	private final GDEventDispatcher gdEventDispatcher;
 	private final GDEventScannerLoop gdEventscannerLoop;
 	private final ConcurrentHashMap<Long, List<Message>> broadcastedLevels;
@@ -34,7 +34,7 @@ public class GDServiceMediator {
 	private final int leaderboardRefreshParallelism;
 	
 	GDServiceMediator(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory,
-			ConcurrentHashMap<GDUserIconSet, String[]> iconsCache, GDEventDispatcher gdEventDispatcher,
+			ConcurrentHashMap<GDUserIconSet, String> iconsCache, GDEventDispatcher gdEventDispatcher,
 			GDEventScannerLoop gdEventscannerLoop, ConcurrentHashMap<Long, List<Message>> broadcastedLevels,
 			BroadcastPreloader broadcastPreloader, GDEventSubscriber gdEventSubscriber, Scheduler gdEventScheduler,
 			Set<Long> cachedSubmissionChannelIds, int leaderboardRefreshParallelism) {
@@ -59,7 +59,7 @@ public class GDServiceMediator {
 		return spriteFactory;
 	}
 
-	public Map<GDUserIconSet, String[]> getIconsCache() {
+	public Map<GDUserIconSet, String> getIconsCache() {
 		return iconsCache;
 	}
 
