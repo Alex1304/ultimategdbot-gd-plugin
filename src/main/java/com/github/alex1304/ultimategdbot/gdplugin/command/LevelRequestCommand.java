@@ -23,7 +23,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
-import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
@@ -119,11 +119,11 @@ public class LevelRequestCommand {
 					final var submitter = new AtomicReference<User>();
 					final var guild = new AtomicReference<Guild>();
 					final var isRevoke = new AtomicBoolean(reviewContent.equalsIgnoreCase("revoke"));
-					final var reviewsOnSubmission = Flux.defer(() -> LevelRequestUtils.getReviewsForSubmission(ctx.getBot(), submission.get()));
+					final var reviewsOnSubmission = Flux.defer(() -> GDLevelRequests.retrieveReviewsForSubmission(ctx.getBot(), submission.get()));
 					if (reviewContent.length() > 1000) {
 						return Mono.error(new CommandFailedException("Review content must not exceed 1000 characters."));
 					}
-					return LevelRequestUtils.getLevelRequestsSettings(ctx)
+					return GDLevelRequests.retrieveSettings(ctx)
 							.doOnNext(lvlReqSettings::set)
 							.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 							.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
@@ -173,7 +173,7 @@ public class LevelRequestCommand {
 							.thenMany(reviewsOnSubmission)
 							.collectList()
 							.flatMap(reviewList -> {
-								var updatedMessage = LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), submitter.get(),
+								var updatedMessage = GDLevelRequests.buildSubmissionMessage(ctx.getBot(), submitter.get(),
 										level.get(), lvlReqSettings.get(), submission.get(), reviewList).cache();
 								if (reviewList.size() >= lvlReqSettings.get().getMaxReviewsRequired()) {
 									return submissionMsg.get().delete()
@@ -212,14 +212,14 @@ public class LevelRequestCommand {
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
-		return LevelRequestUtils.getLevelRequestsSettings(ctx)
+		return GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
 						+ lvlReqSettings.get().getSubmissionQueueChannelId() + ">.")))
 				.filter(GDLevelRequestsSettings::getIsOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
-				.doOnNext(__ -> guildSubmissions.set(LevelRequestUtils.getSubmissionsForGuild(ctx.getBot().getDatabase(), guildId).cache()))
+				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.getBot().getDatabase(), guildId).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getIsReviewed() || s.getLevelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
 				.filterWhen(lrs -> guildSubmissions.get().filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
@@ -242,7 +242,7 @@ public class LevelRequestCommand {
 							return s;
 						})
 						.flatMap(s -> ctx.getBot().getDatabase().save(s).thenReturn(s).onErrorReturn(s)) // First save to know the submission ID
-						.flatMap(s -> LevelRequestUtils.buildSubmissionMessage(ctx.getBot(), user, level.get(), lvlReqSettings.get(), s, List.of())
+						.flatMap(s -> GDLevelRequests.buildSubmissionMessage(ctx.getBot(), user, level.get(), lvlReqSettings.get(), s, List.of())
 								.map(UniversalMessageSpec::toMessageCreateSpec)
 								.flatMap(ctx::reply)
 								.flatMap(message -> {
@@ -259,7 +259,7 @@ public class LevelRequestCommand {
 	public Mono<Void> runToggle(Context ctx) {
 		var isOpening = new AtomicBoolean();
 		return PermissionLevel.SERVER_ADMIN.checkGranted(ctx)
-				.thenMany(LevelRequestUtils.getLevelRequestsSettings(ctx))
+				.thenMany(GDLevelRequests.retrieveSettings(ctx))
 				.doOnNext(lvlReqSettings -> isOpening.set(!lvlReqSettings.getIsOpen()))
 				.doOnNext(lvlReqSettings -> lvlReqSettings.setIsOpen(isOpening.get()))
 				.flatMap(ctx.getBot().getDatabase()::save)

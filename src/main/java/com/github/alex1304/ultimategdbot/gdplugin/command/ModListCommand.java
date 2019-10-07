@@ -28,7 +28,7 @@ public class ModListCommand {
 						sb.append(gdMod.getIsElder() ? elderModEmoji : modEmoji);
 						sb.append(" **").append(gdMod.getName()).append("**\n");
 					}
-					return BotUtils.sendPaginatedMessage(ctx, sb.toString(), 800);
+					return BotUtils.sendPaginatedMessage(ctx, sb.toString());
 				})).then();
 	}
 }

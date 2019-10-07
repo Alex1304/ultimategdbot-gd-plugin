@@ -181,7 +181,7 @@ public class LeaderboardCommand {
 								return new UniversalMessageSpec(leaderboardView(ctx.getPrefixUsed(), guild, list, page,
 										lastRefreshed.get(), highlighted.get(), emojiRef.get()));
 							};
-							return InteractiveMenu.createPaginated(pageNum, paginator)
+							return InteractiveMenu.createPaginated(pageNum, ctx.getBot().getDefaultPaginationControls(), paginator)
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
@@ -349,7 +349,7 @@ public class LeaderboardCommand {
 					}
 					return sb.toString();
 				})
-				.flatMap(banListStr -> BotUtils.sendPaginatedMessage(ctx, banListStr, 800));
+				.flatMap(banListStr -> BotUtils.sendPaginatedMessage(ctx, banListStr));
 	}
 
 	private static Consumer<EmbedCreateSpec> leaderboardView(String prefix, Guild guild,

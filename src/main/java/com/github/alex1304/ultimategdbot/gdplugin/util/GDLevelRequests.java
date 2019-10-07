@@ -28,21 +28,22 @@ import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
+import reactor.retry.Retry;
 
-public class LevelRequestUtils {
+public class GDLevelRequests {
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(LevelRequestUtils.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(GDLevelRequests.class);
 	
-	private LevelRequestUtils() {}
+	private GDLevelRequests() {}
 	
 	/**
-	 * Gets the level requests settings for the guild of the specified context. This
+	 * Retrieves the level requests settings for the guild of the specified context. This
 	 * method checks and throws errors if level requests are not configured.
 	 * 
 	 * @param ctx the context
 	 * @return the level requests settings, or an error if not configured
 	 */
-	public static Mono<GDLevelRequestsSettings> getLevelRequestsSettings(Context ctx) {
+	public static Mono<GDLevelRequestsSettings> retrieveSettings(Context ctx) {
 		Objects.requireNonNull(ctx, "ctx was null");
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		return ctx.getBot().getDatabase()
@@ -62,12 +63,12 @@ public class LevelRequestUtils {
 	}
 	
 	/**
-	 * Gets all submissions for the user in the guild of the specified context.
+	 * Retrieves all submissions for the user in the guild of the specified context.
 	 * 
 	 * @param ctx the context
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissions> getSubmissionsForGuild(Database db, long guildId) {
+	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Database db, long guildId) {
 		return db.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 "
 						+ "order by s.submissionTimestamp", guildId);
@@ -121,13 +122,13 @@ public class LevelRequestUtils {
 	}
 	
 	/**
-	 * Gets all reviews for the given submission.
+	 * Retrieves all reviews for the given submission.
 	 * 
 	 * @param bot the bot instance
 	 * @param submission the submission to get reviews on
 	 * @return a Flux of all reviews for the given submission
 	 */
-	public static Flux<GDLevelRequestReviews> getReviewsForSubmission(Bot bot, GDLevelRequestSubmissions submission) {
+	public static Flux<GDLevelRequestReviews> retrieveReviewsForSubmission(Bot bot, GDLevelRequestSubmissions submission) {
 		return bot.getDatabase().query(GDLevelRequestReviews.class, "select r from GDLevelRequestReviews r "
 				+ "inner join r.submission s "
 				+ "where s.id = ?0 "
@@ -156,7 +157,7 @@ public class LevelRequestUtils {
 					.next()
 					.delayElement(Duration.ofSeconds(15))
 					.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
-			.onErrorContinue((error, obj) -> LOGGER.error("Error while cleaning level requests submission queue channels on " + obj, error))
+			.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while cleaning level requests submission queue channels", retryCtx.exception())))
 			.subscribe();
 		
 		bot.getDiscordClients()
@@ -167,7 +168,7 @@ public class LevelRequestUtils {
 			.filter(id -> id > 0)
 			.flatMap(id -> bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
 			.flatMap(bot.getDatabase()::delete)
-			.onErrorContinue((error, obj) -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels on " + obj, error))
+			.retryWhen(Retry.any().doOnRetry(retryCtx -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels", retryCtx.exception())))
 			.subscribe();
 	}
 }

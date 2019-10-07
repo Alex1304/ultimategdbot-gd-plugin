@@ -76,7 +76,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromoted
 import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
-import com.github.alex1304.ultimategdbot.gdplugin.util.LevelRequestUtils;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.TextChannel;
@@ -159,7 +159,7 @@ public class GDPlugin implements Plugin {
 	
 	@Override
 	public Mono<Void> onBotReady(Bot bot) {
-		LevelRequestUtils.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
+		GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
 		if (preloadChannelsOnStartup) {
 			return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
 					.flatMap(emojis -> bot.log(emojis.getT1() + " Preloading channels and roles configured for GD event notifications...")

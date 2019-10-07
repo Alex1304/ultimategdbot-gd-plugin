@@ -78,7 +78,7 @@ public class GDLevels {
 											song), false);
 							i++;
 						}
-						embed.addField("Page " + (page + 1),
+						embed.addField("Page " + (page + 1) + "/" + results.getTotalNumberOfPages(),
 								"To go to a specific page, type `page <number>`, e.g `page 3`\n"
 								+ "To view more details on a specific search result item, type `select <result_number>`", false);
 					};
@@ -174,13 +174,13 @@ public class GDLevels {
 		return searchFactory.get()
 				.doOnNext(resultsOfCurrentPage::set)
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createPaginatedWhen(currentPage, page -> results
+						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getDefaultPaginationControls(), page -> results
 								.goTo(page)
 								.doOnNext(resultsOfCurrentPage::set)
 								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get()))
 								.map(UniversalMessageSpec::new)
-								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, page - 1))
-								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(0, page - 1)))
+								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, results.getTotalNumberOfPages()))
+								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(0, results.getTotalNumberOfPages())))
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(1))))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(

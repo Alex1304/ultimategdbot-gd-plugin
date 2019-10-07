@@ -21,7 +21,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateAwardedLevelRemove
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.LateTimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
-import discord4j.core.object.entity.Message;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 import reactor.util.annotation.Nullable;
@@ -57,7 +56,7 @@ public class GDEventsCommand {
 				}
 				gdServiceMediator.getDispatchedLevels().forEach((k, v) -> sb.append("LevelID **")
 						.append(k).append("** => **").append(v.size()).append("** messages sent\n"));
-				return sendPaginatedMessage(ctx, sb.toString(), Message.MAX_CONTENT_LENGTH).then();
+				return sendPaginatedMessage(ctx, sb.toString()).then();
 			case "clear":
 				gdServiceMediator.getDispatchedLevels().clear();
 				return ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Dispatch results cleared!")).then();
