@@ -44,7 +44,7 @@ public class GDLevels {
 	private GDLevels() {
 	}
 	
-	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, GDPaginator<GDLevel> results, String title, int page) {
+	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, GDPaginator<GDLevel> results, String title, int page, int totalPages) {
 		return Mono.zip(o -> o, ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"), ctx.getBot().getEmoji("downloads"),
 				ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"), ctx.getBot().getEmoji("user_coin"),
 				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("dislike"))
@@ -78,7 +78,7 @@ public class GDLevels {
 											song), false);
 							i++;
 						}
-						embed.addField("Page " + (page + 1) + "/" + results.getTotalNumberOfPages(),
+						embed.addField("Page " + (page + 1) + "/" + totalPages,
 								"To go to a specific page, type `page <number>`, e.g `page 3`\n"
 								+ "To view more details on a specific search result item, type `select <result_number>`", false);
 					};
@@ -177,10 +177,10 @@ public class GDLevels {
 						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getDefaultPaginationControls(), page -> results
 								.goTo(page)
 								.doOnNext(resultsOfCurrentPage::set)
-								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get()))
+								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get(), results.getTotalNumberOfPages()))
 								.map(UniversalMessageSpec::new)
-								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(0, results.getTotalNumberOfPages()))
-								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(0, results.getTotalNumberOfPages())))
+								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(page, 0, results.getTotalNumberOfPages() - 1))
+								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(page, 0, results.getTotalNumberOfPages() - 1)))
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(1))))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
