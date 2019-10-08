@@ -1,5 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import static java.util.Objects.requireNonNullElse;
+
 import java.sql.Timestamp;
 
 public class GDLevelRequestReviews {
@@ -14,16 +16,16 @@ public class GDLevelRequestReviews {
 		return id;
 	}
 	
-	public void setId(long id) {
-		this.id = id;
+	public void setId(Long id) {
+		this.id = requireNonNullElse(id, 0L);
 	}
 	
 	public long getReviewerId() {
 		return reviewerId;
 	}
 	
-	public void setReviewerId(long reviewerId) {
-		this.reviewerId = reviewerId;
+	public void setReviewerId(Long reviewerId) {
+		this.reviewerId = requireNonNullElse(reviewerId, 0L);
 	}
 	
 	public Timestamp getReviewTimestamp() {

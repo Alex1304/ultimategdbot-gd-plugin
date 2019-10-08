@@ -1,5 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import static java.util.Objects.requireNonNullElse;
+
 public class GDLeaderboardBans {
 	
 	private long accountId;
@@ -9,15 +11,15 @@ public class GDLeaderboardBans {
 		return accountId;
 	}
 	
-	public void setAccountId(long accountId) {
-		this.accountId = accountId;
+	public void setAccountId(Long accountId) {
+		this.accountId = requireNonNullElse(accountId, 0L);
 	}
 	
 	public long getBannedBy() {
 		return bannedBy;
 	}
 	
-	public void setBannedBy(long bannedBy) {
-		this.bannedBy = bannedBy;
+	public void setBannedBy(Long bannedBy) {
+		this.bannedBy = requireNonNullElse(bannedBy, 0L);
 	}
 }

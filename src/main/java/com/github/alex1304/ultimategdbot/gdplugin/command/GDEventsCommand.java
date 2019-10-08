@@ -113,31 +113,31 @@ public class GDEventsCommand {
 									for (var subscribedGuild : subscribedList) {
 										var updated = false;
 										if (invalidChannels.contains(subscribedGuild.getChannelAwardedLevelsId())) {
-											subscribedGuild.setChannelAwardedLevelsId(0);
+											subscribedGuild.setChannelAwardedLevelsId(null);
 											updated = true;
 										}
 										if (invalidChannels.contains(subscribedGuild.getChannelGdModeratorsId())) {
-											subscribedGuild.setChannelGdModeratorsId(0);
+											subscribedGuild.setChannelGdModeratorsId(null);
 											updated = true;
 										}
 										if (invalidChannels.contains(subscribedGuild.getChannelTimelyLevelsId())) {
-											subscribedGuild.setChannelTimelyLevelsId(0);
+											subscribedGuild.setChannelTimelyLevelsId(null);
 											updated = true;
 										}
 										if (invalidChannels.contains(subscribedGuild.getChannelChangelogId())) {
-											subscribedGuild.setChannelChangelogId(0);
+											subscribedGuild.setChannelChangelogId(null);
 											updated = true;
 										}
 										if (invalidRoles.contains(subscribedGuild.getRoleAwardedLevelsId())) {
-											subscribedGuild.setRoleAwardedLevelsId(0);
+											subscribedGuild.setRoleAwardedLevelsId(null);
 											updated = true;
 										}
 										if (invalidRoles.contains(subscribedGuild.getRoleGdModeratorsId())) {
-											subscribedGuild.setRoleGdModeratorsId(0);
+											subscribedGuild.setRoleGdModeratorsId(null);
 											updated = true;
 										}
 										if (invalidRoles.contains(subscribedGuild.getRoleTimelyLevelsId())) {
-											subscribedGuild.setRoleTimelyLevelsId(0);
+											subscribedGuild.setRoleTimelyLevelsId(null);
 											updated = true;
 										}
 										if (updated) {

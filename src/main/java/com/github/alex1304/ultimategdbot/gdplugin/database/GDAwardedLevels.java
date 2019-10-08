@@ -1,5 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import static java.util.Objects.requireNonNullElse;
+
 import java.sql.Timestamp;
 
 public class GDAwardedLevels {
@@ -13,8 +15,8 @@ public class GDAwardedLevels {
 		return levelId;
 	}
 	
-	public void setLevelId(long levelId) {
-		this.levelId = levelId;
+	public void setLevelId(Long levelId) {
+		this.levelId = requireNonNullElse(levelId, 0L);
 	}
 	
 	public Timestamp getInsertDate() {
@@ -29,15 +31,15 @@ public class GDAwardedLevels {
 		return downloads;
 	}
 	
-	public void setDownloads(int downloads) {
-		this.downloads = downloads;
+	public void setDownloads(Integer downloads) {
+		this.downloads = requireNonNullElse(downloads, 0);
 	}
 	
 	public int getLikes() {
 		return likes;
 	}
 	
-	public void setLikes(int likes) {
-		this.likes = likes;
+	public void setLikes(Integer likes) {
+		this.likes = requireNonNullElse(likes, 0);
 	}
 }

@@ -1,7 +1,8 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import static java.util.Objects.requireNonNullElse;
+
 import java.sql.Timestamp;
-import java.util.Objects;
 import java.util.Set;
 
 public class GDLevelRequestSubmissions {
@@ -21,16 +22,16 @@ public class GDLevelRequestSubmissions {
 		return id;
 	}
 	
-	public void setId(long id) {
-		this.id = id;
+	public void setId(Long id) {
+		this.id = requireNonNullElse(id, 0L);
 	}
 	
 	public long getLevelId() {
 		return levelId;
 	}
 	
-	public void setLevelId(long levelId) {
-		this.levelId = levelId;
+	public void setLevelId(Long levelId) {
+		this.levelId = requireNonNullElse(levelId, 0L);
 	}
 	
 	public String getYoutubeLink() {
@@ -45,8 +46,8 @@ public class GDLevelRequestSubmissions {
 		return messageId;
 	}
 	
-	public void setMessageId(long messageId) {
-		this.messageId = messageId;
+	public void setMessageId(Long messageId) {
+		this.messageId = requireNonNullElse(messageId, 0L);
 	}
 	
 	public long getMessageChannelId() {
@@ -54,22 +55,22 @@ public class GDLevelRequestSubmissions {
 	}
 	
 	public void setMessageChannelId(Long messageChannelId) {
-		this.messageChannelId = Objects.requireNonNullElse(messageChannelId, 0L);
+		this.messageChannelId = requireNonNullElse(messageChannelId, 0L);
 	}
 	
 	public long getGuildId() {
 		return guildId;
 	}
 
-	public void setGuildId(long guildId) {
-		this.guildId = guildId;
+	public void setGuildId(Long guildId) {
+		this.guildId = requireNonNullElse(guildId, 0L);
 	}
 
 	public long getSubmitterId() {
 		return submitterId;
 	}
-	public void setSubmitterId(long submitterId) {
-		this.submitterId = submitterId;
+	public void setSubmitterId(Long submitterId) {
+		this.submitterId = requireNonNullElse(submitterId, 0L);
 	}
 	
 	public Timestamp getSubmissionTimestamp() {
@@ -84,8 +85,8 @@ public class GDLevelRequestSubmissions {
 		return isReviewed;
 	}
 
-	public void setIsReviewed(boolean isReviewed) {
-		this.isReviewed = isReviewed;
+	public void setIsReviewed(Boolean isReviewed) {
+		this.isReviewed = requireNonNullElse(isReviewed, false);
 	}
 
 	public Set<GDLevelRequestReviews> getReviews() {
