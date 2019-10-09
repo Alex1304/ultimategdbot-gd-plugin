@@ -18,6 +18,7 @@ import com.github.alex1304.ultimategdbot.api.command.Scope;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
+import com.github.alex1304.ultimategdbot.api.utils.MutexPool;
 import com.github.alex1304.ultimategdbot.api.utils.UniversalMessageSpec;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
@@ -36,6 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
+import reactor.util.function.Tuples;
 
 @CommandSpec(
 		aliases = { "levelrequest", "lvlreq" },
@@ -45,6 +47,7 @@ import reactor.util.annotation.Nullable;
 public class LevelRequestCommand {
 
 	private final GDServiceMediator gdServiceMediator;
+	private final MutexPool mutexPool = new MutexPool();
 	
 	public LevelRequestCommand(GDServiceMediator gdServiceMediator) {
 		this.gdServiceMediator = gdServiceMediator;
@@ -115,7 +118,8 @@ public class LevelRequestCommand {
 				+ "each review must not exceed 1000 characters.\n\n"
 				+ "To revoke your review from a submission, the syntax is `review <submission_ID> revoke`.")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
-		return ctx.getAuthor().asMember(ctx.getEvent().getGuildId().orElseThrow())
+		final var mutex = Tuples.of(ctx.getAuthor(), ctx.getChannel());
+		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(ctx.getAuthor().asMember(ctx.getEvent().getGuildId().orElseThrow())
 				.flatMap(member -> ctx.getBot().getDatabase()
 						.findByID(GDLevelRequestsSettings.class, ctx.getEvent().getGuildId().orElseThrow().asLong())
 						.map(GDLevelRequestsSettings::getReviewerRoleId)
@@ -213,9 +217,9 @@ public class LevelRequestCommand {
 									return updatedMessage.map(UniversalMessageSpec::toMessageEditSpec).flatMap(submissionMsg.get()::edit);
 								}
 							})
-							.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Review " + (isRevoke.get() ? "revoked" : "added") + "!")))
-							.then();
-				}));
+							.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Review " + (isRevoke.get() ? "revoked" : "added") + "!")));
+				}))))
+				.then();
 	}
 	
 	@CommandAction("submit")
@@ -228,7 +232,8 @@ public class LevelRequestCommand {
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
-		return GDLevelRequests.retrieveSettings(ctx)
+		final var mutex = Tuples.of(ctx.getAuthor(), ctx.getChannel());
+		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
@@ -240,7 +245,12 @@ public class LevelRequestCommand {
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
 				.filterWhen(lrs -> guildSubmissions.get()
 						.filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
-						.count().map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
+						.filterWhen(s -> ctx.getBot().getMainDiscordClient()
+								.getMessageById(Snowflake.of(s.getMessageChannelId()), Snowflake.of(s.getMessageId()))
+								.hasElement()
+								.onErrorReturn(true))
+						.count()
+						.map(n -> n < lrs.getMaxQueuedSubmissionsPerPerson()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You've reached the maximum number of submissions allowed in queue per person ("
 						+ lvlReqSettings.get().getMaxQueuedSubmissionsPerPerson() + "). Wait for one of your queued requests to be "
 						+ "reviewed before trying again.")))
@@ -267,8 +277,8 @@ public class LevelRequestCommand {
 									s.setMessageChannelId(message.getChannelId().asLong());
 									return ctx.getBot().getDatabase().save(s);
 								})
-								.onErrorResume(e -> ctx.getBot().getDatabase().delete(s).then(Mono.error(e)))))
-				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!")))
+								.onErrorResume(e -> ctx.getBot().getDatabase().delete(s).then(Mono.error(e))))))
+				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!"))))
 				.then();
 	}
 	

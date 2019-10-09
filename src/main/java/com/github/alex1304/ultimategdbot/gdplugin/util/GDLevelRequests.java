@@ -74,11 +74,7 @@ public class GDLevelRequests {
 	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Bot bot, long guildId) {
 		return bot.getDatabase().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 "
-						+ "order by s.submissionTimestamp", guildId)
-				.filterWhen(submission -> bot.getMainDiscordClient()
-						.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
-						.hasElement()
-						.onErrorReturn(true));
+						+ "order by s.submissionTimestamp", guildId);
 	}
 
 	/**

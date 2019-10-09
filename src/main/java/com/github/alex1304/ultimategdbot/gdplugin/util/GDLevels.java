@@ -5,6 +5,7 @@ import static com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter.format
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -44,11 +45,11 @@ public class GDLevels {
 	private GDLevels() {
 	}
 	
-	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, GDPaginator<GDLevel> results, String title, int page, int totalPages) {
+	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, Iterable<GDLevel> results, String title, int page, int totalPages) {
 		return Mono.zip(o -> o, ctx.getBot().getEmoji("copy"), ctx.getBot().getEmoji("object_overflow"), ctx.getBot().getEmoji("downloads"),
 				ctx.getBot().getEmoji("like"), ctx.getBot().getEmoji("length"), ctx.getBot().getEmoji("user_coin"),
 				ctx.getBot().getEmoji("user_coin_unverified"), ctx.getBot().getEmoji("star"), ctx.getBot().getEmoji("dislike"))
-				.zipWith(getLevelDifficultyAndSongFromPaginator(ctx, results))
+				.zipWith(getLevelDifficultyAndSongFromSearchResults(ctx, results))
 				.map(tuple -> {
 					var emojis = tuple.getT1();
 					var map = tuple.getT2();
@@ -77,6 +78,9 @@ public class GDLevels {
 											"" + level.getLength(),
 											song), false);
 							i++;
+						}
+						if (i == 1) {
+							embed.setDescription("No results found.");
 						}
 						embed.addField("Page " + (page + 1) + "/" + totalPages,
 								"To go to a specific page, type `page <number>`, e.g `page 3`\n"
@@ -170,19 +174,21 @@ public class GDLevels {
 	
 	public static Mono<Void> searchAndSend(Context ctx, String header, Supplier<Mono<GDPaginator<GDLevel>>> searchFactory) {
 		var currentPage = new AtomicInteger();
-		var resultsOfCurrentPage = new AtomicReference<GDPaginator<GDLevel>>();
+		var resultsOfCurrentPage = new AtomicReference<List<GDLevel>>();
 		return searchFactory.get()
-				.doOnNext(resultsOfCurrentPage::set)
+				.doOnNext(paginator -> resultsOfCurrentPage.set(paginator.asList()))
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getDefaultPaginationControls(), page -> results
-								.goTo(page)
+						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getDefaultPaginationControls(), page -> {
+							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
+							return results.goTo(page)
+								.map(GDPaginator::asList)
 								.doOnNext(resultsOfCurrentPage::set)
+								.onErrorReturn(MissingAccessException.class, List.of())
 								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get(), results.getTotalNumberOfPages()))
-								.map(UniversalMessageSpec::new)
-								.onErrorMap(MissingAccessException.class, e -> new PageNumberOutOfRangeException(page, 0, results.getTotalNumberOfPages() - 1))
-								.onErrorMap(IllegalArgumentException.class, e -> new PageNumberOutOfRangeException(page, 0, results.getTotalNumberOfPages() - 1)))
+								.map(UniversalMessageSpec::new);
+						})
 						.addMessageItem("select", interaction -> Mono
-								.fromCallable(() -> resultsOfCurrentPage.get().asList().get(Integer.parseInt(interaction.getArgs().get(1))))
+								.fromCallable(() -> resultsOfCurrentPage.get().get(Integer.parseInt(interaction.getArgs().get(1)) - 1))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
 										interaction.getArgs().tokenCount() == 1 ? "Please secify a result number"
 												: "Your input refers to a non-existing result."))
@@ -275,9 +281,9 @@ public class GDLevels {
 		return output.toString();
 	}
 	
-	private static Mono<Map<GDLevel, Tuple2<String, String>>> getLevelDifficultyAndSongFromPaginator(Context ctx, GDPaginator<GDLevel> levels) {
+	private static Mono<Map<GDLevel, Tuple2<String, String>>> getLevelDifficultyAndSongFromSearchResults(Context ctx, Iterable<GDLevel> results) {
 		return ctx.getBot().getEmoji("star")
-				.flatMap(starEmoji -> Flux.fromIterable(levels)
+				.flatMap(starEmoji -> Flux.fromIterable(results)
 						.flatMap(level -> {
 							var difficulty = new StringBuilder("icon_");
 							if (level.isDemon())
