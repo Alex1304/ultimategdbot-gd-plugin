@@ -37,7 +37,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
-import reactor.util.function.Tuples;
 
 @CommandSpec(
 		aliases = { "levelrequest", "lvlreq" },
@@ -118,7 +117,7 @@ public class LevelRequestCommand {
 				+ "each review must not exceed 1000 characters.\n\n"
 				+ "To revoke your review from a submission, the syntax is `review <submission_ID> revoke`.")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
-		final var mutex = Tuples.of(ctx.getAuthor(), ctx.getChannel());
+		final var mutex = ctx.getChannel();
 		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(ctx.getAuthor().asMember(ctx.getEvent().getGuildId().orElseThrow())
 				.flatMap(member -> ctx.getBot().getDatabase()
 						.findByID(GDLevelRequestsSettings.class, ctx.getEvent().getGuildId().orElseThrow().asLong())
@@ -232,7 +231,7 @@ public class LevelRequestCommand {
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
-		final var mutex = Tuples.of(ctx.getAuthor(), ctx.getChannel());
+		final var mutex = ctx.getChannel();
 		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())

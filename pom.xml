@@ -106,7 +106,7 @@
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>ultimategdbot-api</artifactId>
-			<version>5.0.0-RC3-SNAPSHOT</version>
+			<version>5.0.0-RC2</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
