@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.github.alex1304</groupId>
 	<artifactId>ultimategdbot-gd-plugin</artifactId>
-	<version>1.2.2-SNAPSHOT</version>
+	<version>1.2.2</version>
 
 	<name>ultimategdbot-gd-plugin</name>
 	<url>http://maven.apache.org</url>
@@ -28,7 +28,7 @@
 		<url>https://github.com/Alex1304/ultimategdbot-gd-plugin/tree/master</url>
 		<connection>scm:git:git://github.com/Alex1304/ultimategdbot-gd-plugin.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/Alex1304/ultimategdbot-gd-plugin.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>v1.2.2</tag>
 	</scm>
 
 	<distributionManagement>
