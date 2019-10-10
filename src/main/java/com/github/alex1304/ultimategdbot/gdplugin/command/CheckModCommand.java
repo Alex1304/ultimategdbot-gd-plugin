@@ -51,7 +51,8 @@ public class CheckModCommand {
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + " Failed. Nothing found."
 								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
-						.then(GDUsers.makeIconSet(ctx.getBot(), gdUser, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache()))
+						.then(GDUsers.makeIconSet(ctx.getBot(), gdUser, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
+								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.getBot().getDatabase().findByID(GDModList.class, user.getAccountId()))
 						.switchIfEmpty(Mono.defer(() -> {
 							if (user.getRole() == Role.USER) {

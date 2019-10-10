@@ -89,7 +89,11 @@ public final class GDUsers {
 									+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
 									+ emojis[15] + "  **Comment history:** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
 							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
-							embed.setImage(iconSetUrl);
+							if (iconSetUrl.startsWith("http")) {
+								embed.setImage(iconSetUrl);
+							} else {
+								embed.addField(":warning: Could not generate the icon set image", iconSetUrl, false);
+							}
 						});
 					};
 				});
@@ -102,8 +106,13 @@ public final class GDUsers {
 			return Mono.just(cached);
 		}
 		final var icons = new ArrayList<BufferedImage>();
-		for (var iconType : IconType.values()) {
-			icons.add(iconSet.generateIcon(iconType));
+		try {
+			for (var iconType : IconType.values()) {
+					icons.add(iconSet.generateIcon(iconType));
+				
+			}
+		} catch (IllegalArgumentException e) {
+			return Mono.error(e);
 		}
 		final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), icons.get(0).getHeight(), icons.get(0).getType());
 		final var g = iconSetImg.createGraphics();

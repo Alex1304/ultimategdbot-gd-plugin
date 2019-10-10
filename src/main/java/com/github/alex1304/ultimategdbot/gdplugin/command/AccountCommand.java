@@ -14,6 +14,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
+import discord4j.rest.http.client.ClientException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
@@ -96,11 +97,19 @@ public class AccountCommand {
 											embed.setDescription(menuEmbedContent.toString());
 										});
 									})
-									.addReactionItem("success", interaction -> handleDone(ctx, linkedUser, gdUsername, botUser))
-									.addReactionItem("cross", interaction -> Mono.empty())
+									.addReactionItem("success", interaction -> interaction.getEvent().isAddEvent() 
+											? handleDone(ctx, linkedUser, gdUsername, botUser)
+													.then(Mono.<Void>fromRunnable(interaction::closeMenu))
+													.onErrorResume(CommandFailedException.class, e -> ctx.getBot().getEmoji("cross")
+															.flatMap(cross -> ctx.reply(cross + " " + e.getMessage()))
+															.and(interaction.getMenuMessage()
+																	.removeReaction(interaction.getEvent().getEmoji(), ctx.getAuthor().getId())
+																	.onErrorResume(ClientException.isStatusCode(403, 404), e0 -> Mono.empty())))
+											: Mono.empty())
+									.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu))
 									.deleteMenuOnClose(true)
 									.deleteMenuOnTimeout(true)
-									.closeAfterReaction(true)
+									.closeAfterReaction(false)
 									.open(ctx);
 						}))
 				.then();
@@ -131,12 +140,12 @@ public class AccountCommand {
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
 						.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find your confirmation message in Geometry Dash. "
-								+ "Have you sent it? Read and follow the steps again and retry by typing `done` again.")))
+								+ "Have you sent it? Follow the steps again and retry by clicking the reaction again.")))
 						.next()
 						.flatMap(GDMessage::getBody)
 						.filter(body -> body.equals(linkedUser.getConfirmationToken()))
 						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
-								+ "Make sure you have typed it correctly and retry by typing `done` again. Note that it's case sensitive.")))
+								+ "Make sure you have typed it correctly and retry by clicking the reaction again. Note that it's case sensitive.")))
 						.doOnNext(__ -> linkedUser.setConfirmationToken(null))
 						.doOnNext(__ -> linkedUser.setIsLinkActivated(true))
 						.then(ctx.getBot().getDatabase().save(linkedUser))

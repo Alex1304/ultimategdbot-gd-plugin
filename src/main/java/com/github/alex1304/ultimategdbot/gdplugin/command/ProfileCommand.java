@@ -47,6 +47,7 @@ public class ProfileCommand {
 						.map(GDLinkedUsers::getGdAccountId)
 						.flatMap(gdServiceMediator.getGdClient()::getUserByAccountId))
 				.flatMap(user -> GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
+						.onErrorResume(e -> Mono.just(e.getMessage()))
 						.flatMap(icons -> GDUsers.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
 										"User profile", "https://i.imgur.com/ppg4HqJ.png", icons)
 								.flatMap(ctx::reply)))
