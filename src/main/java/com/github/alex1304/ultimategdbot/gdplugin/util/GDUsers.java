@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +38,7 @@ import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.MessageCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.retry.Repeat;
 
 public final class GDUsers {
 
@@ -127,9 +129,11 @@ public final class GDUsers {
 		return bot.getAttachmentsChannel()
 				.ofType(MessageChannel.class)
 				.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
-				.flatMap(msg -> Flux.fromIterable(msg.getAttachments())
-						.next()
-						.map(Attachment::getUrl))
+				.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
+				.filter(att -> att.getSize() > 0)
+				.repeatWhenEmpty(Repeat.times(5).randomBackoff(Duration.ofMillis(100), Duration.ofSeconds(1)))
+				.switchIfEmpty(Mono.error(new RuntimeException("Failed to upload the icon set to Discord. Retrying might fix it.")))
+				.map(Attachment::getUrl)
 				.doOnNext(url -> iconsCache.put(iconSet, url));
 	}
 	

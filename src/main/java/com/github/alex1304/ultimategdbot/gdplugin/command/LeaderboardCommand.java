@@ -145,7 +145,7 @@ public class LeaderboardCommand {
 		var emojiRef = new AtomicReference<String>();
 		return ctx.getEvent().getGuild()
 				.flatMap(guild -> guild.getMembers()
-						.collect(Collectors.toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser))
+						.collect(Collectors.toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser, (a, b) -> a))
 						.flatMap(members -> ctx.getBot().getDatabase()
 								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId " + in(members.keySet()))
 								.collectList()
@@ -195,6 +195,7 @@ public class LeaderboardCommand {
 												}
 												final var jumpTo = rank / ENTRIES_PER_PAGE;
 												pageNum.set(jumpTo);
+												highlighted.set(gdUser.getName());
 												return interaction.getMenuMessage().edit(paginator.apply(jumpTo).toMessageEditSpec())
 														.then();
 											}))
