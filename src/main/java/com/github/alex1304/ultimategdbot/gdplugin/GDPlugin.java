@@ -51,6 +51,7 @@ import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AnnouncementCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.command.CleanUneligibleServersCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.DailyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.FeaturedInfoCommand;
@@ -145,6 +146,7 @@ public class GDPlugin implements Plugin {
 					cmdProvider.addAnnotated(new AccountCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new AnnouncementCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new CheckModCommand(gdServiceMediator));
+					cmdProvider.addAnnotated(new CleanUneligibleServersCommand());
 					cmdProvider.addAnnotated(new ClearGdCacheCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new DailyCommand(gdServiceMediator));
 					cmdProvider.addAnnotated(new FeaturedInfoCommand(gdServiceMediator));
