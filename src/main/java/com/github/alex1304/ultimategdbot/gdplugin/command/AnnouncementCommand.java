@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
@@ -58,6 +59,22 @@ public class AnnouncementCommand {
 			return Mono.error(new CommandFailedException("You must attach exactly one file."));
 		}
 		
+		var field = ctx.getFlags().has("channel") ? ctx.getFlags().get("channel").orElse("Changelog") : "Changelog";
+		Function<GDSubscribedGuilds, Long> func;
+		switch (field) {
+			case "AwardedLevels":
+				func = GDSubscribedGuilds::getChannelAwardedLevelsId;
+				break;
+			case "TimelyLevels":
+				func = GDSubscribedGuilds::getChannelTimelyLevelsId;
+				break;
+			case "GdModerators":
+				func = GDSubscribedGuilds::getChannelGdModeratorsId;
+				break;
+			default:
+				func = GDSubscribedGuilds::getChannelChangelogId;
+		}
+		
 		return getFileContent(ctx.getEvent().getMessage().getAttachments().stream().findAny().orElseThrow())
 				.map(String::lines)
 				.flatMapMany(Flux::fromStream)
@@ -69,8 +86,8 @@ public class AnnouncementCommand {
 							m.setEmbed(embed);
 						})
 						.addReactionItem("success", interaction -> ctx.reply("Sending announcement, please wait...")
-								.then(GDEvents.getExistingSubscribedGuilds(ctx.getBot(), "where channelChangelogId > 0")
-										.map(GDSubscribedGuilds::getChannelChangelogId)
+								.then(GDEvents.getExistingSubscribedGuilds(ctx.getBot(), "where channel" + field + "Id > 0")
+										.map(func)
 										.map(Snowflake::of)
 										.flatMap(gdServiceMediator.getBroadcastPreloader()::preloadChannel)
 										.publishOn(gdServiceMediator.getGdEventScheduler())

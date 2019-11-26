@@ -47,6 +47,7 @@ import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
 import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
 import com.github.alex1304.ultimategdbot.api.utils.DatabaseInputFunction;
 import com.github.alex1304.ultimategdbot.api.utils.DatabaseOutputFunction;
+import com.github.alex1304.ultimategdbot.api.utils.DiscordParser;
 import com.github.alex1304.ultimategdbot.api.utils.PropertyParser;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AnnouncementCommand;
@@ -80,8 +81,11 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.Role;
 import discord4j.core.object.entity.TextChannel;
+import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -100,7 +104,7 @@ public class GDPlugin implements Plugin {
 	private boolean preloadChannelsOnStartup;
 	private boolean autostartScannerLoop;
 	private int maxConnections;
-	private volatile GDServiceMediator gdServiceMediator;
+	private GDServiceMediator gdServiceMediator;
 
 	private final Scheduler gdEventScheduler = Schedulers.elastic();
 	private final ConcurrentHashMap<GDUserIconSet, String> iconsCache = new ConcurrentHashMap<>();
@@ -185,25 +189,48 @@ public class GDPlugin implements Plugin {
 	}
 	
 	private void initConfigEntries() {
+		DatabaseInputFunction<Long> restrictedToChannelId = (v, guildId) -> DatabaseInputFunction.asIs()
+				.apply(v, guildId)
+				.flatMap(str -> DiscordParser.parseGuildChannel(bot, Snowflake.of(guildId), str))
+				.ofType(TextChannel.class)
+				.filterWhen(channel -> channel.getGuild()
+						.map(Guild::getMemberCount)
+						.map(opt -> opt.orElse(0))
+						.map(memberCount -> memberCount > 200))
+				.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+				.map(TextChannel::getId)
+				.map(Snowflake::asLong);
+		
+		DatabaseInputFunction<Long> restrictedToRoleId = (v, guildId) -> DatabaseInputFunction.asIs()
+				.apply(v, guildId)
+				.flatMap(str -> DiscordParser.parseRole(bot, Snowflake.of(guildId), str))
+				.filterWhen(role -> role.getGuild()
+						.map(Guild::getMemberCount)
+						.map(opt -> opt.orElse(0))
+						.map(memberCount -> memberCount > 200))
+				.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+				.map(Role::getId)
+				.map(Snowflake::asLong);
+		
 		configEntries.put("channel_awarded_levels", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getChannelAwardedLevelsId,
 				GDSubscribedGuilds::setChannelAwardedLevelsId,
-				DatabaseInputFunction.toChannelId(bot, TextChannel.class),
+				restrictedToChannelId,
 				DatabaseOutputFunction.fromChannelId(bot)
 		));
 		configEntries.put("channel_timely_levels", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getChannelTimelyLevelsId,
 				GDSubscribedGuilds::setChannelTimelyLevelsId,
-				DatabaseInputFunction.toChannelId(bot, TextChannel.class),
+				restrictedToChannelId,
 				DatabaseOutputFunction.fromChannelId(bot)
 		));
 		configEntries.put("channel_gd_moderators", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getChannelGdModeratorsId,
 				GDSubscribedGuilds::setChannelGdModeratorsId,
-				DatabaseInputFunction.toChannelId(bot, TextChannel.class),
+				restrictedToChannelId,
 				DatabaseOutputFunction.fromChannelId(bot)
 		));
 		configEntries.put("channel_changelog", new GuildSettingsEntry<>(
@@ -217,21 +244,21 @@ public class GDPlugin implements Plugin {
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getRoleAwardedLevelsId,
 				GDSubscribedGuilds::setRoleAwardedLevelsId,
-				DatabaseInputFunction.toRoleId(bot),
+				restrictedToRoleId,
 				DatabaseOutputFunction.fromRoleId(bot)
 		));
 		configEntries.put("role_timely_levels", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getRoleTimelyLevelsId,
 				GDSubscribedGuilds::setRoleTimelyLevelsId,
-				DatabaseInputFunction.toRoleId(bot),
+				restrictedToRoleId,
 				DatabaseOutputFunction.fromRoleId(bot)
 		));
 		configEntries.put("role_gd_moderators", new GuildSettingsEntry<>(
 				GDSubscribedGuilds.class,
 				GDSubscribedGuilds::getRoleGdModeratorsId,
 				GDSubscribedGuilds::setRoleGdModeratorsId,
-				DatabaseInputFunction.toRoleId(bot),
+				restrictedToRoleId,
 				DatabaseOutputFunction.fromRoleId(bot)
 		));
 		configEntries.put("lvlreq_submission_queue_channel", new GuildSettingsEntry<>(
