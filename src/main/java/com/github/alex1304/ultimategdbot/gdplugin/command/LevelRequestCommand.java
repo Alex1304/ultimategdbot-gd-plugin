@@ -117,18 +117,17 @@ public class LevelRequestCommand {
 				+ "each review must not exceed 1000 characters.\n\n"
 				+ "To revoke your review from a submission, the syntax is `review <submission_ID> revoke`.")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
-		final var mutex = ctx.getChannel();
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var guildId = ctx.getEvent().getGuildId().orElseThrow();
 
-		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(ctx.getAuthor().asMember(guildId)
+		return ctx.getChannel().typeUntil(ctx.getAuthor().asMember(guildId)
 				.flatMap(member -> GDLevelRequests.retrieveSettings(ctx)
 						.doOnNext(lvlReqSettings::set)
 						.map(GDLevelRequestsSettings::getReviewerRoleId)
 						.map(Snowflake::of)
 						.filter(member.getRoleIds()::contains))
 				.switchIfEmpty(Mono.error(new CommandFailedException("You are not a level reviewer in this server.")))
-				.then(Mono.defer(() -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqSettings.get(), null, false)))))
+				.then(Mono.defer(() -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqSettings.get(), null, false))))
 				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " The submission has been updated.")))
 				.then();
 	}
@@ -237,6 +236,7 @@ public class LevelRequestCommand {
 	
 	private Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
 			GDLevelRequestsSettings lvlReqSettings, @Nullable GDLevelRequestSubmissions submissionObj, boolean forceMove) {
+		final var mutex = ctx.getChannel();
 		final var userId = ctx.getEvent().getMessage().getAuthor().orElseThrow().getId().asLong();
 		final var submission = new AtomicReference<GDLevelRequestSubmissions>(submissionObj);
 		final var review = new AtomicReference<GDLevelRequestReviews>();
@@ -249,7 +249,7 @@ public class LevelRequestCommand {
 		if (reviewContent.length() > 1000) {
 			return Mono.error(new CommandFailedException("Review content must not exceed 1000 characters."));
 		}
-		return Mono.justOrEmpty(submissionObj)
+		return mutexPool.acquireUntil(mutex, Mono.justOrEmpty(submissionObj)
 				.switchIfEmpty(ctx.getBot().getDatabase().findByID(GDLevelRequestSubmissions.class, submissionId)
 						.doOnNext(submission::set)
 						.filter(s -> s.getGuildId() == guildId)
@@ -319,7 +319,7 @@ public class LevelRequestCommand {
 					} else {
 						return updatedMessage.map(UniversalMessageSpec::toMessageEditSpec).flatMap(submissionMsg.get()::edit);
 					}
-				})
+				}))
 				.then();
 	}
 	
