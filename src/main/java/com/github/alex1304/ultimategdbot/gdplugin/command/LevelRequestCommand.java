@@ -142,8 +142,7 @@ public class LevelRequestCommand {
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
-		final var mutex = ctx.getChannel();
-		return mutexPool.acquireUntil(mutex, ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
+		return mutexPool.acquireUntil(guildId, ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
@@ -236,7 +235,6 @@ public class LevelRequestCommand {
 	
 	private Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
 			GDLevelRequestsSettings lvlReqSettings, @Nullable GDLevelRequestSubmissions submissionObj, boolean forceMove) {
-		final var mutex = ctx.getChannel();
 		final var userId = ctx.getEvent().getMessage().getAuthor().orElseThrow().getId().asLong();
 		final var submission = new AtomicReference<GDLevelRequestSubmissions>(submissionObj);
 		final var review = new AtomicReference<GDLevelRequestReviews>();
@@ -249,7 +247,7 @@ public class LevelRequestCommand {
 		if (reviewContent.length() > 1000) {
 			return Mono.error(new CommandFailedException("Review content must not exceed 1000 characters."));
 		}
-		return mutexPool.acquireUntil(mutex, Mono.justOrEmpty(submissionObj)
+		return mutexPool.acquireUntil(guildId, Mono.justOrEmpty(submissionObj)
 				.switchIfEmpty(ctx.getBot().getDatabase().findByID(GDLevelRequestSubmissions.class, submissionId)
 						.doOnNext(submission::set)
 						.filter(s -> s.getGuildId() == guildId)
