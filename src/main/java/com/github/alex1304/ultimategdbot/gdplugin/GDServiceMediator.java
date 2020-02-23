@@ -10,8 +10,6 @@ import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.util.BroadcastPreloader;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.scheduler.Scheduler;
@@ -27,16 +25,13 @@ public class GDServiceMediator {
 	private final GDEventDispatcher gdEventDispatcher;
 	private final GDEventScannerLoop gdEventscannerLoop;
 	private final ConcurrentHashMap<Long, List<Message>> broadcastedLevels;
-	private final BroadcastPreloader broadcastPreloader;
-	private final GDEventSubscriber gdEventSubscriber;
 	private final Scheduler gdEventScheduler;
 	private final Set<Long> cachedSubmissionChannelIds;
 	private final int leaderboardRefreshParallelism;
 	
 	GDServiceMediator(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory,
 			ConcurrentHashMap<GDUserIconSet, String> iconsCache, GDEventDispatcher gdEventDispatcher,
-			GDEventScannerLoop gdEventscannerLoop, ConcurrentHashMap<Long, List<Message>> broadcastedLevels,
-			BroadcastPreloader broadcastPreloader, GDEventSubscriber gdEventSubscriber, Scheduler gdEventScheduler,
+			GDEventScannerLoop gdEventscannerLoop, ConcurrentHashMap<Long, List<Message>> broadcastedLevels, Scheduler gdEventScheduler,
 			Set<Long> cachedSubmissionChannelIds, int leaderboardRefreshParallelism) {
 		this.gdClient = gdClient;
 		this.spriteFactory = spriteFactory;
@@ -44,8 +39,6 @@ public class GDServiceMediator {
 		this.gdEventDispatcher = gdEventDispatcher;
 		this.gdEventscannerLoop = gdEventscannerLoop;
 		this.broadcastedLevels = broadcastedLevels;
-		this.broadcastPreloader = broadcastPreloader;
-		this.gdEventSubscriber = gdEventSubscriber;
 		this.gdEventScheduler = gdEventScheduler;
 		this.cachedSubmissionChannelIds = cachedSubmissionChannelIds;
 		this.leaderboardRefreshParallelism = leaderboardRefreshParallelism;
@@ -73,14 +66,6 @@ public class GDServiceMediator {
 
 	public Map<Long, List<Message>> getDispatchedLevels() {
 		return broadcastedLevels;
-	}
-
-	public BroadcastPreloader getBroadcastPreloader() {
-		return broadcastPreloader;
-	}
-
-	public GDEventSubscriber getGdEventSubscriber() {
-		return gdEventSubscriber;
 	}
 
 	public Scheduler getGdEventScheduler() {
