@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
-import static com.github.alex1304.ultimategdbot.api.utils.Markdown.code;
-import static com.github.alex1304.ultimategdbot.gdplugin.util.DatabaseUtils.in;
+import static com.github.alex1304.ultimategdbot.api.util.Markdown.code;
 
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -29,14 +28,16 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.Scope;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
-import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
-import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
-import com.github.alex1304.ultimategdbot.api.utils.UniversalMessageSpec;
-import com.github.alex1304.ultimategdbot.api.utils.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.api.utils.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.utils.menu.UnexpectedReplyException;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
+import com.github.alex1304.ultimategdbot.api.util.BotUtils;
+import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
+import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
+import com.github.alex1304.ultimategdbot.api.util.menu.PaginationControls;
+import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
@@ -55,7 +56,7 @@ import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuples;
 
-@CommandSpec(
+@CommandDescriptor(
 		aliases = { "leaderboard", "leaderboards" },
 		shortDescription = "Builds and displays a server-wide Geometry Dash leaderboard.",
 		scope = Scope.GUILD_ONLY
@@ -147,16 +148,15 @@ public class LeaderboardCommand {
 				.flatMap(guild -> guild.getMembers()
 						.collect(Collectors.toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser, (a, b) -> a))
 						.flatMap(members -> ctx.getBot().getDatabase()
-								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId " + in(members.keySet()))
+								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId in ?0", members.keySet())
 								.collectList()
 								.flatMap(linkedUsers -> Mono.zip(
 												emojiMono.doOnNext(emojiRef::set),
 												ctx.getBot().getDatabase()
-														.query(GDUserStats.class, "from GDUserStats u where u.accountId " + in(gdAccIds(linkedUsers))
-																+ " order by u.lastRefreshed desc")
+														.query(GDUserStats.class, "from GDUserStats u where u.accountId in ?0 order by u.lastRefreshed desc", gdAccIds(linkedUsers))
 														.collectList(),
 												ctx.getBot().getDatabase()
-														.query(GDLeaderboardBans.class, "from GDLeaderboardBans b where b.accountId " + in(gdAccIds(linkedUsers)))
+														.query(GDLeaderboardBans.class, "from GDLeaderboardBans b where b.accountId in ?0", gdAccIds(linkedUsers))
 														.map(GDLeaderboardBans::getAccountId)
 														.collect(Collectors.toUnmodifiableSet()))
 										.map(TupleUtils.function((emoji, userStats, bans) -> userStats.stream()
@@ -176,12 +176,12 @@ public class LeaderboardCommand {
 							}
 							var highlighted = new AtomicReference<String>();
 							var pageNum = new AtomicInteger();
-							IntFunction<UniversalMessageSpec> paginator = page -> {
+							IntFunction<MessageSpecTemplate> paginator = page -> {
 								PageNumberOutOfRangeException.check(page, 0, (list.size() - 1) / ENTRIES_PER_PAGE);
-								return new UniversalMessageSpec(leaderboardView(ctx.getPrefixUsed(), guild, list, page,
+								return new MessageSpecTemplate(leaderboardView(ctx.getPrefixUsed(), guild, list, page,
 										lastRefreshed.get(), highlighted.get(), emojiRef.get()));
 							};
-							return InteractiveMenu.createPaginated(pageNum, ctx.getBot().getDefaultPaginationControls(), paginator)
+							return InteractiveMenu.createPaginated(pageNum, PaginationControls.getDefault(), paginator)
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
@@ -207,92 +207,90 @@ public class LeaderboardCommand {
 	@CommandDoc("Refreshes the leaderboard (bot admin only). Leaderboard refresh is an heavy process that consists of "
 			+ "loading profiles of all users that have linked their account to the bot. This command "
 			+ "may be run once in 6 hours.")
+	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runRefresh(Context ctx) {
-		return PermissionLevel.BOT_ADMIN.checkGranted(ctx)
-				.then(Mono.defer(() -> {
-					if (isLocked) {
-						return Mono.error(new CommandFailedException("Refresh is already in progress."));
+		if (isLocked) {
+			return Mono.error(new CommandFailedException("Refresh is already in progress."));
+		}
+		isLocked = true;
+		LOGGER.debug("Locked leaderboards");
+		var cooldown = new AtomicReference<Duration>();
+		var disposableProgress = new AtomicReference<Disposable>();
+		var isSaving = new AtomicBoolean();
+		var loaded = new AtomicLong();
+		var total = new AtomicLong();
+		var now = Timestamp.from(Instant.now());
+		var progressRefreshRate = Duration.ofSeconds(2);
+		var progress = ctx.getBot().getEmoji("info")
+				.flatMap(info -> ctx.getBot().log(info + " Leaderboard refresh triggered by **" + ctx.getEvent()
+						.getMessage()
+						.getAuthor()
+						.map(DiscordFormatter::formatUser)
+						.orElse("Unknown User#0000") + "**"))
+				.then(ctx.reply("Refreshing leaderboards..."))
+				.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
+						.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
+								+ (total.get() == 0 ? "" : " (" + loaded.get() + "/" + total.get() + " users processed)"))
+						.flatMap(text -> message.edit(spec -> spec.setContent(text)))
+						.doFinally(signal -> message.delete()
+								.then(ctx.getBot().getEmoji("success"))
+								.flatMap(success -> ctx.getBot().log(success + " Leaderboard refresh finished with success!")
+										.then(ctx.reply(success + " Leaderboards refreshed!")))
+								.subscribe()));
+		
+		return ctx.getBot().getDatabase().query(GDUserStats.class, "from GDUserStats s order by s.lastRefreshed desc")
+				.next()
+				.map(GDUserStats::getLastRefreshed)
+				.map(Timestamp::toInstant)
+				.defaultIfEmpty(Instant.MIN)
+				.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
+				.doOnNext(cooldown::set)
+				.filter(Duration::isNegative)
+				.switchIfEmpty(Mono.error(() -> new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
+						+ "Try again in " + BotUtils.formatDuration(cooldown.get().withNanos(0)))))
+				.thenMany(ctx.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1"))
+				.distinct(GDLinkedUsers::getGdAccountId)
+				.buffer()
+				.doOnNext(buf -> total.set(buf.size()))
+				.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
+				.doOnNext(buf -> gdServiceMediator.getGdClient().clearCache())
+				.flatMap(Flux::fromIterable)
+				.flatMap(linkedUser -> gdServiceMediator.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())
+						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
+								+ linkedUser.getGdAccountId(), e))), gdServiceMediator.getLeaderboardRefreshParallelism())
+				.map(gdUser -> {
+					loaded.incrementAndGet();
+					var s = new GDUserStats();
+					s.setAccountId(gdUser.getAccountId());
+					s.setName(gdUser.getName());
+					s.setLastRefreshed(now);
+					s.setStars(gdUser.getStars());
+					s.setDiamonds(gdUser.getDiamonds());
+					s.setUserCoins(gdUser.getUserCoins());
+					s.setSecretCoins(gdUser.getSecretCoins());
+					s.setDemons(gdUser.getDemons());
+					s.setCreatorPoints(gdUser.getCreatorPoints());
+					return s;
+				})
+				.collectList()
+				.doOnNext(stats -> isSaving.set(true))
+				.flatMap(stats -> ctx.getBot().getDatabase().performEmptyTransaction(session -> stats.forEach(session::saveOrUpdate)))
+				.doFinally(signal -> {
+					isLocked = false;
+					LOGGER.debug("Unlocked leaderboards");
+					if (disposableProgress.get() != null) {
+						disposableProgress.get().dispose();
 					}
-					isLocked = true;
-					LOGGER.debug("Locked leaderboards");
-					var cooldown = new AtomicReference<Duration>();
-					var disposableProgress = new AtomicReference<Disposable>();
-					var isSaving = new AtomicBoolean();
-					var loaded = new AtomicLong();
-					var total = new AtomicLong();
-					var now = Timestamp.from(Instant.now());
-					var progressRefreshRate = Duration.ofSeconds(2);
-					var progress = ctx.getBot().getEmoji("info")
-							.flatMap(info -> ctx.getBot().log(info + " Leaderboard refresh triggered by **" + ctx.getEvent()
-									.getMessage()
-									.getAuthor()
-									.map(DiscordFormatter::formatUser)
-									.orElse("Unknown User#0000") + "**"))
-							.then(ctx.reply("Refreshing leaderboards..."))
-							.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
-									.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
-											+ (total.get() == 0 ? "" : " (" + loaded.get() + "/" + total.get() + " users processed)"))
-									.flatMap(text -> message.edit(spec -> spec.setContent(text)))
-									.doFinally(signal -> message.delete()
-											.then(ctx.getBot().getEmoji("success"))
-											.flatMap(success -> ctx.getBot().log(success + " Leaderboard refresh finished with success!")
-													.then(ctx.reply(success + " Leaderboards refreshed!")))
-											.subscribe()));
-					
-					return ctx.getBot().getDatabase().query(GDUserStats.class, "from GDUserStats s order by s.lastRefreshed desc")
-							.next()
-							.map(GDUserStats::getLastRefreshed)
-							.map(Timestamp::toInstant)
-							.defaultIfEmpty(Instant.MIN)
-							.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
-							.doOnNext(cooldown::set)
-							.filter(Duration::isNegative)
-							.switchIfEmpty(Mono.error(() -> new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
-									+ "Try again in " + BotUtils.formatDuration(cooldown.get().withNanos(0)))))
-							.thenMany(ctx.getBot().getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1"))
-							.distinct(GDLinkedUsers::getGdAccountId)
-							.buffer()
-							.doOnNext(buf -> total.set(buf.size()))
-							.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
-							.doOnNext(buf -> gdServiceMediator.getGdClient().clearCache())
-							.flatMap(Flux::fromIterable)
-							.flatMap(linkedUser -> gdServiceMediator.getGdClient().getUserByAccountId(linkedUser.getGdAccountId())
-									.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
-											+ linkedUser.getGdAccountId(), e))), gdServiceMediator.getLeaderboardRefreshParallelism())
-							.map(gdUser -> {
-								loaded.incrementAndGet();
-								var s = new GDUserStats();
-								s.setAccountId(gdUser.getAccountId());
-								s.setName(gdUser.getName());
-								s.setLastRefreshed(now);
-								s.setStars(gdUser.getStars());
-								s.setDiamonds(gdUser.getDiamonds());
-								s.setUserCoins(gdUser.getUserCoins());
-								s.setSecretCoins(gdUser.getSecretCoins());
-								s.setDemons(gdUser.getDemons());
-								s.setCreatorPoints(gdUser.getCreatorPoints());
-								return s;
-							})
-							.collectList()
-							.doOnNext(stats -> isSaving.set(true))
-							.flatMap(stats -> ctx.getBot().getDatabase().performEmptyTransaction(session -> stats.forEach(session::saveOrUpdate)))
-							.doFinally(signal -> {
-								isLocked = false;
-								LOGGER.debug("Unlocked leaderboards");
-								if (disposableProgress.get() != null) {
-									disposableProgress.get().dispose();
-								}
-							});
-				}));
+				});
 	}
 	
 	@CommandAction("ban")
 	@CommandDoc("Bans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
+	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
-		return PermissionLevel.BOT_ADMIN.checkGranted(ctx)
-				.then(ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId()))
+		return ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
 				.flatMap(__ -> Mono.error(new CommandFailedException("This user is already banned.")))
 				.then(Mono.just(new GDLeaderboardBans())
 						.doOnNext(newBan -> newBan.setAccountId(gdUser.getAccountId()))
@@ -315,9 +313,9 @@ public class LeaderboardCommand {
 	@CommandDoc("Unbans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
+	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
-		return PermissionLevel.BOT_ADMIN.checkGranted(ctx)
-				.then(ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId()))
+		return ctx.getBot().getDatabase().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
 						.switchIfEmpty(Mono.error(new CommandFailedException("This user is already unbanned.")))
 						.flatMap(ctx.getBot().getDatabase()::delete)
 						.then(ctx.reply("**" + gdUser.getName() + "** has been unbanned from leaderboards!"))
@@ -334,11 +332,11 @@ public class LeaderboardCommand {
 	@CommandDoc("Displays the list of banned players (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
 			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
+	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBanList(Context ctx) {
-		return PermissionLevel.BOT_ADMIN.checkGranted(ctx)
-				.thenMany(ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans"))
+		return ctx.getBot().getDatabase().query(GDLeaderboardBans.class, "from GDLeaderboardBans")
 				.flatMap(ban -> gdServiceMediator.getGdClient().getUserByAccountId(ban.getAccountId()).map(user -> Tuples.of(ban, user)))
-				.flatMap(tuple -> ctx.getBot().getMainDiscordClient().getUserById(Snowflake.of(tuple.getT1().getBannedBy()))
+				.flatMap(tuple -> ctx.getBot().getGateway().getUserById(Snowflake.of(tuple.getT1().getBannedBy()))
 						.map(user -> Tuples.of(tuple.getT2(), DiscordFormatter.formatUser(user))))
 				.onErrorResume(e -> Mono.empty())
 				.collectSortedList(Comparator.comparing(tuple -> tuple.getT1().getName().toLowerCase()))

@@ -2,14 +2,14 @@ package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
-import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.util.BotUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModList;
 
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
 
-@CommandSpec(
+@CommandDescriptor(
 		aliases = "modlist",
 		shortDescription = "Displays the full list of last known Geometry Dash moderators."
 )

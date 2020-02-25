@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
@@ -39,6 +38,8 @@ import com.github.alex1304.ultimategdbot.api.command.CommandErrorHandler;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.CommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.Context;
+import com.github.alex1304.ultimategdbot.api.command.PermissionChecker;
+import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.AnnotatedCommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
 import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
@@ -48,7 +49,6 @@ import com.github.alex1304.ultimategdbot.api.util.DiscordParser;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AnnouncementCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
-import com.github.alex1304.ultimategdbot.gdplugin.command.CleanUneligibleServersCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.DailyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.FeaturedInfoCommand;
@@ -63,14 +63,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.command.WeeklyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelAddedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelRemovedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.AwardedLevelUpdatedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.TimelyLevelChangedEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserDemotedFromElderEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserDemotedFromModEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToElderEventProcessor;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.UserPromotedToModEventProcessor;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
@@ -80,7 +72,6 @@ import discord4j.core.object.entity.channel.TextChannel;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 public class GDPluginBootstrap implements PluginBootstrap {
 
@@ -91,6 +82,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		// Properties
 		var username = bot.getPluginProperties().read("gdplugin.username", true).orElseThrow();
 		var password = bot.getPluginProperties().read("gdplugin.password", true).orElseThrow();
+		var iconChannelId = Snowflake.of(bot.getPluginProperties().read("gdplugin.icon_channel_id", true).orElseThrow());
 		var host = bot.getPluginProperties().read("gdplugin.host", false).orElse(Routes.BASE_URL);
 		var cacheTtl = bot.getPluginProperties().read("gdplugin.cache_ttl", false)
 				.map(v -> Duration.ofMillis(Long.parseLong(v)))
@@ -118,9 +110,9 @@ public class GDPluginBootstrap implements PluginBootstrap {
 					var gdEventDispatcher = new GDEventDispatcher();
 					var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 					var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
-					var gdServiceMediator = new GDServiceMediator(gdClient, spriteFactory, new ConcurrentHashMap<>(),
-							gdEventDispatcher, scannerLoop, new ConcurrentHashMap<>(), Schedulers.elastic(),
-							cachedSubmissionChannelIds, maxConnections);
+					var gdServiceMediator = new GDServiceMediator(gdClient, spriteFactory,
+							gdEventDispatcher, scannerLoop,
+							cachedSubmissionChannelIds, maxConnections, iconChannelId);
 					initGDEventSubscriber(gdEventDispatcher, gdServiceMediator, bot);
 					var cmdProvider = initCommandProvider(gdServiceMediator, bot, gdClient);
 					return Plugin.builder("Geometry Dash")
@@ -243,8 +235,11 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				.apply(v, guildId)
 				.flatMap(str -> DiscordParser.parseGuildChannel(bot, Snowflake.of(guildId), str))
 				.ofType(TextChannel.class)
-				.filterWhen(channel -> channel.getGuild().map(GDPluginBootstrap::has200MembersAndMore))
-				.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+				.flatMap(channel -> channel.getGuild()
+						.map(GDPluginBootstrap::has200MembersAndMore)
+						.filter(Boolean::booleanValue)
+						.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+						.thenReturn(channel))
 				.map(TextChannel::getId)
 				.map(Snowflake::asLong);
 	}
@@ -253,8 +248,10 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		return DatabaseInputFunction.asIs()
 				.apply(v, guildId)
 				.flatMap(str -> DiscordParser.parseRole(bot, Snowflake.of(guildId), str))
-				.filterWhen(role -> role.getGuild().map(GDPluginBootstrap::has200MembersAndMore))
-				.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+				.flatMap(role -> role.getGuild()
+						.map(GDPluginBootstrap::has200MembersAndMore)
+						.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
+						.thenReturn(role))
 				.map(Role::getId)
 				.map(Snowflake::asLong);
 	}
@@ -272,10 +269,10 @@ public class GDPluginBootstrap implements PluginBootstrap {
 	
 	private CommandProvider initCommandProvider(GDServiceMediator gdServiceMediator, Bot bot, AuthenticatedGDClient gdClient) {
 		var cmdProvider = new AnnotatedCommandProvider();
+		// Commands
 		cmdProvider.addAnnotated(new AccountCommand(gdServiceMediator));
 		cmdProvider.addAnnotated(new AnnouncementCommand(gdServiceMediator));
 		cmdProvider.addAnnotated(new CheckModCommand(gdServiceMediator));
-		cmdProvider.addAnnotated(new CleanUneligibleServersCommand());
 		cmdProvider.addAnnotated(new ClearGdCacheCommand(gdServiceMediator));
 		cmdProvider.addAnnotated(new DailyCommand(gdServiceMediator));
 		cmdProvider.addAnnotated(new FeaturedInfoCommand(gdServiceMediator));
@@ -287,6 +284,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		cmdProvider.addAnnotated(new ModListCommand());
 		cmdProvider.addAnnotated(new ProfileCommand(gdServiceMediator));
 		cmdProvider.addAnnotated(new WeeklyCommand(gdServiceMediator));
+		// Param converters
 		cmdProvider.addParamConverter(new ParamConverter<GDUser>() {
 			@Override
 			public Mono<GDUser> convert(Context ctx, String input) {
@@ -309,6 +307,19 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				return GDLevel.class;
 			}
 		});
+		// Permission checker
+		var permChecker = new PermissionChecker();
+		permChecker.register("LEVEL_REQUEST_REVIEWER", ctx -> ctx.getBot().getCommandKernel()
+				.getPermissionChecker()
+				.isGranted(PermissionLevel.GUILD_ADMIN, ctx)
+				.flatMap(isGuildAdmin -> isGuildAdmin ? Mono.just(true) : ctx.getEvent().getMessage()
+						.getAuthorAsMember()
+						.flatMap(member -> GDLevelRequests.retrieveSettings(ctx)
+								.map(GDLevelRequestsSettings::getReviewerRoleId)
+								.map(Snowflake::of)
+								.map(member.getRoleIds()::contains))));
+		cmdProvider.setPermissionChecker(permChecker);
+		// Error handlers
 		var cmdErrorHandler = new CommandErrorHandler();
 		cmdErrorHandler.addHandler(CommandFailedException.class, (e, ctx) -> ctx.getBot().getEmoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " " + e.getMessage()))
@@ -353,16 +364,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 	}
 	
 	private GDEventSubscriber initGDEventSubscriber(GDEventDispatcher gdEventDispatcher, GDServiceMediator gdServiceMediator, Bot bot) {
-		var processors = Set.of(
-				new AwardedLevelAddedEventProcessor(gdServiceMediator, bot),
-				new AwardedLevelRemovedEventProcessor(gdServiceMediator, bot),
-				new AwardedLevelUpdatedEventProcessor(gdServiceMediator, bot),
-				new TimelyLevelChangedEventProcessor(gdServiceMediator, bot),
-				new UserPromotedToModEventProcessor(gdServiceMediator, bot),
-				new UserPromotedToElderEventProcessor(gdServiceMediator, bot),
-				new UserDemotedFromModEventProcessor(gdServiceMediator, bot),
-				new UserDemotedFromElderEventProcessor(gdServiceMediator, bot));
-		var subscriber = new GDEventSubscriber(Flux.fromIterable(processors));
+		var subscriber = new GDEventSubscriber(bot, gdServiceMediator);
 		gdEventDispatcher.on(GDEvent.class)
 				.onBackpressureBuffer()
 				.subscribe(subscriber);

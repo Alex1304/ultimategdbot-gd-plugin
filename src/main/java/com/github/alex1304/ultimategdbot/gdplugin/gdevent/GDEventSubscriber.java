@@ -1,44 +1,36 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 
-import java.util.Objects;
-import java.util.Optional;
-
-import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
-import com.github.alex1304.ultimategdbot.gdplugin.gdevent.processor.GDEventProcessor;
+import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.BaseSubscriber;
+import reactor.core.scheduler.Scheduler;
 
-public class GDEventSubscriber implements Subscriber<GDEvent> {
+public class GDEventSubscriber extends BaseSubscriber<GDEvent> {
 	
-	private Optional<Subscription> subscription;
-	private final Flux<GDEventProcessor> processors;
+	private volatile Subscription subscription;
+	private final GDEventProcessor processor;
+	private final Scheduler scheduler;
 	
-	public GDEventSubscriber(Flux<GDEventProcessor> processors) {
-		this.subscription = Optional.empty();
-		this.processors = Objects.requireNonNull(processors);
+	public GDEventSubscriber(Bot bot, GDServiceMediator gdServiceMediator) {
+		this.processor = new GDEventProcessor(bot, gdServiceMediator);
+		this.scheduler = gdServiceMediator.getGdEventScheduler();
 	}
 
 	@Override
-	public void onSubscribe(Subscription s) {
-		this.subscription = Optional.of(s);
+	public void hookOnSubscribe(Subscription s) {
+		this.subscription = s;
 		s.request(1);
 	}
 
 	@Override
-	public void onNext(GDEvent t) {
-		processors.flatMap(processor -> processor.process(t))
-				.doFinally(__ -> subscription.ifPresent(s -> s.request(1)))
+	public void hookOnNext(GDEvent t) {
+		processor.process(t)
+				.subscribeOn(scheduler)
+				.doFinally(__ -> subscription.request(1))
 				.subscribe();
-	}
-
-	@Override
-	public void onError(Throwable t) {
-	}
-
-	@Override
-	public void onComplete() {
 	}
 }

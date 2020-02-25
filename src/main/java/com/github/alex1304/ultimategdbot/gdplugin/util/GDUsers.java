@@ -28,14 +28,15 @@ import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 
 import discord4j.core.object.entity.Attachment;
-import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.core.object.util.Snowflake;
-import discord4j.core.spec.MessageCreateSpec;
+import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.retry.Repeat;
@@ -45,7 +46,7 @@ public final class GDUsers {
 	private GDUsers() {
 	}
 	
-	public static Mono<Consumer<MessageCreateSpec>> userProfileView(Bot bot, Optional<User> author, GDUser user, 
+	public static Mono<MessageSpecTemplate> userProfileView(Bot bot, Optional<User> author, GDUser user, 
 			String authorName, String authorIconUrl, String iconSetUrl) {
 		return Mono.zip(o -> o, bot.getEmoji("star"), bot.getEmoji("diamond"), bot.getEmoji("user_coin"),
 				bot.getEmoji("secret_coin"), bot.getEmoji("demon"), bot.getEmoji("creator_points"),
@@ -53,55 +54,58 @@ public final class GDUsers {
 				bot.getEmoji("youtube"), bot.getEmoji("twitter"), bot.getEmoji("twitch"),
 				bot.getEmoji("discord"), bot.getEmoji("friends"), bot.getEmoji("messages"),
 				bot.getEmoji("comment_history"))
-				.zipWith(getDiscordAccountsForGDUser(bot, user).collectList())
+				.zipWith(getDiscordAccountsForGDUser(bot, user.getAccountId()).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
 					var linkedAccounts = tuple.getT2();
-					return mcs -> {
-						final var statWidth = 9;
-						if (author.isPresent()) {
-							mcs.setContent(author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:");
+					final var statWidth = 9;
+					String content = null;
+					if (author.isPresent()) {
+						content = author.get().getMention() + ", here is the profile of user **" + user.getName() + "**:";
+					}
+					Consumer<EmbedCreateSpec> embedSpec = embed -> {
+						embed.setAuthor(authorName, null, authorIconUrl);
+						embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", emojis[0] + "  " + formatCode(user.getStars(), statWidth) + "\n"
+								+ emojis[1] + "  " + formatCode(user.getDiamonds(), statWidth) + "\n"
+								+ emojis[2] + "  " + formatCode(user.getUserCoins(), statWidth) + "\n"
+								+ emojis[3] + "  " + formatCode(user.getSecretCoins(), statWidth) + "\n"
+								+ emojis[4] + "  " + formatCode(user.getDemons(), statWidth) + "\n"
+								+ emojis[5] + "  " + formatCode(user.getCreatorPoints(), statWidth) + "\n", false);
+						final var badge = user.getRole() == Role.ELDER_MODERATOR ? emojis[7] : emojis[6];
+						final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
+						embed.addField("───────────", (user.getRole() != Role.USER ? mod : "")
+								+ emojis[8] + "  **Global Rank:** "
+								+ (user.getGlobalRank() == 0 ? "*Unranked*" : user.getGlobalRank()) + "\n"
+								+ emojis[9] + "  **Youtube:** "
+									+ (user.getYoutube().isEmpty() ? "*not provided*" : "[Open link](https://www.youtube.com/channel/"
+									+ Utils.urlEncode(user.getYoutube()) + ")") + "\n"
+								+ emojis[11] + "  **Twitch:** "
+									+ (user.getTwitch().isEmpty() ? "*not provided*" : "["  + user.getTwitch()
+									+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
+								+ emojis[10] + "  **Twitter:** "
+									+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
+									+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
+								+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? "*unknown*" : linkedAccounts.stream()
+										.reduce(new StringJoiner(", "), (sj, l) -> sj.add(DiscordFormatter.formatUser(l)), (a, b) -> a).toString())
+								+ "\n───────────\n"
+								+ emojis[13] + "  **Friend requests:** " + (user.hasFriendRequestsEnabled() ? "Enabled" : "Disabled") + "\n"
+								+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
+								+ emojis[15] + "  **Comment history:** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
+						embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
+						if (iconSetUrl.startsWith("http")) {
+							embed.setImage(iconSetUrl);
+						} else {
+							embed.addField(":warning: Could not generate the icon set image", iconSetUrl, false);
 						}
-						mcs.setEmbed(embed -> {
-							embed.setAuthor(authorName, null, authorIconUrl);
-							embed.addField(":chart_with_upwards_trend:  " + user.getName() + "'s stats", emojis[0] + "  " + formatCode(user.getStars(), statWidth) + "\n"
-									+ emojis[1] + "  " + formatCode(user.getDiamonds(), statWidth) + "\n"
-									+ emojis[2] + "  " + formatCode(user.getUserCoins(), statWidth) + "\n"
-									+ emojis[3] + "  " + formatCode(user.getSecretCoins(), statWidth) + "\n"
-									+ emojis[4] + "  " + formatCode(user.getDemons(), statWidth) + "\n"
-									+ emojis[5] + "  " + formatCode(user.getCreatorPoints(), statWidth) + "\n", false);
-							final var badge = user.getRole() == Role.ELDER_MODERATOR ? emojis[7] : emojis[6];
-							final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
-							embed.addField("───────────", (user.getRole() != Role.USER ? mod : "")
-									+ emojis[8] + "  **Global Rank:** "
-									+ (user.getGlobalRank() == 0 ? "*Unranked*" : user.getGlobalRank()) + "\n"
-									+ emojis[9] + "  **Youtube:** "
-										+ (user.getYoutube().isEmpty() ? "*not provided*" : "[Open link](https://www.youtube.com/channel/"
-										+ Utils.urlEncode(user.getYoutube()) + ")") + "\n"
-									+ emojis[11] + "  **Twitch:** "
-										+ (user.getTwitch().isEmpty() ? "*not provided*" : "["  + user.getTwitch()
-										+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
-									+ emojis[10] + "  **Twitter:** "
-										+ (user.getTwitter().isEmpty() ? "*not provided*" : "[@" + user.getTwitter() + "]"
-										+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
-									+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? "*unknown*" : linkedAccounts.stream()
-											.reduce(new StringJoiner(", "), (sj, l) -> sj.add(DiscordFormatter.formatUser(l)), (a, b) -> a).toString())
-									+ "\n───────────\n"
-									+ emojis[13] + "  **Friend requests:** " + (user.hasFriendRequestsEnabled() ? "Enabled" : "Disabled") + "\n"
-									+ emojis[14] + "  **Private messages:** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
-									+ emojis[15] + "  **Comment history:** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
-							embed.setFooter("PlayerID: " + user.getId() + " | " + "AccountID: " + user.getAccountId(), null);
-							if (iconSetUrl.startsWith("http")) {
-								embed.setImage(iconSetUrl);
-							} else {
-								embed.addField(":warning: Could not generate the icon set image", iconSetUrl, false);
-							}
-						});
 					};
+					if (content == null) {
+						return new MessageSpecTemplate(embedSpec);
+					}
+					return new MessageSpecTemplate(content, embedSpec);
 				});
 	}
 	
-	public static Mono<String> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String> iconsCache) {
+	public static Mono<String> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String> iconsCache, Snowflake iconChannelId) {
 		final var iconSet = new GDUserIconSet(user, sf);
 		final var cached = iconsCache.get(iconSet);
 		if (cached != null) {
@@ -126,7 +130,7 @@ public final class GDUsers {
 		g.dispose();
 		final var istreamIconSet = imageToInputStream(iconSetImg);
 		
-		return bot.getAttachmentsChannel()
+		return bot.getGateway().getChannelById(iconChannelId)
 				.ofType(MessageChannel.class)
 				.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
 				.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
@@ -153,7 +157,7 @@ public final class GDUsers {
 			return Mono.just(id)
 					.map(Snowflake::of)
 					.onErrorMap(e -> new CommandFailedException("Not a valid mention."))
-					.flatMap(snowflake -> bot.getDiscordClients().flatMap(client -> client.getUserById(snowflake)).next())
+					.flatMap(snowflake -> bot.getGateway().getUserById(snowflake))
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
 					.flatMap(user -> bot.getDatabase().findByID(GDLinkedUsers.class, user.getId().asLong()))
 					.filter(GDLinkedUsers::getIsLinkActivated)
@@ -190,11 +194,9 @@ public final class GDUsers {
 		return new String(result);
 	}
 	
-	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, GDUser gdUser) {
+	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, long gdUserId) {
 		return bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers linkedUser where linkedUser.gdAccountId = ?0 "
-				+ "and linkedUser.isLinkActivated = 1", gdUser.getAccountId())
-				.flatMap(linkedUser -> bot.getDiscordClients()
-						.flatMap(client -> client.getUserById(Snowflake.of(linkedUser.getDiscordUserId())))
-						.take(1));
+				+ "and linkedUser.isLinkActivated = 1", gdUserId)
+				.flatMap(linkedUser -> bot.getGateway().getUserById(Snowflake.of(linkedUser.getDiscordUserId())));
 	}
 }

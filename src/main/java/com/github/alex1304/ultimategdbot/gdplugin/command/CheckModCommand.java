@@ -6,7 +6,7 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModList;
@@ -19,7 +19,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 import reactor.core.publisher.Mono;
 import reactor.util.annotation.Nullable;
 
-@CommandSpec(
+@CommandDescriptor(
 		aliases = "checkmod",
 		shortDescription = "Checks for the presence of the Moderator badge on someone's profile."
 )
@@ -51,7 +51,7 @@ public class CheckModCommand {
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + " Failed. Nothing found."
 								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
-						.then(GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache())
+						.then(GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.getBot().getDatabase().findByID(GDModList.class, user.getAccountId()))
 						.switchIfEmpty(Mono.defer(() -> {

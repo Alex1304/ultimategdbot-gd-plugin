@@ -22,12 +22,13 @@ import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.utils.BotUtils;
-import com.github.alex1304.ultimategdbot.api.utils.Markdown;
-import com.github.alex1304.ultimategdbot.api.utils.UniversalMessageSpec;
-import com.github.alex1304.ultimategdbot.api.utils.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.api.utils.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.utils.menu.UnexpectedReplyException;
+import com.github.alex1304.ultimategdbot.api.util.BotUtils;
+import com.github.alex1304.ultimategdbot.api.util.Markdown;
+import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
+import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
+import com.github.alex1304.ultimategdbot.api.util.menu.PaginationControls;
+import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.spec.EmbedCreateSpec;
@@ -178,14 +179,14 @@ public class GDLevels {
 		return searchFactory.get()
 				.doOnNext(paginator -> resultsOfCurrentPage.set(paginator.asList()))
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getDefaultPaginationControls(), page -> {
+						: InteractiveMenu.createAsyncPaginated(currentPage, PaginationControls.getDefault(), page -> {
 							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
 							return results.goTo(page)
 								.map(GDPaginator::asList)
 								.doOnNext(resultsOfCurrentPage::set)
 								.onErrorReturn(MissingAccessException.class, List.of())
 								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get(), results.getTotalNumberOfPages()))
-								.map(UniversalMessageSpec::new);
+								.map(MessageSpecTemplate::new);
 						})
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().get(Integer.parseInt(interaction.getArgs().get(1)) - 1))

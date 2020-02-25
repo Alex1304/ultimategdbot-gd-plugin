@@ -10,16 +10,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.exception.MissingAccessException;
-import com.github.alex1304.ultimategdbot.api.DatabaseException;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.Scope;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
-import com.github.alex1304.ultimategdbot.api.utils.MutexPool;
-import com.github.alex1304.ultimategdbot.api.utils.UniversalMessageSpec;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseException;
+import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
@@ -28,17 +28,17 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
-import discord4j.core.object.entity.PrivateChannel;
 import discord4j.core.object.entity.Role;
-import discord4j.core.object.entity.TextChannel;
 import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.channel.PrivateChannel;
+import discord4j.core.object.entity.channel.TextChannel;
 import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
 
-@CommandSpec(
+@CommandDescriptor(
 		aliases = { "levelrequest", "lvlreq" },
 		shortDescription = "Submit your levels for other players to give feedback on them.",
 		scope = Scope.GUILD_ONLY
@@ -46,7 +46,6 @@ import reactor.util.annotation.Nullable;
 public class LevelRequestCommand {
 
 	private final GDServiceMediator gdServiceMediator;
-	private final MutexPool mutexPool = new MutexPool();
 	
 	public LevelRequestCommand(GDServiceMediator gdServiceMediator) {
 		this.gdServiceMediator = gdServiceMediator;
@@ -73,7 +72,7 @@ public class LevelRequestCommand {
 								? Mono.error(new CommandFailedException("Hmm, did you mean \"" + ctx.getPrefixUsed()
 										+ "lvlreq **submit** " + ctx.getArgs().getAllAfter(1) + "\"?"))
 								: Mono.just(lvlReqSettings))
-						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getMainDiscordClient()
+						.zipWhen(lvlReqSettings -> lvlReqSettings.getReviewerRoleId() == 0 ? Mono.just("*Not configured*") : ctx.getBot().getGateway()
 								.getRoleById(guildId, Snowflake.of(lvlReqSettings.getReviewerRoleId()))
 								.map(Role::getName)
 								.onErrorResume(e -> Mono.empty())
@@ -100,9 +99,9 @@ public class LevelRequestCommand {
 			+ "isn't received). It may lead to orphan submissions, that is submissions that don't exist on Discord "
 			+ "but still exist in database. This command removes those orphan submissions from database. Note that "
 			+ "this orphan removal process is automatically ran once a day.")
+	@CommandPermission(level = PermissionLevel.BOT_OWNER)
 	public Mono<Void> runCleanOrphanSubmissions(Context ctx) {
-		return PermissionLevel.BOT_OWNER.checkGranted(ctx)
-				.then(GDLevelRequests.cleanOrphanSubmissions(ctx.getBot()))
+		return GDLevelRequests.cleanOrphanSubmissions(ctx.getBot())
 				.then(ctx.getBot().getEmoji("success")
 						.flatMap(success -> ctx.reply(success + " Orphan submissions have been removed from database.")))
 				.then();
@@ -116,18 +115,11 @@ public class LevelRequestCommand {
 				+ "Note that you can still add reviews to queue levels while level requests are closed, and "
 				+ "each review must not exceed 1000 characters.\n\n"
 				+ "To revoke your review from a submission, the syntax is `review <submission_ID> revoke`.")
+	@CommandPermission(name = "LEVEL_REQUEST_REVIEWER")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
-		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var guildId = ctx.getEvent().getGuildId().orElseThrow();
-
-		return ctx.getChannel().typeUntil(ctx.getAuthor().asMember(guildId)
-				.flatMap(member -> GDLevelRequests.retrieveSettings(ctx)
-						.doOnNext(lvlReqSettings::set)
-						.map(GDLevelRequestsSettings::getReviewerRoleId)
-						.map(Snowflake::of)
-						.filter(member.getRoleIds()::contains))
-				.switchIfEmpty(Mono.error(new CommandFailedException("You are not a level reviewer in this server.")))
-				.then(Mono.defer(() -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqSettings.get(), null, false))))
+		return ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
+				.flatMap(lvlReqSettings -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqSettings, null, false)))
 				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " The submission has been updated.")))
 				.then();
 	}
@@ -142,7 +134,7 @@ public class LevelRequestCommand {
 		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
-		return mutexPool.acquireUntil(guildId, ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
+		return ctx.getChannel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.getEvent().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
@@ -154,7 +146,7 @@ public class LevelRequestCommand {
 				.switchIfEmpty(Mono.error(new CommandFailedException("This level is already in queue.")))
 				.filterWhen(lrs -> guildSubmissions.get()
 						.filter(s -> !s.getIsReviewed() && s.getSubmitterId() == user.getId().asLong())
-						.filterWhen(s -> ctx.getBot().getMainDiscordClient()
+						.filterWhen(s -> ctx.getBot().getGateway()
 								.getMessageById(Snowflake.of(s.getMessageChannelId()), Snowflake.of(s.getMessageId()))
 								.hasElement()
 								.onErrorReturn(true))
@@ -179,7 +171,7 @@ public class LevelRequestCommand {
 						})
 						.flatMap(s -> ctx.getBot().getDatabase().save(s).thenReturn(s).onErrorReturn(s)) // First save to know the submission ID
 						.flatMap(s -> GDLevelRequests.buildSubmissionMessage(ctx.getBot(), user, level.get(), lvlReqSettings.get(), s, List.of())
-								.map(UniversalMessageSpec::toMessageCreateSpec)
+								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(ctx::reply)
 								.flatMap(message -> {
 									s.setMessageId(message.getId().asLong());
@@ -187,16 +179,16 @@ public class LevelRequestCommand {
 									return ctx.getBot().getDatabase().save(s);
 								})
 								.onErrorResume(e -> ctx.getBot().getDatabase().delete(s).then(Mono.error(e))))))
-				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!"))))
+				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!")))
 				.then();
 	}
 	
 	@CommandAction("toggle")
 	@CommandDoc("Enable or disable level requests for this server.")
+	@CommandPermission(level = PermissionLevel.GUILD_ADMIN)
 	public Mono<Void> runToggle(Context ctx) {
 		var isOpening = new AtomicBoolean();
-		return PermissionLevel.SERVER_ADMIN.checkGranted(ctx)
-				.thenMany(GDLevelRequests.retrieveSettings(ctx))
+		return GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings -> isOpening.set(!lvlReqSettings.getIsOpen()))
 				.doOnNext(lvlReqSettings -> lvlReqSettings.setIsOpen(isOpening.get()))
 				.flatMap(ctx.getBot().getDatabase()::save)
@@ -206,6 +198,7 @@ public class LevelRequestCommand {
 	
 	@CommandAction("purge_invalid_submissions")
 	@CommandDoc("Removes all submissions referring to levels that were deleted or that were already rated.")
+	@CommandPermission(level = PermissionLevel.BOT_OWNER)
 	public Mono<Void> runPurgeInvalidSubmissions(Context ctx) {
 		var guildId = ctx.getEvent().getGuildId().orElseThrow();
 		var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
@@ -247,7 +240,7 @@ public class LevelRequestCommand {
 		if (reviewContent.length() > 1000) {
 			return Mono.error(new CommandFailedException("Review content must not exceed 1000 characters."));
 		}
-		return mutexPool.acquireUntil(guildId, Mono.justOrEmpty(submissionObj)
+		return Mono.justOrEmpty(submissionObj)
 				.switchIfEmpty(ctx.getBot().getDatabase().findByID(GDLevelRequestSubmissions.class, submissionId)
 						.doOnNext(submission::set)
 						.filter(s -> s.getGuildId() == guildId)
@@ -255,10 +248,10 @@ public class LevelRequestCommand {
 						.switchIfEmpty(Mono.error(new CommandFailedException("This submission has already been moved.")))
 						.filter(s -> s.getSubmitterId() != userId)
 						.switchIfEmpty(Mono.error(new CommandFailedException("You can't review your own submission."))))
-				.filterWhen(s -> ctx.getBot().getMainDiscordClient()
+				.filterWhen(s -> ctx.getBot().getGateway()
 						.getMessageById(ctx.getEvent().getMessage().getChannelId(), Snowflake.of(s.getMessageId()))
 						.doOnNext(submissionMsg::set)
-						.flatMap(__ -> ctx.getBot().getMainDiscordClient()
+						.flatMap(__ -> ctx.getBot().getGateway()
 								.getUserById(Snowflake.of(s.getSubmitterId()))
 								.doOnNext(submitter::set))
 						.flatMap(__ -> ctx.getEvent().getGuild())
@@ -298,8 +291,8 @@ public class LevelRequestCommand {
 					if (forceMove || reviewList.size() >= lvlReqSettings.getMaxReviewsRequired()) {
 						return submissionMsg.get().delete()
 								.then(updatedMessage)
-								.map(UniversalMessageSpec::toMessageCreateSpec)
-								.flatMap(spec -> ctx.getBot().getMainDiscordClient()
+								.map(MessageSpecTemplate::toMessageCreateSpec)
+								.flatMap(spec -> ctx.getBot().getGateway()
 										.getChannelById(Snowflake.of(lvlReqSettings.getReviewedLevelsChannelId()))
 										.ofType(TextChannel.class)
 										.flatMap(channel -> channel.createMessage(spec))
@@ -310,14 +303,14 @@ public class LevelRequestCommand {
 											return ctx.getBot().getDatabase().save(submission.get());
 										}))
 								.and(Mono.defer(() -> submitter.get().getPrivateChannel()
-										.zipWith(updatedMessage.map(m -> new UniversalMessageSpec("Your level request from **"
+										.zipWith(updatedMessage.map(m -> new MessageSpecTemplate("Your level request from **"
 												+ guild.get().getName() + "** has been reviewed!", m.getEmbed()).toMessageCreateSpec()))
 										.flatMap(TupleUtils.function(PrivateChannel::createMessage))
 										.onErrorResume(e -> Mono.empty())));
 					} else {
-						return updatedMessage.map(UniversalMessageSpec::toMessageEditSpec).flatMap(submissionMsg.get()::edit);
+						return updatedMessage.map(MessageSpecTemplate::toMessageEditSpec).flatMap(submissionMsg.get()::edit);
 					}
-				}))
+				})
 				.then();
 	}
 	

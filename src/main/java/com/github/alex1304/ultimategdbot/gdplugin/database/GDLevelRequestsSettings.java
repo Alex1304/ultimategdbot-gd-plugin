@@ -1,74 +1,72 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import static java.util.Objects.requireNonNullElse;
-
 import com.github.alex1304.ultimategdbot.api.database.GuildSettings;
 
 public class GDLevelRequestsSettings implements GuildSettings {
 	
-	private long guildId;
-	private long submissionQueueChannelId;
-	private long reviewedLevelsChannelId;
-	private long reviewerRoleId;
-	private boolean isOpen;
-	private int maxQueuedSubmissionsPerPerson;
+	private Long guildId;
+	private Long submissionQueueChannelId;
+	private Long reviewedLevelsChannelId;
+	private Long reviewerRoleId;
+	private Boolean isOpen;
+	private Integer maxQueuedSubmissionsPerPerson;
 	private int maxReviewsRequired;
 
 	@Override
-	public long getGuildId() {
+	public Long getGuildId() {
 		return guildId;
 	}
 
 	@Override
 	public void setGuildId(Long guildId) {
-		this.guildId = requireNonNullElse(guildId, 0L);
+		this.guildId = guildId;
 	}
 
-	public long getSubmissionQueueChannelId() {
+	public Long getSubmissionQueueChannelId() {
 		return submissionQueueChannelId;
 	}
 
 	public void setSubmissionQueueChannelId(Long submissionQueueChannelId) {
-		this.submissionQueueChannelId = requireNonNullElse(submissionQueueChannelId, 0L);
+		this.submissionQueueChannelId = submissionQueueChannelId;
 	}
 
-	public long getReviewedLevelsChannelId() {
+	public Long getReviewedLevelsChannelId() {
 		return reviewedLevelsChannelId;
 	}
 
 	public void setReviewedLevelsChannelId(Long reviewedLevelsChannelId) {
-		this.reviewedLevelsChannelId = requireNonNullElse(reviewedLevelsChannelId, 0L);
+		this.reviewedLevelsChannelId = reviewedLevelsChannelId;
 	}
 
-	public long getReviewerRoleId() {
+	public Long getReviewerRoleId() {
 		return reviewerRoleId;
 	}
 
 	public void setReviewerRoleId(Long reviewerRoleId) {
-		this.reviewerRoleId = requireNonNullElse(reviewerRoleId, 0L);
+		this.reviewerRoleId = reviewerRoleId;
 	}
 
-	public boolean getIsOpen() {
+	public Boolean getIsOpen() {
 		return isOpen;
 	}
 
 	public void setIsOpen(Boolean isOpen) {
-		this.isOpen = requireNonNullElse(isOpen, false);
+		this.isOpen = isOpen;
 	}
 
-	public int getMaxQueuedSubmissionsPerPerson() {
+	public Integer getMaxQueuedSubmissionsPerPerson() {
 		return maxQueuedSubmissionsPerPerson;
 	}
 
 	public void setMaxQueuedSubmissionsPerPerson(Integer maxQueuedSubmissionsPerPerson) {
-		this.maxQueuedSubmissionsPerPerson = requireNonNullElse(maxQueuedSubmissionsPerPerson, 0);
+		this.maxQueuedSubmissionsPerPerson = maxQueuedSubmissionsPerPerson;
 	}
 
-	public int getMaxReviewsRequired() {
+	public Integer getMaxReviewsRequired() {
 		return maxReviewsRequired;
 	}
 
 	public void setMaxReviewsRequired(Integer maxReviewsRequired) {
-		this.maxReviewsRequired = requireNonNullElse(maxReviewsRequired, 0);
+		this.maxReviewsRequired = maxReviewsRequired;
 	}
 }

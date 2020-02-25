@@ -14,9 +14,10 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandSpec;
-import com.github.alex1304.ultimategdbot.api.utils.DiscordFormatter;
-import com.github.alex1304.ultimategdbot.api.utils.menu.InteractiveMenu;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
+import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
@@ -30,11 +31,11 @@ import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import reactor.retry.Retry;
 
-@CommandSpec(
+@CommandDescriptor(
 		aliases = "announcement",
-		shortDescription = "Sends a global bot announcement.",
-		permLevel = PermissionLevel.BOT_OWNER
+		shortDescription = "Sends a global bot announcement."
 )
+@CommandPermission(level = PermissionLevel.BOT_OWNER)
 public class AnnouncementCommand {
 
 	private final HttpClient fileClient = HttpClient.create().headers(h -> h.add("Content-Type", "text/plain"));
@@ -59,7 +60,7 @@ public class AnnouncementCommand {
 			return Mono.error(new CommandFailedException("You must attach exactly one file."));
 		}
 		
-		var field = ctx.getFlags().has("channel") ? ctx.getFlags().get("channel").orElse("Changelog") : "Changelog";
+		var field = ctx.getFlags().get("channel").orElse("Changelog");
 		Function<GDSubscribedGuilds, Long> func;
 		switch (field) {
 			case "AwardedLevels":
@@ -89,9 +90,10 @@ public class AnnouncementCommand {
 								.then(GDEvents.getExistingSubscribedGuilds(ctx.getBot(), "where channel" + field + "Id > 0")
 										.map(func)
 										.map(Snowflake::of)
-										.flatMap(gdServiceMediator.getBroadcastPreloader()::preloadChannel)
+										.map(ctx.getBot().getDiscordClient()::getChannelById)
 										.publishOn(gdServiceMediator.getGdEventScheduler())
-										.flatMap(channel -> channel.createEmbed(embed).onErrorResume(e -> Mono.empty()))
+										.flatMap(channel -> channel.createMessage(GDEvents.specToRequest(spec -> spec.setEmbed(embed)))
+												.onErrorResume(e -> Mono.empty()))
 										.then(ctx.reply("Announcement sent to all guilds!")))
 								.then())
 						.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu))
@@ -99,6 +101,8 @@ public class AnnouncementCommand {
 						.open(ctx))
 				.then();
 	}
+	
+	
 	
 	private Consumer<EmbedCreateSpec> parse(User author, List<String> lines) {
 		final var expectingFieldName = 1;
