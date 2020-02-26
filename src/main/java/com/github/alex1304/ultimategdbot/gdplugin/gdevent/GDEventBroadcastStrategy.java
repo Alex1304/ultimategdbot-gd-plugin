@@ -30,7 +30,8 @@ public interface GDEventBroadcastStrategy {
 							.flatMap(msg -> bot.getDiscordClient().getChannelById(eventProps.channelId(gsg))
 									.createMessage(GDEvents.specToRequest(msg.toMessageCreateSpec()))
 									.map(MessageBean::new)
-									.map(bean -> new Message(bot.getGateway(), bean))));
+									.map(bean -> new Message(bot.getGateway(), bean))
+									.onErrorResume(e -> Mono.empty())));
 			var dmBroadcast = eventProps.recipientAccountId(event)
 					.flatMapMany(accountId -> GDUsers.getDiscordAccountsForGDUser(bot, accountId))
 					.flatMap(User::getPrivateChannel)
@@ -52,7 +53,8 @@ public interface GDEventBroadcastStrategy {
 					.flatMapMany(Flux::fromIterable)
 					.flatMap(old -> eventProps.createMessageTemplate(event, null, old)
 							.map(MessageSpecTemplate::toMessageEditSpec)
-							.flatMap(old::edit))
+							.flatMap(old::edit)
+							.onErrorResume(e -> Mono.empty()))
 					.collectList()
 					.filter(results -> !results.isEmpty())
 					.doOnNext(results -> eventProps.levelId(event).ifPresent(id -> resultCache.put(id, results)))
