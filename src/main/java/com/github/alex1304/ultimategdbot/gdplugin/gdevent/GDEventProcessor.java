@@ -25,6 +25,7 @@ import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevels;
@@ -73,13 +74,15 @@ public class GDEventProcessor {
 			return Mono.empty();
 		}
 		var logText = eventProps.logText(event);
-		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"))
-				.flatMap(function((info, success) -> log(bot, info + " GD event fired: " + logText)
+		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"), bot.getEmoji("failed"))
+				.flatMap(function((info, success, failed) -> log(bot, info + " GD event fired: " + logText)
 						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdServiceMediator.getBroadcastResultCache())
 								.elapsed()
 								.flatMap(function((time, count) -> log(bot, success + " Successfully processed event " + logText + "\n"
 										+ "Messages " + (eventProps.broadcastStrategy() == CREATING ? "sent" : "edited") + ": " + bold("" + count) + "\n"
-										+ "Execution time: " + bold(formatDuration(Duration.ofMillis(time)))))))));
+										+ "Execution time: " + bold(formatDuration(Duration.ofMillis(time))))))
+								.onErrorResume(e -> bot.log(failed + " An error occured while dispatching event " + logText + ": " + Markdown.code(e.getClass().getName()))
+										.and(Mono.fromRunnable(() -> LOGGER.error("An error occured while dispatching GD event", e)))))));
 	}
 	
 	private Mono<Void> log(Bot bot, String text) {
@@ -144,7 +147,7 @@ public class GDEventProcessor {
 										old.getEmbeds().get(0).getAuthor().get().getName(),
 										old.getEmbeds().get(0).getAuthor().get().getIconUrl())
 								.map(embed -> new MessageSpecTemplate(old.getContent().orElse(""), embed)),
-						event -> null,
+						event -> { throw new UnsupportedOperationException(); },
 						EDITING
 				)),
 				Map.entry(TimelyLevelChangedEvent.class, new GDEventProperties<TimelyLevelChangedEvent>(

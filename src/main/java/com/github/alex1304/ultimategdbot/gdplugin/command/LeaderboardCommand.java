@@ -1,6 +1,9 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
 import static com.github.alex1304.ultimategdbot.api.util.Markdown.code;
+import static java.util.stream.Collectors.toCollection;
+import static java.util.stream.Collectors.toMap;
+import static reactor.function.TupleUtils.function;
 
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -52,7 +55,6 @@ import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.function.TupleUtils;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuples;
 
@@ -146,7 +148,7 @@ public class LeaderboardCommand {
 		var emojiRef = new AtomicReference<String>();
 		return ctx.getEvent().getGuild()
 				.flatMap(guild -> guild.getMembers()
-						.collect(Collectors.toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser, (a, b) -> a))
+						.collect(toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser, (a, b) -> a))
 						.flatMap(members -> ctx.getBot().getDatabase()
 								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId in ?0", members.keySet())
 								.collectList()
@@ -159,7 +161,7 @@ public class LeaderboardCommand {
 														.query(GDLeaderboardBans.class, "from GDLeaderboardBans b where b.accountId in ?0", gdAccIds(linkedUsers))
 														.map(GDLeaderboardBans::getAccountId)
 														.collect(Collectors.toUnmodifiableSet()))
-										.map(TupleUtils.function((emoji, userStats, bans) -> userStats.stream()
+										.map(function((emoji, userStats, bans) -> userStats.stream()
 												.peek(u -> lastRefreshed.compareAndSet(now, userStats.get(0).getLastRefreshed().toInstant()))
 												.filter(u -> noBanList || !bans.contains(u.getAccountId()))
 												.flatMap(u -> linkedUsers.stream()
@@ -167,7 +169,7 @@ public class LeaderboardCommand {
 														.map(GDLinkedUsers::getDiscordUserId)
 														.map(members::get)
 														.map(tag -> new LeaderboardEntry(stat.applyAsInt(u), u, tag)))
-												.collect(Collectors.toCollection(() -> new TreeSet<LeaderboardEntry>()))))))
+												.collect(toCollection(() -> new TreeSet<LeaderboardEntry>()))))))
 						.map(List::copyOf)
 						.flatMap(list -> {
 							if (list.size() <= ENTRIES_PER_PAGE) {
@@ -278,8 +280,9 @@ public class LeaderboardCommand {
 				.doFinally(signal -> {
 					isLocked = false;
 					LOGGER.debug("Unlocked leaderboards");
-					if (disposableProgress.get() != null) {
-						disposableProgress.get().dispose();
+					var d = disposableProgress.get();
+					if (d != null) {
+						d.dispose();
 					}
 				});
 	}
