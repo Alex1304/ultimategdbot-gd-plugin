@@ -258,7 +258,7 @@ public class GDEventProcessor {
 			return "";
 		}
 		var roleId = getter.apply(gsg);
-		return roleId == 0 ? "" : "<@&" + roleId + "> ";
+		return roleId == null || roleId == 0 ? "" : "<@&" + roleId + "> ";
 	}
 	
 	private static String randomFromArray(String[] array) {
