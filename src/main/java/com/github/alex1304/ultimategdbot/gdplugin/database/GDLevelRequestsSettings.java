@@ -1,5 +1,7 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import static java.util.Objects.requireNonNullElse;
+
 import com.github.alex1304.ultimategdbot.api.database.GuildSettings;
 
 public class GDLevelRequestsSettings implements GuildSettings {
@@ -23,7 +25,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Long getSubmissionQueueChannelId() {
-		return submissionQueueChannelId;
+		return requireNonNullElse(submissionQueueChannelId, 0L);
 	}
 
 	public void setSubmissionQueueChannelId(Long submissionQueueChannelId) {
@@ -31,7 +33,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Long getReviewedLevelsChannelId() {
-		return reviewedLevelsChannelId;
+		return requireNonNullElse(reviewedLevelsChannelId, 0L);
 	}
 
 	public void setReviewedLevelsChannelId(Long reviewedLevelsChannelId) {
@@ -39,7 +41,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Long getReviewerRoleId() {
-		return reviewerRoleId;
+		return requireNonNullElse(reviewerRoleId, 0L);
 	}
 
 	public void setReviewerRoleId(Long reviewerRoleId) {
@@ -47,7 +49,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Boolean getIsOpen() {
-		return isOpen;
+		return requireNonNullElse(isOpen, false);
 	}
 
 	public void setIsOpen(Boolean isOpen) {
@@ -55,7 +57,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Integer getMaxQueuedSubmissionsPerPerson() {
-		return maxQueuedSubmissionsPerPerson;
+		return requireNonNullElse(maxQueuedSubmissionsPerPerson, 0);
 	}
 
 	public void setMaxQueuedSubmissionsPerPerson(Integer maxQueuedSubmissionsPerPerson) {
@@ -63,7 +65,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	}
 
 	public Integer getMaxReviewsRequired() {
-		return maxReviewsRequired;
+		return requireNonNullElse(maxReviewsRequired, 0);
 	}
 
 	public void setMaxReviewsRequired(Integer maxReviewsRequired) {
