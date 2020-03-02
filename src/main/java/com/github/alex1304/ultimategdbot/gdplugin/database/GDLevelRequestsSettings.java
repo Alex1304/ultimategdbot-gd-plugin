@@ -12,7 +12,7 @@ public class GDLevelRequestsSettings implements GuildSettings {
 	private Long reviewerRoleId;
 	private Boolean isOpen;
 	private Integer maxQueuedSubmissionsPerPerson;
-	private int maxReviewsRequired;
+	private Integer maxReviewsRequired;
 
 	@Override
 	public Long getGuildId() {
