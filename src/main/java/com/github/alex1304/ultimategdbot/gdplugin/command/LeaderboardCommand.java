@@ -200,7 +200,6 @@ public class LeaderboardCommand {
 												return interaction.getMenuMessage().edit(paginator.apply(jumpTo).toMessageEditSpec())
 														.then();
 											}))
-									.withTimeoutSeconds(ctx.getBot().getConfig().getInteractiveMenuTimeoutSeconds())
 									.open(ctx);
 						})).then();
 	}
