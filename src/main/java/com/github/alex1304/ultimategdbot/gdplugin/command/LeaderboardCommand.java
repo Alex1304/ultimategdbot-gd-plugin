@@ -39,7 +39,6 @@ import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.util.menu.PaginationControls;
 import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
@@ -183,7 +182,7 @@ public class LeaderboardCommand {
 								return new MessageSpecTemplate(leaderboardView(ctx.getPrefixUsed(), guild, list, page,
 										lastRefreshed.get(), highlighted.get(), emojiRef.get()));
 							};
-							return InteractiveMenu.createPaginated(pageNum, PaginationControls.getDefault(), paginator)
+							return InteractiveMenu.createPaginated(pageNum, ctx.getBot().getConfig().getPaginationControls(), paginator)
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
@@ -201,6 +200,7 @@ public class LeaderboardCommand {
 												return interaction.getMenuMessage().edit(paginator.apply(jumpTo).toMessageEditSpec())
 														.then();
 											}))
+									.withTimeoutSeconds(ctx.getBot().getConfig().getInteractiveMenuTimeoutSeconds())
 									.open(ctx);
 						})).then();
 	}

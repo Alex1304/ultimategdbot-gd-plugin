@@ -246,7 +246,7 @@ public class LevelRequestCommand {
 						.filter(s -> s.getSubmitterId() != userId)
 						.switchIfEmpty(Mono.error(new CommandFailedException("You can't review your own submission."))))
 				.filterWhen(s -> ctx.getBot().getGateway()
-						.getMessageById(ctx.getEvent().getMessage().getChannelId(), Snowflake.of(s.getMessageId()))
+						.getMessageById(Snowflake.of(s.getMessageChannelId()), Snowflake.of(s.getMessageId()))
 						.doOnNext(submissionMsg::set)
 						.flatMap(__ -> ctx.getBot().getGateway()
 								.getUserById(Snowflake.of(s.getSubmitterId()))
