@@ -179,7 +179,7 @@ public class GDLevels {
 		return searchFactory.get()
 				.doOnNext(paginator -> resultsOfCurrentPage.set(paginator.asList()))
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createAsyncPaginated(currentPage, PaginationControls.getDefault(), page -> {
+						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.getBot().getConfig().getPaginationControls(), page -> {
 							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
 							return results.goTo(page)
 								.map(GDPaginator::asList)
