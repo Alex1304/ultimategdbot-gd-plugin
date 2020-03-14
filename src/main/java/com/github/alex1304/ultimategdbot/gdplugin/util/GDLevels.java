@@ -27,7 +27,6 @@ import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.util.menu.PaginationControls;
 import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 
 import discord4j.core.object.entity.Message;

@@ -40,7 +40,7 @@ public class GDServiceMediator {
 		this.gdEventDispatcher = gdEventDispatcher;
 		this.gdEventscannerLoop = gdEventscannerLoop;
 		this.broadcastResultCache = new BroadcastResultCache();
-		this.gdEventScheduler = Schedulers.elastic();
+		this.gdEventScheduler = Schedulers.boundedElastic();
 		this.cachedSubmissionChannelIds = cachedSubmissionChannelIds;
 		this.leaderboardRefreshParallelism = leaderboardRefreshParallelism;
 		this.iconChannelId = iconChannelId;

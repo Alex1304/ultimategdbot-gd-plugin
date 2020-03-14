@@ -8,8 +8,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
@@ -33,7 +33,7 @@ import reactor.retry.Retry;
 
 public class GDLevelRequests {
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(GDLevelRequests.class);
+	private static final Logger LOGGER = Loggers.getLogger(GDLevelRequests.class);
 	
 	private GDLevelRequests() {}
 	

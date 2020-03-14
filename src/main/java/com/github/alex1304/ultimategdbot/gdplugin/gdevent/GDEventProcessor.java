@@ -14,8 +14,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.entity.GDUser;
@@ -37,7 +37,7 @@ import reactor.core.publisher.Mono;
 
 public class GDEventProcessor {
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(GDEventProcessor.class);
+	private static final Logger LOGGER = Loggers.getLogger(GDEventProcessor.class);
 	private static final String[] AWARDED_LEVEL_ADDED_MESSAGES = new String[] {
 			"A new level has just been rated on Geometry Dash!!!",
 			"RobTop just assigned a star value to this level!",

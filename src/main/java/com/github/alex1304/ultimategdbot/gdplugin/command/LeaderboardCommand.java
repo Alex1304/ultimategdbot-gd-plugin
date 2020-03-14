@@ -21,8 +21,8 @@ import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.exception.GDClientException;
@@ -64,7 +64,7 @@ import reactor.util.function.Tuples;
 )
 public class LeaderboardCommand {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(LeaderboardCommand.class);
+	private static final Logger LOGGER = Loggers.getLogger(LeaderboardCommand.class);
 	private static final int ENTRIES_PER_PAGE = 20;
 	
 	private volatile boolean isLocked;

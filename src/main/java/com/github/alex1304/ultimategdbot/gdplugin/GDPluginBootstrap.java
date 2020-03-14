@@ -9,8 +9,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
@@ -75,7 +75,7 @@ import reactor.core.publisher.Mono;
 
 public class GDPluginBootstrap implements PluginBootstrap {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GDPluginBootstrap.class);
+	private static final Logger LOGGER = Loggers.getLogger(GDPluginBootstrap.class);
 
 	@Override
 	public Mono<Plugin> setup(Bot bot) {
