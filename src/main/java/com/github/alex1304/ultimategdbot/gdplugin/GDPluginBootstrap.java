@@ -95,6 +95,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				.map(Boolean::parseBoolean)
 				.orElse(true);
 		var maxConnections = bot.getPluginProperties().read("gdplugin.max_connections", false).map(Integer::parseInt).orElse(100);
+		var iconsCacheMaxSize = bot.getPluginProperties().read("gdplugin.icons_cache_max_size", false).map(Integer::parseInt).orElse(2048);
 		// Resources
 		var buildingGDClient = GDClientBuilder.create()
 				.withHost(host)
@@ -111,7 +112,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 					var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
 					var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
 					var gdServiceMediator = new GDServiceMediator(gdClient, spriteFactory,
-							gdEventDispatcher, scannerLoop,
+							iconsCacheMaxSize, gdEventDispatcher, scannerLoop,
 							cachedSubmissionChannelIds, maxConnections, iconChannelId);
 					initGDEventSubscriber(gdEventDispatcher, gdServiceMediator, bot);
 					var cmdProvider = initCommandProvider(gdServiceMediator, bot, gdClient);

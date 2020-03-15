@@ -1,8 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
@@ -10,6 +8,8 @@ import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdashevents.GDEventDispatcher;
 import com.github.alex1304.jdashevents.GDEventScannerLoop;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.BroadcastResultCache;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import discord4j.core.object.util.Snowflake;
 import reactor.core.scheduler.Scheduler;
@@ -22,7 +22,7 @@ public class GDServiceMediator {
 
 	private final AuthenticatedGDClient gdClient;
 	private final SpriteFactory spriteFactory;
-	private final ConcurrentHashMap<GDUserIconSet, String> iconsCache;
+	private final Cache<GDUserIconSet, String> iconsCache;
 	private final GDEventDispatcher gdEventDispatcher;
 	private final GDEventScannerLoop gdEventscannerLoop;
 	private final BroadcastResultCache broadcastResultCache;
@@ -31,12 +31,12 @@ public class GDServiceMediator {
 	private final int leaderboardRefreshParallelism;
 	private final Snowflake iconChannelId;
 
-	GDServiceMediator(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, GDEventDispatcher gdEventDispatcher,
+	GDServiceMediator(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, int iconsCacheMaxSize, GDEventDispatcher gdEventDispatcher,
 			GDEventScannerLoop gdEventscannerLoop, Set<Long> cachedSubmissionChannelIds,
 			int leaderboardRefreshParallelism, Snowflake iconChannelId) {
 		this.gdClient = gdClient;
 		this.spriteFactory = spriteFactory;
-		this.iconsCache = new ConcurrentHashMap<>();
+		this.iconsCache = Caffeine.newBuilder().maximumSize(iconsCacheMaxSize).build();
 		this.gdEventDispatcher = gdEventDispatcher;
 		this.gdEventscannerLoop = gdEventscannerLoop;
 		this.broadcastResultCache = new BroadcastResultCache();
@@ -54,7 +54,7 @@ public class GDServiceMediator {
 		return spriteFactory;
 	}
 
-	public Map<GDUserIconSet, String> getIconsCache() {
+	public Cache<GDUserIconSet, String> getIconsCache() {
 		return iconsCache;
 	}
 

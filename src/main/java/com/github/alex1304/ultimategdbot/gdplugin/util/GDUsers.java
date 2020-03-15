@@ -8,10 +8,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.StringJoiner;
@@ -31,6 +29,7 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
+import com.github.benmanes.caffeine.cache.Cache;
 
 import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.User;
@@ -39,6 +38,7 @@ import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.retry.Repeat;
 
 public final class GDUsers {
@@ -105,50 +105,52 @@ public final class GDUsers {
 				});
 	}
 	
-	public static Mono<String> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Map<GDUserIconSet, String> iconsCache, Snowflake iconChannelId) {
-		final var iconSet = new GDUserIconSet(user, sf);
-		final var cached = iconsCache.get(iconSet);
-		if (cached != null) {
-			return Mono.just(cached);
-		}
-		final var icons = new ArrayList<BufferedImage>();
-		try {
-			for (var iconType : IconType.values()) {
-					icons.add(iconSet.generateIcon(iconType));
-				
+	public static Mono<String> makeIconSet(Bot bot, GDUser user, SpriteFactory sf, Cache<GDUserIconSet, String> iconsCache, Snowflake iconChannelId) {
+		return Mono.defer(() -> {
+			final var iconSet = new GDUserIconSet(user, sf);
+			final var cached = iconsCache.getIfPresent(iconSet);
+			if (cached != null) {
+				return Mono.just(cached);
 			}
-		} catch (IllegalArgumentException e) {
-			return Mono.error(e);
-		}
-		final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), icons.get(0).getHeight(), icons.get(0).getType());
-		final var g = iconSetImg.createGraphics();
-		var offset = 0;
-		for (var icon : icons) {
-			g.drawImage(icon, offset, 0, null);
-			offset += icon.getWidth();
-		}
-		g.dispose();
-		final var istreamIconSet = imageToInputStream(iconSetImg);
-		
-		return bot.getGateway().getChannelById(iconChannelId)
-				.ofType(MessageChannel.class)
-				.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
-				.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
-				.filter(att -> att.getSize() > 0)
-				.repeatWhenEmpty(Repeat.times(5).randomBackoff(Duration.ofMillis(100), Duration.ofSeconds(1)))
-				.switchIfEmpty(Mono.error(new RuntimeException("Failed to upload the icon set to Discord. Retrying might fix it.")))
-				.map(Attachment::getUrl)
-				.doOnNext(url -> iconsCache.put(iconSet, url));
+			final var icons = new ArrayList<BufferedImage>();
+			try {
+				for (var iconType : IconType.values()) {
+						icons.add(iconSet.generateIcon(iconType));
+					
+				}
+			} catch (IllegalArgumentException e) {
+				return Mono.error(e);
+			}
+			final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), icons.get(0).getHeight(), icons.get(0).getType());
+			final var g = iconSetImg.createGraphics();
+			var offset = 0;
+			for (var icon : icons) {
+				g.drawImage(icon, offset, 0, null);
+				offset += icon.getWidth();
+			}
+			g.dispose();
+			
+			try {
+				final var istreamIconSet = imageToInputStream(iconSetImg);
+				return bot.getGateway().getChannelById(iconChannelId)
+						.ofType(MessageChannel.class)
+						.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
+						.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
+						.filter(att -> att.getSize() > 0)
+						.repeatWhenEmpty(Repeat.times(5).randomBackoff(Duration.ofMillis(100), Duration.ofSeconds(1)))
+						.switchIfEmpty(Mono.error(new RuntimeException("Failed to upload the icon set to Discord. Retrying might fix it.")))
+						.map(Attachment::getUrl)
+						.doOnNext(url -> iconsCache.put(iconSet, url));
+			} catch (IOException e) {
+				return Mono.error(e);
+			}
+		}).subscribeOn(Schedulers.boundedElastic());
 	}
 	
-	private static InputStream imageToInputStream(BufferedImage img) {
-		try {
-			final var os = new ByteArrayOutputStream(100_000);
-			ImageIO.write(img, "png", os);
-			return new ByteArrayInputStream(os.toByteArray());
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
-		}
+	private static InputStream imageToInputStream(BufferedImage img) throws IOException {
+		final var os = new ByteArrayOutputStream(100_000);
+		ImageIO.write(img, "png", os);
+		return new ByteArrayInputStream(os.toByteArray());
 	}
 	
 	public static Mono<GDUser> stringToUser(Bot bot, AuthenticatedGDClient gdClient, String str) {
