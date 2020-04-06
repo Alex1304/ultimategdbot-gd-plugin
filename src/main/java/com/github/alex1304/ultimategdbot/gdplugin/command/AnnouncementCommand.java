@@ -13,10 +13,9 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
@@ -24,8 +23,8 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
 import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.User;
-import discord4j.rest.util.Snowflake;
 import discord4j.core.spec.EmbedCreateSpec;
+import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
@@ -145,7 +144,7 @@ public class AnnouncementCommand {
 		return embed -> {
 			embed.setColor(Color.BLUE);
 			embed.setTimestamp(Instant.now());
-			embed.setAuthor(DiscordFormatter.formatUser(author), null, author.getAvatarUrl());
+			embed.setAuthor(author.getTag(), null, author.getAvatarUrl());
 			embed.setTitle(fTitle);
 			for (var i = 0 ; i < fieldNames.size() ; i++) {
 				var name = fieldNames.get(i);

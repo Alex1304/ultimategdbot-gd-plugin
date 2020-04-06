@@ -34,7 +34,6 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
 import com.github.alex1304.ultimategdbot.api.util.BotUtils;
-import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
@@ -147,7 +146,7 @@ public class LeaderboardCommand {
 		var emojiRef = new AtomicReference<String>();
 		return ctx.event().getGuild()
 				.flatMap(guild -> guild.getMembers()
-						.collect(toMap(m -> m.getId().asLong(), DiscordFormatter::formatUser, (a, b) -> a))
+						.collect(toMap(m -> m.getId().asLong(), User::getTag, (a, b) -> a))
 						.filter(not(Map::isEmpty))
 						.flatMap(members -> ctx.bot().database()
 								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId in ?0", members.keySet())
@@ -226,11 +225,7 @@ public class LeaderboardCommand {
 		var now = Timestamp.from(Instant.now());
 		var progressRefreshRate = Duration.ofSeconds(2);
 		var progress = ctx.bot().emoji("info")
-				.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.event()
-						.getMessage()
-						.getAuthor()
-						.map(DiscordFormatter::formatUser)
-						.orElse("Unknown User#0000") + "**"))
+				.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.author().getTag() + "**"))
 				.then(ctx.reply("Refreshing leaderboards..."))
 				.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
 						.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
@@ -310,7 +305,7 @@ public class LeaderboardCommand {
 								+ "**, by **" + ctx.event()
 								.getMessage()
 								.getAuthor()
-								.map(DiscordFormatter::formatUser)
+								.map(User::getTag)
 								.orElse("Unknown User#0000") + "**")));
 	}
 	
@@ -329,7 +324,7 @@ public class LeaderboardCommand {
 										+ "**, by **" + ctx.event()
 										.getMessage()
 										.getAuthor()
-										.map(DiscordFormatter::formatUser)
+										.map(User::getTag)
 										.orElse("Unknown User#0000") + "**")));
 	}
 

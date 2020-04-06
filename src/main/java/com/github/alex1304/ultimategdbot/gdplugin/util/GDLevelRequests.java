@@ -13,7 +13,6 @@ import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
@@ -93,7 +92,7 @@ public class GDLevelRequests {
 		Objects.requireNonNull(level, "level was null");
 		Objects.requireNonNull(submission.getYoutubeLink(), "youtubeLink was null");
 		Objects.requireNonNull(reviews, "reviews was null");
-		final var formatUser = DiscordFormatter.formatUser(author) + " (`" + author.getId().asLong() + "`)";
+		final var formatUser = author.getTag() + " (`" + author.getId().asLong() + "`)";
 		return Mono.zip(GDLevels.compactView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviews::getReviewerId)
@@ -113,7 +112,7 @@ public class GDLevelRequests {
 						for (var review : reviews) {
 							var reviewerName = reviewers.stream()
 									.filter(r -> r.getId().asLong() == review.getReviewerId())
-									.map(DiscordFormatter::formatUser)
+									.map(User::getTag)
 									.findAny()
 									.orElse("Unknown User\\#0000")
 									+ " (`" + review.getReviewerId() + "`)";
