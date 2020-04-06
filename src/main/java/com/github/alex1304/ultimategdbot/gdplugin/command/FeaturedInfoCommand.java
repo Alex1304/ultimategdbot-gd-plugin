@@ -12,7 +12,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import discord4j.core.object.entity.Message;
@@ -26,10 +26,10 @@ import reactor.util.function.Tuples;
 )
 public class FeaturedInfoCommand {
 
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public FeaturedInfoCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public FeaturedInfoCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 
 	@CommandAction
@@ -53,7 +53,7 @@ public class FeaturedInfoCommand {
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
 		return ctx.reply("Searching, please wait...")
-				.flatMap(waitMessage -> Mono.defer(() -> gdServiceMediator.getGdClient().browseFeaturedLevels(currentPage.get())
+				.flatMap(waitMessage -> Mono.defer(() -> gdService.getGdClient().browseFeaturedLevels(currentPage.get())
 						.flatMap(paginator -> {
 							alreadyVisitedPages.add(currentPage.get());
 							final var scoreOfFirst = paginator.asList().get(0).getFeaturedScore();
@@ -111,7 +111,7 @@ public class FeaturedInfoCommand {
 	}
 	
 	private Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
-		return waitMessage.delete().then(ctx.getEvent().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
+		return waitMessage.delete().then(ctx.event().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
 						+ GDLevels.toString(level) + " is currently placed in page **" + (page + 1)
 						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
 	}

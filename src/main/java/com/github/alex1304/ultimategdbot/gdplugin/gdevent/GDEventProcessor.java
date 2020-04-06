@@ -27,7 +27,7 @@ import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
@@ -58,12 +58,12 @@ public class GDEventProcessor {
 	};
 	
 	private final Bot bot;
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	private final Map<Class<? extends GDEvent>, GDEventProperties<? extends GDEvent>> eventProperties;
 	
-	public GDEventProcessor(Bot bot, GDServiceMediator gdServiceMediator) {
+	public GDEventProcessor(Bot bot, GDService gdService) {
 		this.bot = bot;
-		this.gdServiceMediator = gdServiceMediator;
+		this.gdService = gdService;
 		this.eventProperties = initEventProps();
 	}
 
@@ -74,9 +74,9 @@ public class GDEventProcessor {
 			return Mono.empty();
 		}
 		var logText = eventProps.logText(event);
-		return Mono.zip(bot.getEmoji("info"), bot.getEmoji("success"), bot.getEmoji("failed"))
+		return Mono.zip(bot.emoji("info"), bot.emoji("success"), bot.emoji("failed"))
 				.flatMap(function((info, success, failed) -> log(bot, info + " GD event fired: " + logText)
-						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdServiceMediator.getBroadcastResultCache())
+						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdService.getBroadcastResultCache())
 								.elapsed()
 								.flatMap(function((time, count) -> log(bot, success + " Successfully processed event " + logText + "\n"
 										+ "Messages " + (eventProps.broadcastStrategy() == CREATING ? "sent" : "edited") + ": " + bold("" + count) + "\n"
@@ -97,7 +97,7 @@ public class GDEventProcessor {
 						GDSubscribedGuilds::getChannelAwardedLevelsId,
 						GDSubscribedGuilds::getRoleAwardedLevelsId,
 						event -> Optional.of(event.getAddedLevel().getId()),
-						event -> bot.getDatabase().findByID(GDAwardedLevels.class, event.getAddedLevel().getId())
+						event -> bot.database().findByID(GDAwardedLevels.class, event.getAddedLevel().getId())
 								.switchIfEmpty(Mono.fromCallable(GDAwardedLevels::new))
 								.doOnNext(a -> {
 									a.setLevelId(event.getAddedLevel().getId());
@@ -105,9 +105,9 @@ public class GDEventProcessor {
 									a.setDownloads(event.getAddedLevel().getDownloads());
 									a.setLikes(event.getAddedLevel().getLikes());
 								})
-								.flatMap(bot.getDatabase()::save)
+								.flatMap(bot.database()::save)
 								.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.error("Error when saving new awarded level", e)))
-								.then(gdServiceMediator.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId)),
+								.then(gdService.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId)),
 						(event, gsg, old) -> GDLevels
 								.compactView(bot, event.getAddedLevel(), "New rated level!",
 										"https://i.imgur.com/asoMj1W.png")
@@ -124,7 +124,7 @@ public class GDEventProcessor {
 						GDSubscribedGuilds::getChannelAwardedLevelsId,
 						GDSubscribedGuilds::getRoleAwardedLevelsId,
 						event -> Optional.empty(),
-						event -> gdServiceMediator.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
+						event -> gdService.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, gsg, old) -> GDLevels
 								.compactView(bot, event.getRemovedLevel(), "Level un-rated...",
 										"https://i.imgur.com/fPECXUz.png")
@@ -141,12 +141,12 @@ public class GDEventProcessor {
 						GDSubscribedGuilds::getChannelAwardedLevelsId,
 						GDSubscribedGuilds::getRoleAwardedLevelsId,
 						event -> Optional.of(event.getNewLevel().getId()),
-						event -> gdServiceMediator.getGdClient().searchUser("" + event.getNewLevel().getCreatorID()).map(GDUser::getAccountId),
+						event -> gdService.getGdClient().searchUser("" + event.getNewLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, gsg, old) -> GDLevels
 								.compactView(bot, event.getNewLevel(),
 										old.getEmbeds().get(0).getAuthor().get().getName(),
 										old.getEmbeds().get(0).getAuthor().get().getIconUrl())
-								.map(embed -> new MessageSpecTemplate(old.getContent().orElse(""), embed)),
+								.map(embed -> new MessageSpecTemplate(old.getContent(), embed)),
 						event -> { throw new UnsupportedOperationException(); },
 						EDITING
 				)),
@@ -158,7 +158,7 @@ public class GDEventProcessor {
 						GDSubscribedGuilds::getRoleTimelyLevelsId,
 						event -> Optional.empty(),
 						event -> event.getTimelyLevel().getLevel()
-								.flatMap(level -> gdServiceMediator.getGdClient().searchUser("" + level.getCreatorID()))
+								.flatMap(level -> gdService.getGdClient().searchUser("" + level.getCreatorID()))
 								.map(GDUser::getAccountId),
 						(event, gsg, old) -> {
 							var isWeekly = event.getTimelyLevel().getType() == TimelyType.WEEKLY;
@@ -185,8 +185,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
-								.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(),
-										gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
+								.makeIconSet(bot, event.getUser(), gdService.getSpriteFactory(),
+										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User promoted!", "https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
@@ -204,8 +204,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
-								.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(),
-										gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
+								.makeIconSet(bot, event.getUser(), gdService.getSpriteFactory(),
+										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User promoted!", "https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
@@ -223,8 +223,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
-								.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(),
-										gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
+								.makeIconSet(bot, event.getUser(), gdService.getSpriteFactory(),
+										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User demoted...", "https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(
@@ -242,8 +242,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
-								.makeIconSet(bot, event.getUser(), gdServiceMediator.getSpriteFactory(),
-										gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
+								.makeIconSet(bot, event.getUser(), gdService.getSpriteFactory(),
+										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User demoted...", "https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(

@@ -6,7 +6,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import reactor.core.publisher.Mono;
@@ -17,10 +17,10 @@ import reactor.core.publisher.Mono;
 )
 public class LevelCommand {
 
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public LevelCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public LevelCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 	
 	@CommandAction
@@ -32,6 +32,6 @@ public class LevelCommand {
 			return Mono.error(new CommandFailedException("Your query contains invalid characters."));
 		}
 		return GDLevels.searchAndSend(ctx, "Search results for `" + query + "`",
-				() -> gdServiceMediator.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
+				() -> gdService.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

@@ -5,7 +5,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import reactor.core.publisher.Mono;
@@ -16,10 +16,10 @@ import reactor.core.publisher.Mono;
 )
 public class LevelsbyCommand {
 
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public LevelsbyCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public LevelsbyCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 	
 	@CommandAction
@@ -29,6 +29,6 @@ public class LevelsbyCommand {
 			+ "results and select the result you want.")
 	public Mono<Void> execute(Context ctx, GDUser user) {
 		return GDLevels.searchAndSend(ctx, user.getName() + "'s levels",
-				() -> gdServiceMediator.getGdClient().getLevelsByUser(user, 0));
+				() -> gdService.getGdClient().getLevelsByUser(user, 0));
 	}
 }

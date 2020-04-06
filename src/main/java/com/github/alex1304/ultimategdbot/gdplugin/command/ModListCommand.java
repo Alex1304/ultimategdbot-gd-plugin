@@ -17,12 +17,12 @@ public class ModListCommand {
 
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
-		return Mono.zip(ctx.getBot().getEmoji("mod"), ctx.getBot().getEmoji("elder_mod"), 
-						ctx.getBot().getDatabase().query(GDModList.class, "from GDModList order by isElder desc, name").collectList())
+		return Mono.zip(ctx.bot().emoji("mod"), ctx.bot().emoji("elder_mod"), 
+						ctx.bot().database().query(GDModList.class, "from GDModList order by isElder desc, name").collectList())
 				.flatMap(TupleUtils.function((modEmoji, elderModEmoji, modList) -> {
 					var sb = new StringBuilder("**__Geometry Dash Moderator List:__\n**");
 					sb.append("This list is automatically updated when the `")
-						.append(ctx.getPrefixUsed())
+						.append(ctx.prefixUsed())
 						.append("checkmod` command is used against newly promoted/demoted players.\n\n");
 					for (var gdMod : modList) {
 						sb.append(gdMod.getIsElder() ? elderModEmoji : modEmoji);

@@ -5,7 +5,7 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 
 import reactor.core.publisher.Mono;
 
@@ -16,15 +16,15 @@ import reactor.core.publisher.Mono;
 @CommandPermission(level = PermissionLevel.BOT_ADMIN)
 public class ClearGdCacheCommand {
 	
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public ClearGdCacheCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public ClearGdCacheCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
-		return Mono.fromRunnable(gdServiceMediator.getGdClient()::clearCache)
+		return Mono.fromRunnable(gdService.getGdClient()::clearCache)
 				.then(ctx.reply("GD client cache has been cleared."))
 				.then();
 	}

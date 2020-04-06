@@ -2,6 +2,7 @@ package com.github.alex1304.ultimategdbot.gdplugin.util;
 
 import static com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter.formatCode;
 import static com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter.formatPrivacy;
+import static discord4j.core.retriever.EntityRetrievalStrategy.STORE_FALLBACK_REST;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -34,8 +35,8 @@ import com.github.benmanes.caffeine.cache.Cache;
 import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.entity.channel.MessageChannel;
-import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.EmbedCreateSpec;
+import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -48,12 +49,12 @@ public final class GDUsers {
 	
 	public static Mono<MessageSpecTemplate> userProfileView(Bot bot, Optional<User> author, GDUser user, 
 			String authorName, String authorIconUrl, String iconSetUrl) {
-		return Mono.zip(o -> o, bot.getEmoji("star"), bot.getEmoji("diamond"), bot.getEmoji("user_coin"),
-				bot.getEmoji("secret_coin"), bot.getEmoji("demon"), bot.getEmoji("creator_points"),
-				bot.getEmoji("mod"), bot.getEmoji("elder_mod"), bot.getEmoji("global_rank"),
-				bot.getEmoji("youtube"), bot.getEmoji("twitter"), bot.getEmoji("twitch"),
-				bot.getEmoji("discord"), bot.getEmoji("friends"), bot.getEmoji("messages"),
-				bot.getEmoji("comment_history"))
+		return Mono.zip(o -> o, bot.emoji("star"), bot.emoji("diamond"), bot.emoji("user_coin"),
+				bot.emoji("secret_coin"), bot.emoji("demon"), bot.emoji("creator_points"),
+				bot.emoji("mod"), bot.emoji("elder_mod"), bot.emoji("global_rank"),
+				bot.emoji("youtube"), bot.emoji("twitter"), bot.emoji("twitch"),
+				bot.emoji("discord"), bot.emoji("friends"), bot.emoji("messages"),
+				bot.emoji("comment_history"))
 				.zipWith(getDiscordAccountsForGDUser(bot, user.getAccountId()).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
@@ -132,7 +133,7 @@ public final class GDUsers {
 			
 			try {
 				final var istreamIconSet = imageToInputStream(iconSetImg);
-				return bot.getGateway().getChannelById(iconChannelId)
+				return bot.gateway().getChannelById(iconChannelId)
 						.ofType(MessageChannel.class)
 						.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
 						.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
@@ -159,9 +160,9 @@ public final class GDUsers {
 			return Mono.just(id)
 					.map(Snowflake::of)
 					.onErrorMap(e -> new CommandFailedException("Not a valid mention."))
-					.flatMap(snowflake -> bot.getGateway().getUserById(snowflake))
+					.flatMap(snowflake -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST).getUserById(snowflake))
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
-					.flatMap(user -> bot.getDatabase().findByID(GDLinkedUsers.class, user.getId().asLong()))
+					.flatMap(user -> bot.database().findByID(GDLinkedUsers.class, user.getId().asLong()))
 					.filter(GDLinkedUsers::getIsLinkActivated)
 					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
 					.switchIfEmpty(Mono.error(new CommandFailedException("This user doesn't have an associated Geometry Dash account.")));
@@ -197,8 +198,9 @@ public final class GDUsers {
 	}
 	
 	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, long gdUserId) {
-		return bot.getDatabase().query(GDLinkedUsers.class, "from GDLinkedUsers linkedUser where linkedUser.gdAccountId = ?0 "
+		return bot.database().query(GDLinkedUsers.class, "from GDLinkedUsers linkedUser where linkedUser.gdAccountId = ?0 "
 				+ "and linkedUser.isLinkActivated = 1", gdUserId)
-				.flatMap(linkedUser -> bot.getGateway().getUserById(Snowflake.of(linkedUser.getDiscordUserId())));
+				.flatMap(linkedUser -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST)
+						.getUserById(Snowflake.of(linkedUser.getDiscordUserId())));
 	}
 }

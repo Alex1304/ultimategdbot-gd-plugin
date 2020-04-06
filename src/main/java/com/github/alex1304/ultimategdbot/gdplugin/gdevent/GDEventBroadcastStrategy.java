@@ -9,7 +9,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
-import discord4j.core.object.data.stored.MessageBean;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import reactor.core.publisher.Flux;
@@ -25,12 +24,11 @@ public interface GDEventBroadcastStrategy {
 	static class NewMessageBroadcastStrategy implements GDEventBroadcastStrategy {
 		@Override
 		public Mono<Integer> broadcast(Bot bot, GDEvent event, GDEventProperties<? extends GDEvent> eventProps, BroadcastResultCache resultCache) {
-			var guildBroadcast = bot.getDatabase().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where " + eventProps.databaseField() + " > 0")
+			var guildBroadcast = bot.database().query(GDSubscribedGuilds.class, "from GDSubscribedGuilds where " + eventProps.databaseField() + " > 0")
 					.flatMap(gsg -> eventProps.createMessageTemplate(event, gsg, null)
-							.flatMap(msg -> bot.getDiscordClient().getChannelById(eventProps.channelId(gsg))
+							.flatMap(msg -> bot.rest().getChannelById(eventProps.channelId(gsg))
 									.createMessage(GDEvents.specToRequest(msg.toMessageCreateSpec()))
-									.map(MessageBean::new)
-									.map(bean -> new Message(bot.getGateway(), bean))
+									.map(data -> new Message(bot.gateway(), data))
 									.onErrorResume(e -> Mono.empty())));
 			var dmBroadcast = eventProps.recipientAccountId(event)
 					.flatMapMany(accountId -> GDUsers.getDiscordAccountsForGDUser(bot, accountId))

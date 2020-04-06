@@ -18,13 +18,13 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
 import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.User;
-import discord4j.core.object.util.Snowflake;
+import discord4j.rest.util.Snowflake;
 import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -39,10 +39,10 @@ import reactor.retry.Retry;
 public class AnnouncementCommand {
 
 	private final HttpClient fileClient = HttpClient.create().headers(h -> h.add("Content-Type", "text/plain"));
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public AnnouncementCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public AnnouncementCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 	
 	@CommandAction
@@ -56,11 +56,11 @@ public class AnnouncementCommand {
 			+ "Then on next line the content of the 2nd section, etc etc.\n"
 			+ "```\n")
 	public Mono<Void> run(Context ctx) {
-		if (ctx.getEvent().getMessage().getAttachments().size() != 1) {
+		if (ctx.event().getMessage().getAttachments().size() != 1) {
 			return Mono.error(new CommandFailedException("You must attach exactly one file."));
 		}
 		
-		var field = ctx.getFlags().get("channel").orElse("Changelog");
+		var field = ctx.flags().get("channel").orElse("Changelog");
 		Function<GDSubscribedGuilds, Long> func;
 		switch (field) {
 			case "AwardedLevels":
@@ -76,22 +76,22 @@ public class AnnouncementCommand {
 				func = GDSubscribedGuilds::getChannelChangelogId;
 		}
 		
-		return getFileContent(ctx.getEvent().getMessage().getAttachments().stream().findAny().orElseThrow())
+		return getFileContent(ctx.event().getMessage().getAttachments().stream().findAny().orElseThrow())
 				.map(String::lines)
 				.flatMapMany(Flux::fromStream)
 				.filter(l -> !l.startsWith("#"))
 				.collectList()
-				.map(lines -> parse(ctx.getAuthor(), lines))
+				.map(lines -> parse(ctx.author(), lines))
 				.flatMap(embed -> InteractiveMenu.create(m -> {
 							m.setContent("Here is the announcement that is going to be sent to all servers. Is this alright? React to confirm.");
 							m.setEmbed(embed);
 						})
 						.addReactionItem("success", interaction -> ctx.reply("Sending announcement, please wait...")
-								.then(GDEvents.getExistingSubscribedGuilds(ctx.getBot(), "where channel" + field + "Id > 0")
+								.then(GDEvents.getExistingSubscribedGuilds(ctx.bot(), "where channel" + field + "Id > 0")
 										.map(func)
 										.map(Snowflake::of)
-										.map(ctx.getBot().getDiscordClient()::getChannelById)
-										.publishOn(gdServiceMediator.getGdEventScheduler())
+										.map(ctx.bot().rest()::getChannelById)
+										.publishOn(gdService.getGdEventScheduler())
 										.flatMap(channel -> channel.createMessage(GDEvents.specToRequest(spec -> spec.setEmbed(embed)))
 												.onErrorResume(e -> Mono.empty()))
 										.then(ctx.reply("Announcement sent to all guilds!")))

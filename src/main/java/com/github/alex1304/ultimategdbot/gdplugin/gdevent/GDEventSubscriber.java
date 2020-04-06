@@ -4,7 +4,7 @@ import org.reactivestreams.Subscription;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.scheduler.Scheduler;
@@ -15,9 +15,9 @@ public class GDEventSubscriber extends BaseSubscriber<GDEvent> {
 	private final GDEventProcessor processor;
 	private final Scheduler scheduler;
 	
-	public GDEventSubscriber(Bot bot, GDServiceMediator gdServiceMediator) {
-		this.processor = new GDEventProcessor(bot, gdServiceMediator);
-		this.scheduler = gdServiceMediator.getGdEventScheduler();
+	public GDEventSubscriber(Bot bot, GDService gdService) {
+		this.processor = new GDEventProcessor(bot, gdService);
+		this.scheduler = gdService.getGdEventScheduler();
 	}
 
 	@Override

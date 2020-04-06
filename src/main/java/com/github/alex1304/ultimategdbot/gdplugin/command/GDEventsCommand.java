@@ -26,7 +26,7 @@ import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import reactor.core.publisher.EmitterProcessor;
@@ -42,10 +42,10 @@ import reactor.util.annotation.Nullable;
 @CommandPermission(level = PermissionLevel.BOT_OWNER)
 public class GDEventsCommand {
 
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public GDEventsCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public GDEventsCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 	
 	@CommandAction("dispatch")
@@ -66,10 +66,10 @@ public class GDEventsCommand {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
 			case "daily_level_changed":
-				eventToDispatch = gdServiceMediator.getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = gdService.getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
 				break;
 			case "weekly_demon_changed":
-				eventToDispatch = gdServiceMediator.getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = gdService.getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
 				break;
 			default:
 				if (levelId == null) {
@@ -77,23 +77,23 @@ public class GDEventsCommand {
 				}
 				switch (eventName) {
 					case "awarded_level_added":
-						eventToDispatch = gdServiceMediator.getGdClient().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
+						eventToDispatch = gdService.getGdClient().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
 						break;
 					case "awarded_level_removed":
-						eventToDispatch = gdServiceMediator.getGdClient().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
+						eventToDispatch = gdService.getGdClient().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
 						break;
 					case "awarded_level_updated":
-						eventToDispatch = gdServiceMediator.getGdClient().getLevelById(levelId)
+						eventToDispatch = gdService.getGdClient().getLevelById(levelId)
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
-						return Mono.error(new CommandFailedException("Unknown event. See " + code(ctx.getPrefixUsed()
+						return Mono.error(new CommandFailedException("Unknown event. See " + code(ctx.prefixUsed()
 								+ "help gdevents dispatch") + " to see the existing events."));
 				}
 		}
 		
-		return eventToDispatch.doOnNext(gdServiceMediator.getGdEventDispatcher()::dispatch)
-				.then(ctx.getBot().getEmoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
+		return eventToDispatch.doOnNext(gdService.getGdEventDispatcher()::dispatch)
+				.then(ctx.bot().emoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
 				.then();
 	}
 	
@@ -103,15 +103,15 @@ public class GDEventsCommand {
 	public Mono<Void> runScannerLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":
-				return Mono.fromRunnable(gdServiceMediator.getGdEventscannerLoop()::start)
+				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::start)
 						.then(ctx.reply("GD event scanner loop has been started."))
 						.then();
 			case "stop":
-				return Mono.fromRunnable(gdServiceMediator.getGdEventscannerLoop()::stop)
+				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::stop)
 						.then(ctx.reply("GD event scanner loop has been stopped."))
 						.then();
 			default:
-				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.getPrefixUsed()
+				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.prefixUsed()
 						+ "help gdevents scanner_loop") + " to see the different actions possible"));
 		}
 	}
@@ -123,7 +123,7 @@ public class GDEventsCommand {
 					+ "Default is 10.")
 	)
 	public Mono<Void> runDispatchAllAwardedResumingFrom(Context ctx, long levelId) {
-		var maxPage = ctx.getFlags().get("max-page").map(v -> {
+		var maxPage = ctx.flags().get("max-page").map(v -> {
 			try {
 				return Integer.parseInt(v);
 			} catch (NumberFormatException e) {
@@ -140,7 +140,7 @@ public class GDEventsCommand {
 		Mono.zip(
 				processor.then(),
 				Flux.range(0, maxPage)
-						.concatMap(n -> gdServiceMediator.getGdClient().browseAwardedLevels(LevelSearchFilters.create(), n)
+						.concatMap(n -> gdService.getGdClient().browseAwardedLevels(LevelSearchFilters.create(), n)
 								.flatMapMany(Flux::fromIterable)
 								.doOnNext(level -> {
 									if (level.getId() == levelId) {
@@ -166,13 +166,13 @@ public class GDEventsCommand {
 								.closeAfterReaction(false)
 								.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu));
 					} else {
-						menu = InteractiveMenu.createPaginated(null, ctx.getBot().getConfig().getPaginationControls(),
+						menu = InteractiveMenu.createPaginated(null, ctx.bot().config().getPaginationControls(),
 								page -> paginateEvents(page, lastPage, events));
 					}
 					return menu.deleteMenuOnClose(true)
 							.addReactionItem("success", interaction -> {
-								events.forEach(gdServiceMediator.getGdEventDispatcher()::dispatch);
-								return ctx.getBot().getEmoji("success")
+								events.forEach(gdService.getGdEventDispatcher()::dispatch);
+								return ctx.bot().emoji("success")
 										.flatMap(success -> ctx.reply(success + " Dispatched " + events.size() + " events."))
 										.then(Mono.fromRunnable(interaction::closeMenu));
 							})

@@ -7,7 +7,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.gdplugin.GDServiceMediator;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
@@ -20,10 +20,10 @@ import reactor.util.annotation.Nullable;
 )
 public class ProfileCommand {
 
-	private final GDServiceMediator gdServiceMediator;
+	private final GDService gdService;
 	
-	public ProfileCommand(GDServiceMediator gdServiceMediator) {
-		this.gdServiceMediator = gdServiceMediator;
+	public ProfileCommand(GDService gdService) {
+		this.gdService = gdService;
 	}
 
 	@CommandAction
@@ -39,17 +39,17 @@ public class ProfileCommand {
 				+ "- privacy settings (whether private messages are open, friend requests are enabled, etc)")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.getBot().getDatabase().findByID(GDLinkedUsers.class, ctx.getAuthor().getId().asLong())
+				.switchIfEmpty(ctx.bot().database().findByID(GDLinkedUsers.class, ctx.author().getId().asLong())
 						.filter(GDLinkedUsers::getIsLinkActivated)
 								.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
 										+ "show your own profile, link your Geometry Dash account using `"
-										+ ctx.getPrefixUsed() + "account` and retry this command. Otherwise, you "
-										+ "need to specify a user like so: `" + ctx.getPrefixUsed() + "profile <gd_username>`.")))
+										+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
+										+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
 						.map(GDLinkedUsers::getGdAccountId)
-						.flatMap(gdServiceMediator.getGdClient()::getUserByAccountId))
-				.flatMap(user -> GDUsers.makeIconSet(ctx.getBot(), user, gdServiceMediator.getSpriteFactory(), gdServiceMediator.getIconsCache(), gdServiceMediator.getIconChannelId())
+						.flatMap(gdService.getGdClient()::getUserByAccountId))
+				.flatMap(user -> GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))
-						.flatMap(icons -> GDUsers.userProfileView(ctx.getBot(), ctx.getEvent().getMessage().getAuthor(), user,
+						.flatMap(icons -> GDUsers.userProfileView(ctx.bot(), ctx.event().getMessage().getAuthor(), user,
 										"User profile", "https://i.imgur.com/ppg4HqJ.png", icons)
 								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(ctx::reply)))

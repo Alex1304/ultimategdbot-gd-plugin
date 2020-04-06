@@ -8,7 +8,7 @@ import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
 
 import discord4j.core.object.entity.Message;
-import discord4j.core.object.util.Snowflake;
+import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Mono;
 import reactor.function.Function3;
 

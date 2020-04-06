@@ -11,14 +11,14 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.BroadcastResultCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import discord4j.core.object.util.Snowflake;
+import discord4j.rest.util.Snowflake;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 /**
  * Exposes various objects useful for Geometry Dash related processes.
  */
-public class GDServiceMediator {
+public class GDService {
 
 	private final AuthenticatedGDClient gdClient;
 	private final SpriteFactory spriteFactory;
@@ -31,7 +31,7 @@ public class GDServiceMediator {
 	private final int leaderboardRefreshParallelism;
 	private final Snowflake iconChannelId;
 
-	GDServiceMediator(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, int iconsCacheMaxSize, GDEventDispatcher gdEventDispatcher,
+	GDService(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, int iconsCacheMaxSize, GDEventDispatcher gdEventDispatcher,
 			GDEventScannerLoop gdEventscannerLoop, Set<Long> cachedSubmissionChannelIds,
 			int leaderboardRefreshParallelism, Snowflake iconChannelId) {
 		this.gdClient = gdClient;
