@@ -22,9 +22,9 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission
 import com.github.alex1304.ultimategdbot.api.database.DatabaseException;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 
@@ -64,9 +64,9 @@ public class LevelRequestCommand {
 		var guildId = ctx.event().getGuildId().orElseThrow();
 		return Mono.zip(ctx.bot().emoji("success"), ctx.bot().emoji("failed"))
 				.flatMap(TupleUtils.function((success, failed) -> ctx.bot().database()
-						.findByID(GDLevelRequestsSettings.class, guildId.asLong())
+						.findByID(GDLevelRequestConfigData.class, guildId.asLong())
 						.switchIfEmpty(Mono.fromCallable(() -> {
-							var lvlReqSettings = new GDLevelRequestsSettings();
+							var lvlReqSettings = new GDLevelRequestConfigData();
 							lvlReqSettings.setGuildId(guildId.asLong());
 							return lvlReqSettings;
 						}).flatMap(lvlReqSettings -> ctx.bot().database().save(lvlReqSettings).thenReturn(lvlReqSettings)))
@@ -133,15 +133,15 @@ public class LevelRequestCommand {
 		checkYouTubeLink(youtubeLink);
 		final var guildId = ctx.event().getGuildId().orElseThrow().asLong();
 		final var user = ctx.event().getMessage().getAuthor().orElseThrow();
-		final var lvlReqSettings = new AtomicReference<GDLevelRequestsSettings>();
+		final var lvlReqSettings = new AtomicReference<GDLevelRequestConfigData>();
 		final var level = new AtomicReference<GDLevel>();
-		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissions>>();
+		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissionData>>();
 		return ctx.channel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
 				.doOnNext(lvlReqSettings::set)
 				.filter(lrs -> ctx.event().getMessage().getChannelId().asLong() == lrs.getSubmissionQueueChannelId())
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
 						+ lvlReqSettings.get().getSubmissionQueueChannelId() + ">.")))
-				.filter(GDLevelRequestsSettings::getIsOpen)
+				.filter(GDLevelRequestConfigData::getIsOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
 				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.getLevelId() != levelId))
@@ -163,7 +163,7 @@ public class LevelRequestCommand {
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException("Level not found."))
 						.doOnNext(level::set))
 				.then(Mono.fromCallable(() -> {
-							var s = new GDLevelRequestSubmissions();
+							var s = new GDLevelRequestSubmissionData();
 							s.setGuildId(guildId);
 							s.setLevelId(levelId);
 							s.setSubmissionTimestamp(Timestamp.from(Instant.now()));
@@ -223,10 +223,10 @@ public class LevelRequestCommand {
 	}
 	
 	private Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
-			GDLevelRequestsSettings lvlReqSettings, @Nullable GDLevelRequestSubmissions submissionObj, boolean forceMove) {
+			GDLevelRequestConfigData lvlReqSettings, @Nullable GDLevelRequestSubmissionData submissionObj, boolean forceMove) {
 		final var userId = ctx.event().getMessage().getAuthor().orElseThrow().getId().asLong();
-		final var submission = new AtomicReference<GDLevelRequestSubmissions>(submissionObj);
-		final var review = new AtomicReference<GDLevelRequestReviews>();
+		final var submission = new AtomicReference<GDLevelRequestSubmissionData>(submissionObj);
+		final var review = new AtomicReference<GDLevelRequestReviewData>();
 		final var level = new AtomicReference<GDLevel>();
 		final var submissionMsg = new AtomicReference<RestMessage>();
 		final var submitter = new AtomicReference<User>();
@@ -237,7 +237,7 @@ public class LevelRequestCommand {
 			return Mono.error(new CommandFailedException("Review content must not exceed 1000 characters."));
 		}
 		return Mono.justOrEmpty(submissionObj)
-				.switchIfEmpty(ctx.bot().database().findByID(GDLevelRequestSubmissions.class, submissionId)
+				.switchIfEmpty(ctx.bot().database().findByID(GDLevelRequestSubmissionData.class, submissionId)
 						.doOnNext(submission::set)
 						.filter(s -> s.getGuildId() == guildId)
 						.filter(s -> !s.getIsReviewed())
@@ -263,7 +263,7 @@ public class LevelRequestCommand {
 					if (isRevoke) {
 						return null;
 					}
-					var r = new GDLevelRequestReviews();
+					var r = new GDLevelRequestReviewData();
 					review.set(r);
 					return r;
 				}))

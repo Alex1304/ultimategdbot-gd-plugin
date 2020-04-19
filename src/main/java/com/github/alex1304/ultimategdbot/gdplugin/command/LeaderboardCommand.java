@@ -39,9 +39,9 @@ import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
 import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBans;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDUserStats;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
@@ -102,37 +102,37 @@ public class LeaderboardCommand {
 							+ "To view " + tuple.getT6() + " Creator Points leaderboard, run `" + ctx.prefixUsed() + "leaderboard cp`\n"))
 					.then();
 		}
-		ToIntFunction<GDUserStats> stat;
+		ToIntFunction<GDLeaderboardData> stat;
 		Mono<String> emojiMono;
 		boolean noBanList;
 		switch (statName.toLowerCase()) {
 			case "stars":
-				stat = GDUserStats::getStars;
+				stat = GDLeaderboardData::getStars;
 				emojiMono = starEmoji;
 				noBanList = false;
 				break;
 			case "diamonds":
-				stat = GDUserStats::getDiamonds;
+				stat = GDLeaderboardData::getDiamonds;
 				emojiMono = diamondEmoji;
 				noBanList = false;
 				break;
 			case "ucoins":
-				stat = GDUserStats::getUserCoins;
+				stat = GDLeaderboardData::getUserCoins;
 				emojiMono = userCoinEmoji;
 				noBanList = false;
 				break;
 			case "scoins":
-				stat = GDUserStats::getSecretCoins;
+				stat = GDLeaderboardData::getSecretCoins;
 				emojiMono = secretCoinEmoji;
 				noBanList = false;
 				break;
 			case "demons":
-				stat = GDUserStats::getDemons;
+				stat = GDLeaderboardData::getDemons;
 				emojiMono = demonEmoji;
 				noBanList = false;
 				break;
 			case "cp":
-				stat = GDUserStats::getCreatorPoints;
+				stat = GDLeaderboardData::getCreatorPoints;
 				emojiMono = cpEmoji;
 				noBanList = true;
 				break;
@@ -149,24 +149,24 @@ public class LeaderboardCommand {
 						.collect(toMap(m -> m.getId().asLong(), User::getTag, (a, b) -> a))
 						.filter(not(Map::isEmpty))
 						.flatMap(members -> ctx.bot().database()
-								.query(GDLinkedUsers.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId in ?0", members.keySet())
+								.query(GDLinkedUserData.class, "from GDLinkedUsers l where l.isLinkActivated = 1 and l.discordUserId in ?0", members.keySet())
 								.collectList()
 								.filter(not(List::isEmpty))
 								.flatMap(linkedUsers -> Mono.zip(
 												emojiMono.doOnNext(emojiRef::set),
 												ctx.bot().database()
-														.query(GDUserStats.class, "from GDUserStats u where u.accountId in ?0 order by u.lastRefreshed desc", gdAccIds(linkedUsers))
+														.query(GDLeaderboardData.class, "from GDUserStats u where u.accountId in ?0 order by u.lastRefreshed desc", gdAccIds(linkedUsers))
 														.collectList(),
 												ctx.bot().database()
-														.query(GDLeaderboardBans.class, "from GDLeaderboardBans b where b.accountId in ?0", gdAccIds(linkedUsers))
-														.map(GDLeaderboardBans::getAccountId)
+														.query(GDLeaderboardBanData.class, "from GDLeaderboardBans b where b.accountId in ?0", gdAccIds(linkedUsers))
+														.map(GDLeaderboardBanData::getAccountId)
 														.collect(Collectors.toUnmodifiableSet()))
 										.map(function((emoji, userStats, bans) -> userStats.stream()
 												.peek(u -> lastRefreshed.compareAndSet(now, userStats.get(0).getLastRefreshed().toInstant()))
 												.filter(u -> noBanList || !bans.contains(u.getAccountId()))
 												.flatMap(u -> linkedUsers.stream()
 														.filter(l -> l.getGdAccountId() == u.getAccountId())
-														.map(GDLinkedUsers::getDiscordUserId)
+														.map(GDLinkedUserData::getDiscordUserId)
 														.map(members::get)
 														.map(tag -> new LeaderboardEntry(stat.applyAsInt(u), u, tag)))
 												.collect(toCollection(() -> new TreeSet<LeaderboardEntry>()))))))
@@ -237,9 +237,9 @@ public class LeaderboardCommand {
 										.then(ctx.reply(success + " Leaderboards refreshed!")))
 								.subscribe()));
 		
-		return ctx.bot().database().query(GDUserStats.class, "from GDUserStats s order by s.lastRefreshed desc")
+		return ctx.bot().database().query(GDLeaderboardData.class, "from GDUserStats s order by s.lastRefreshed desc")
 				.next()
-				.map(GDUserStats::getLastRefreshed)
+				.map(GDLeaderboardData::getLastRefreshed)
 				.map(Timestamp::toInstant)
 				.defaultIfEmpty(Instant.MIN)
 				.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
@@ -247,8 +247,8 @@ public class LeaderboardCommand {
 				.filter(Duration::isNegative)
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
 						+ "Try again in " + BotUtils.formatDuration(cooldown.get().withNanos(0)))))
-				.thenMany(ctx.bot().database().query(GDLinkedUsers.class, "from GDLinkedUsers where isLinkActivated = 1"))
-				.distinct(GDLinkedUsers::getGdAccountId)
+				.thenMany(ctx.bot().database().query(GDLinkedUserData.class, "from GDLinkedUsers where isLinkActivated = 1"))
+				.distinct(GDLinkedUserData::getGdAccountId)
 				.buffer()
 				.doOnNext(buf -> total.set(buf.size()))
 				.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
@@ -259,7 +259,7 @@ public class LeaderboardCommand {
 								+ linkedUser.getGdAccountId(), e))), gdService.getLeaderboardRefreshParallelism())
 				.map(gdUser -> {
 					loaded.incrementAndGet();
-					var s = new GDUserStats();
+					var s = new GDLeaderboardData();
 					s.setAccountId(gdUser.getAccountId());
 					s.setName(gdUser.getName());
 					s.setLastRefreshed(now);
@@ -290,9 +290,9 @@ public class LeaderboardCommand {
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
-		return ctx.bot().database().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
+		return ctx.bot().database().findByID(GDLeaderboardBanData.class, gdUser.getAccountId())
 				.flatMap(__ -> Mono.error(new CommandFailedException("This user is already banned.")))
-				.then(Mono.just(new GDLeaderboardBans())
+				.then(Mono.just(new GDLeaderboardBanData())
 						.doOnNext(newBan -> newBan.setAccountId(gdUser.getAccountId()))
 						.doOnNext(newBan -> newBan.setBannedBy(ctx.event().getMessage().getAuthor()
 								.map(User::getId)
@@ -315,7 +315,7 @@ public class LeaderboardCommand {
 			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
-		return ctx.bot().database().findByID(GDLeaderboardBans.class, gdUser.getAccountId())
+		return ctx.bot().database().findByID(GDLeaderboardBanData.class, gdUser.getAccountId())
 						.switchIfEmpty(Mono.error(new CommandFailedException("This user is already unbanned.")))
 						.flatMap(ctx.bot().database()::delete)
 						.then(ctx.reply("**" + gdUser.getName() + "** has been unbanned from leaderboards!"))
@@ -379,16 +379,16 @@ public class LeaderboardCommand {
 		};
 	}
 	
-	private static List<Long> gdAccIds(List<GDLinkedUsers> l) {
-		return l.stream().map(GDLinkedUsers::getGdAccountId).collect(toList());
+	private static List<Long> gdAccIds(List<GDLinkedUserData> l) {
+		return l.stream().map(GDLinkedUserData::getGdAccountId).collect(toList());
 	}
 	
 	private static class LeaderboardEntry implements Comparable<LeaderboardEntry> {
 		private final int value;
-		private final GDUserStats stats;
+		private final GDLeaderboardData stats;
 		private final String discordUser;
 		
-		public LeaderboardEntry(int value, GDUserStats stats, String discordUser) {
+		public LeaderboardEntry(int value, GDLeaderboardData stats, String discordUser) {
 			this.value = value;
 			this.stats = Objects.requireNonNull(stats);
 			this.discordUser = Objects.requireNonNull(discordUser);
@@ -398,7 +398,7 @@ public class LeaderboardCommand {
 			return value;
 		}
 
-		public GDUserStats getStats() {
+		public GDLeaderboardData getStats() {
 			return stats;
 		}
 

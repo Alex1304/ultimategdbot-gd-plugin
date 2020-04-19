@@ -4,7 +4,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.util.BotUtils;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDModList;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
 
 import reactor.core.publisher.Mono;
 import reactor.function.TupleUtils;
@@ -18,7 +18,7 @@ public class ModListCommand {
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
 		return Mono.zip(ctx.bot().emoji("mod"), ctx.bot().emoji("elder_mod"), 
-						ctx.bot().database().query(GDModList.class, "from GDModList order by isElder desc, name").collectList())
+						ctx.bot().database().query(GDModData.class, "from GDModList order by isElder desc, name").collectList())
 				.flatMap(TupleUtils.function((modEmoji, elderModEmoji, modList) -> {
 					var sb = new StringBuilder("**__Geometry Dash Moderator List:__\n**");
 					sb.append("This list is automatically updated when the `")

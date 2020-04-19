@@ -8,7 +8,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUsers;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import reactor.core.publisher.Mono;
@@ -39,13 +39,13 @@ public class ProfileCommand {
 				+ "- privacy settings (whether private messages are open, friend requests are enabled, etc)")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.bot().database().findByID(GDLinkedUsers.class, ctx.author().getId().asLong())
-						.filter(GDLinkedUsers::getIsLinkActivated)
+				.switchIfEmpty(ctx.bot().database().findByID(GDLinkedUserData.class, ctx.author().getId().asLong())
+						.filter(GDLinkedUserData::getIsLinkActivated)
 								.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
 										+ "show your own profile, link your Geometry Dash account using `"
 										+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
 										+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
-						.map(GDLinkedUsers::getGdAccountId)
+						.map(GDLinkedUserData::getGdAccountId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))
