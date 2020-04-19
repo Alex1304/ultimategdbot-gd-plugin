@@ -40,9 +40,7 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionChecker;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.AnnotatedCommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
-import com.github.alex1304.ultimategdbot.api.database.GuildSettingsEntry;
 import com.github.alex1304.ultimategdbot.api.util.DatabaseInputFunction;
-import com.github.alex1304.ultimategdbot.api.util.DatabaseOutputFunction;
 import com.github.alex1304.ultimategdbot.api.util.DiscordParser;
 import com.github.alex1304.ultimategdbot.api.util.PropertyReader;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
@@ -59,8 +57,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.command.LevelsbyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ModListCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ProfileCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.WeeklyCommand;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
@@ -120,108 +117,98 @@ public class GDPluginBootstrap implements PluginBootstrap {
 					var cmdProvider = initCommandProvider(gdService, bot, gdClient);
 					return Plugin.builder("Geometry Dash")
 							.setCommandProvider(cmdProvider)
-							.addDatabaseMappingRessources(
-									"/GDLinkedUsers.hbm.xml",
-									"/GDSubscribedGuilds.hbm.xml",
-									"/GDModList.hbm.xml",
-									"/GDLeaderboardBans.hbm.xml",
-									"/GDAwardedLevels.hbm.xml",
-									"/GDLevelRequestsSettings.hbm.xml",
-									"/GDLevelRequestSubmissions.hbm.xml",
-									"/GDLevelRequestReviews.hbm.xml",
-									"/GDUserStats.hbm.xml")
-							.addGuildSettingsEntry("channel_awarded_levels", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getChannelAwardedLevelsId,
-									GDSubscribedGuilds::setChannelAwardedLevelsId,
-									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("channel_timely_levels", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getChannelTimelyLevelsId,
-									GDSubscribedGuilds::setChannelTimelyLevelsId,
-									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("channel_gd_moderators", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getChannelGdModeratorsId,
-									GDSubscribedGuilds::setChannelGdModeratorsId,
-									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("channel_changelog", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getChannelChangelogId,
-									GDSubscribedGuilds::setChannelChangelogId,
-									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("role_awarded_levels", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getRoleAwardedLevelsId,
-									GDSubscribedGuilds::setRoleAwardedLevelsId,
-									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromRoleId(bot)
-							))
-							.addGuildSettingsEntry("role_timely_levels", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getRoleTimelyLevelsId,
-									GDSubscribedGuilds::setRoleTimelyLevelsId,
-									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromRoleId(bot)
-							))
-							.addGuildSettingsEntry("role_gd_moderators", new GuildSettingsEntry<>(
-									GDSubscribedGuilds.class,
-									GDSubscribedGuilds::getRoleGdModeratorsId,
-									GDSubscribedGuilds::setRoleGdModeratorsId,
-									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-									DatabaseOutputFunction.fromRoleId(bot)
-							))
-							.addGuildSettingsEntry("lvlreq_submission_queue_channel", new GuildSettingsEntry<>(
-									GDLevelRequestsSettings.class,
-									GDLevelRequestsSettings::getSubmissionQueueChannelId,
-									GDLevelRequestsSettings::setSubmissionQueueChannelId,
-									(v, guildId) -> DatabaseInputFunction.toChannelId(bot, TextChannel.class)
-											.apply(v, guildId)
-											.doOnNext(cachedSubmissionChannelIds::add)
-											.flatMap(channelId -> bot.database().findByID(GDLevelRequestsSettings.class, guildId)
-													.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
-													.doOnNext(cachedSubmissionChannelIds::remove)
-													.thenReturn(channelId)),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
-									GDLevelRequestsSettings.class,
-									GDLevelRequestsSettings::getReviewedLevelsChannelId,
-									GDLevelRequestsSettings::setReviewedLevelsChannelId,
-									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
-									DatabaseOutputFunction.fromChannelId(bot)
-							))
-							.addGuildSettingsEntry("lvlreq_reviewer_role", new GuildSettingsEntry<>(
-									GDLevelRequestsSettings.class,
-									GDLevelRequestsSettings::getReviewerRoleId,
-									GDLevelRequestsSettings::setReviewerRoleId,
-									DatabaseInputFunction.toRoleId(bot),
-									DatabaseOutputFunction.fromRoleId(bot)
-							))
-							.addGuildSettingsEntry("lvlreq_nb_reviews_required", new GuildSettingsEntry<>(
-									GDLevelRequestsSettings.class,
-									GDLevelRequestsSettings::getMaxReviewsRequired,
-									GDLevelRequestsSettings::setMaxReviewsRequired,
-									DatabaseInputFunction.to(Integer::parseInt)
-											.withValueCheck(i -> i > 0 && i <= 5, "Must be between 1 and 5"),
-									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
-							))
-							.addGuildSettingsEntry("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
-									GDLevelRequestsSettings.class,
-									GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
-									GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
-									DatabaseInputFunction.to(Integer::parseInt)
-											.withValueCheck(i -> i > 0 && i <= 20, "Must be between 1 and 20"),
-									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
-							))
+//							.addGuildSettingsEntry("channel_awarded_levels", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getChannelAwardedLevelsId,
+//									GDSubscribedGuilds::setChannelAwardedLevelsId,
+//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("channel_timely_levels", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getChannelTimelyLevelsId,
+//									GDSubscribedGuilds::setChannelTimelyLevelsId,
+//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("channel_gd_moderators", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getChannelGdModeratorsId,
+//									GDSubscribedGuilds::setChannelGdModeratorsId,
+//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("channel_changelog", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getChannelChangelogId,
+//									GDSubscribedGuilds::setChannelChangelogId,
+//									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("role_awarded_levels", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getRoleAwardedLevelsId,
+//									GDSubscribedGuilds::setRoleAwardedLevelsId,
+//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromRoleId(bot)
+//							))
+//							.addGuildSettingsEntry("role_timely_levels", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getRoleTimelyLevelsId,
+//									GDSubscribedGuilds::setRoleTimelyLevelsId,
+//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromRoleId(bot)
+//							))
+//							.addGuildSettingsEntry("role_gd_moderators", new GuildSettingsEntry<>(
+//									GDSubscribedGuilds.class,
+//									GDSubscribedGuilds::getRoleGdModeratorsId,
+//									GDSubscribedGuilds::setRoleGdModeratorsId,
+//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
+//									DatabaseOutputFunction.fromRoleId(bot)
+//							))
+//							.addGuildSettingsEntry("lvlreq_submission_queue_channel", new GuildSettingsEntry<>(
+//									GDLevelRequestsSettings.class,
+//									GDLevelRequestsSettings::getSubmissionQueueChannelId,
+//									GDLevelRequestsSettings::setSubmissionQueueChannelId,
+//									(v, guildId) -> DatabaseInputFunction.toChannelId(bot, TextChannel.class)
+//											.apply(v, guildId)
+//											.doOnNext(cachedSubmissionChannelIds::add)
+//											.flatMap(channelId -> bot.database().findByID(GDLevelRequestsSettings.class, guildId)
+//													.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
+//													.doOnNext(cachedSubmissionChannelIds::remove)
+//													.thenReturn(channelId)),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
+//									GDLevelRequestsSettings.class,
+//									GDLevelRequestsSettings::getReviewedLevelsChannelId,
+//									GDLevelRequestsSettings::setReviewedLevelsChannelId,
+//									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
+//									DatabaseOutputFunction.fromChannelId(bot)
+//							))
+//							.addGuildSettingsEntry("lvlreq_reviewer_role", new GuildSettingsEntry<>(
+//									GDLevelRequestsSettings.class,
+//									GDLevelRequestsSettings::getReviewerRoleId,
+//									GDLevelRequestsSettings::setReviewerRoleId,
+//									DatabaseInputFunction.toRoleId(bot),
+//									DatabaseOutputFunction.fromRoleId(bot)
+//							))
+//							.addGuildSettingsEntry("lvlreq_nb_reviews_required", new GuildSettingsEntry<>(
+//									GDLevelRequestsSettings.class,
+//									GDLevelRequestsSettings::getMaxReviewsRequired,
+//									GDLevelRequestsSettings::setMaxReviewsRequired,
+//									DatabaseInputFunction.to(Integer::parseInt)
+//											.withValueCheck(i -> i > 0 && i <= 5, "Must be between 1 and 5"),
+//									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
+//							))
+//							.addGuildSettingsEntry("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
+//									GDLevelRequestsSettings.class,
+//									GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
+//									GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
+//									DatabaseInputFunction.to(Integer::parseInt)
+//											.withValueCheck(i -> i > 0 && i <= 20, "Must be between 1 and 20"),
+//									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
+//							))
 							.onReady(() -> {
 								GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
 								if (autostartScannerLoop) {
@@ -315,8 +302,8 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				.flatMap(isGuildAdmin -> isGuildAdmin ? Mono.just(true) : ctx.event().getMessage()
 						.getAuthorAsMember()
 						.flatMap(member -> GDLevelRequests.retrieveSettings(ctx)
-								.map(GDLevelRequestsSettings::getReviewerRoleId)
-								.map(Snowflake::of)
+								.map(GDLevelRequestConfigData::roleReviewer)
+								.flatMap(Mono::justOrEmpty)
 								.map(member.getRoleIds()::contains))));
 		cmdProvider.setPermissionChecker(permChecker);
 		// Error handlers

@@ -14,9 +14,9 @@ import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviews;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissions;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestsSettings;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.event.domain.message.MessageDeleteEvent;
@@ -43,13 +43,13 @@ public class GDLevelRequests {
 	 * @param ctx the context
 	 * @return the level requests settings, or an error if not configured
 	 */
-	public static Mono<GDLevelRequestsSettings> retrieveSettings(Context ctx) {
+	public static Mono<GDLevelRequestConfigData> retrieveSettings(Context ctx) {
 		Objects.requireNonNull(ctx, "ctx was null");
 		var guildId = ctx.event().getGuildId().orElseThrow();
 		return ctx.bot().database()
-				.findByID(GDLevelRequestsSettings.class, guildId.asLong())
+				.findByID(GDLevelRequestConfigData.class, guildId.asLong())
 				.switchIfEmpty(Mono.fromCallable(() -> {
-					var lvlReqSettings = new GDLevelRequestsSettings();
+					var lvlReqSettings = new GDLevelRequestConfigData();
 					lvlReqSettings.setGuildId(guildId.asLong());
 					return lvlReqSettings;
 				}).flatMap(lvlReqSettings -> ctx.bot().database().save(lvlReqSettings).thenReturn(lvlReqSettings)))
@@ -68,8 +68,8 @@ public class GDLevelRequests {
 	 * @param ctx the context
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissions> retrieveSubmissionsForGuild(Bot bot, long guildId) {
-		return bot.database().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s "
+	public static Flux<GDLevelRequestSubmissionData> retrieveSubmissionsForGuild(Bot bot, long guildId) {
+		return bot.database().query(GDLevelRequestSubmissionData.class, "from GDLevelRequestSubmissions s "
 						+ "where s.guildId = ?0 and s.isReviewed = 0 "
 						+ "order by s.submissionTimestamp", guildId);
 	}
@@ -86,7 +86,7 @@ public class GDLevelRequests {
 	 * @return a Mono emitting the submission message
 	 */
 	public static Mono<MessageSpecTemplate> buildSubmissionMessage(Bot bot, User author, GDLevel level,
-			GDLevelRequestsSettings lvlReqSettings, GDLevelRequestSubmissions submission, List<GDLevelRequestReviews> reviews) {
+			GDLevelRequestConfigData lvlReqSettings, GDLevelRequestSubmissionData submission, List<GDLevelRequestReviewData> reviews) {
 		Objects.requireNonNull(bot, "bot was null");
 		Objects.requireNonNull(author, "author was null");
 		Objects.requireNonNull(level, "level was null");
@@ -95,7 +95,7 @@ public class GDLevelRequests {
 		final var formatUser = author.getTag() + " (`" + author.getId().asLong() + "`)";
 		return Mono.zip(GDLevels.compactView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
-						.map(GDLevelRequestReviews::getReviewerId)
+						.map(GDLevelRequestReviewData::getReviewerId)
 						.map(Snowflake::of)
 						.flatMap(id -> bot.gateway()
 								.withRetrievalStrategy(STORE_FALLBACK_REST)
@@ -130,8 +130,8 @@ public class GDLevelRequests {
 	 * @param submission the submission to get reviews on
 	 * @return a Flux of all reviews for the given submission
 	 */
-	public static Flux<GDLevelRequestReviews> retrieveReviewsForSubmission(Bot bot, GDLevelRequestSubmissions submission) {
-		return bot.database().query(GDLevelRequestReviews.class, "select r from GDLevelRequestReviews r "
+	public static Flux<GDLevelRequestReviewData> retrieveReviewsForSubmission(Bot bot, GDLevelRequestSubmissionData submission) {
+		return bot.database().query(GDLevelRequestReviewData.class, "select r from GDLevelRequestReviews r "
 				+ "inner join r.submission s "
 				+ "where s.id = ?0 "
 				+ "order by r.reviewTimestamp", submission.getId());
@@ -148,14 +148,14 @@ public class GDLevelRequests {
 	 */
 	public static Mono<Void> cleanOrphanSubmissions(Bot bot) {
 		return bot.database()
-				.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageChannelId > 0 and s.messageId > 0 and s.isReviewed = 0")
+				.query(GDLevelRequestSubmissionData.class, "from GDLevelRequestSubmissions s where s.messageChannelId > 0 and s.messageId > 0 and s.isReviewed = 0")
 				.filterWhen(submission -> bot.rest()
 						.getMessageById(Snowflake.of(submission.getMessageChannelId()), Snowflake.of(submission.getMessageId()))
 						.getData()
 						.hasElement()
 						.onErrorReturn(true)
 						.map(b -> !b))
-				.map(GDLevelRequestSubmissions::getId)
+				.map(GDLevelRequestSubmissionData::getId)
 				.collectList()
 				.flatMap(submissionsToDelete -> submissionsToDelete.isEmpty() ? Mono.just(0) : bot.database()
 						.performTransaction(session -> session
@@ -175,8 +175,8 @@ public class GDLevelRequests {
 	 * @param bot the bot
 	 */
 	public static void listenAndCleanSubmissionQueueChannels(Bot bot, Set<Long> cachedSubmissionChannelIds) {
-		bot.database().query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
-				.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
+		bot.database().query(GDLevelRequestConfigData.class, "from GDLevelRequestsSettings")
+				.map(GDLevelRequestConfigData::getSubmissionQueueChannelId)
 				.collect(() -> cachedSubmissionChannelIds, Set::add)
 				.onErrorResume(e -> Mono.empty())
 				.thenMany(bot.gateway().on(MessageCreateEvent.class))
@@ -193,7 +193,7 @@ public class GDLevelRequests {
 				.filter(event -> cachedSubmissionChannelIds.contains(event.getChannelId().asLong()))
 				.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
 				.filter(id -> id > 0)
-				.flatMap(id -> bot.database().query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
+				.flatMap(id -> bot.database().query(GDLevelRequestSubmissionData.class, "from GDLevelRequestSubmissions s where s.messageId = ?0", id))
 				.flatMap(submission -> retrieveReviewsForSubmission(bot, submission)
 						.flatMap(bot.database()::delete)
 						.then()
@@ -204,10 +204,10 @@ public class GDLevelRequests {
 		
 		// Backward compatibility process
 		bot.database()
-				.query(GDLevelRequestsSettings.class, "from GDLevelRequestsSettings")
-				.collect(Collectors.toMap(GDLevelRequestsSettings::getGuildId, GDLevelRequestsSettings::getSubmissionQueueChannelId))
+				.query(GDLevelRequestConfigData.class, "from GDLevelRequestsSettings")
+				.collect(Collectors.toMap(GDLevelRequestConfigData::getGuildId, GDLevelRequestConfigData::getSubmissionQueueChannelId))
 				.flatMap(submissionChannels -> bot.database()
-						.query(GDLevelRequestSubmissions.class, "from GDLevelRequestSubmissions s where (s.messageChannelId = 0 or s.messageChannelId is null) and s.isReviewed = 0")
+						.query(GDLevelRequestSubmissionData.class, "from GDLevelRequestSubmissions s where (s.messageChannelId = 0 or s.messageChannelId is null) and s.isReviewed = 0")
 						.collectList()
 						.flatMap(submissions -> bot.database().performEmptyTransaction(session -> {
 							for (var submission : submissions) {

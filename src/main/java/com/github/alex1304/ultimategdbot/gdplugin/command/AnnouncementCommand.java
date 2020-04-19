@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -18,7 +19,8 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
 import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 
 import discord4j.core.object.entity.Attachment;
@@ -59,20 +61,20 @@ public class AnnouncementCommand {
 			return Mono.error(new CommandFailedException("You must attach exactly one file."));
 		}
 		
-		var field = ctx.flags().get("channel").orElse("Changelog");
-		Function<GDSubscribedGuilds, Long> func;
+		var field = ctx.flags().get("channel").orElse("changelog");
+		Function<GDEventConfigData, Optional<Snowflake>> func;
 		switch (field) {
-			case "AwardedLevels":
-				func = GDSubscribedGuilds::getChannelAwardedLevelsId;
+			case "awarded_levels":
+				func = GDEventConfigData::channelAwardedLevels;
 				break;
-			case "TimelyLevels":
-				func = GDSubscribedGuilds::getChannelTimelyLevelsId;
+			case "timely_levels":
+				func = GDEventConfigData::channelTimelyLevels;
 				break;
-			case "GdModerators":
-				func = GDSubscribedGuilds::getChannelGdModeratorsId;
+			case "gd_moderators":
+				func = GDEventConfigData::channelGdModerators;
 				break;
 			default:
-				func = GDSubscribedGuilds::getChannelChangelogId;
+				func = GDEventConfigData::channelChangelog;
 		}
 		
 		return getFileContent(ctx.event().getMessage().getAttachments().stream().findAny().orElseThrow())
@@ -86,9 +88,10 @@ public class AnnouncementCommand {
 							m.setEmbed(embed);
 						})
 						.addReactionItem("success", interaction -> ctx.reply("Sending announcement, please wait...")
-								.then(GDEvents.getExistingSubscribedGuilds(ctx.bot(), "where channel" + field + "Id > 0")
+								.then(ctx.bot().database().withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(field))
+										.flatMapMany(Flux::fromIterable)
 										.map(func)
-										.map(Snowflake::of)
+										.flatMap(Mono::justOrEmpty)
 										.map(ctx.bot().rest()::getChannelById)
 										.publishOn(gdService.getGdEventScheduler())
 										.flatMap(channel -> channel.createMessage(GDEvents.specToRequest(spec -> spec.setEmbed(embed)))

@@ -29,7 +29,7 @@ import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevels;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDSubscribedGuilds;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
@@ -94,8 +94,8 @@ public class GDEventProcessor {
 				Map.entry(AwardedLevelAddedEvent.class, new GDEventProperties<AwardedLevelAddedEvent>(
 						event -> bold("Awarded Level Added") + " for level " + GDLevels.toString(event.getAddedLevel()),
 						"channelAwardedLevelsId",
-						GDSubscribedGuilds::getChannelAwardedLevelsId,
-						GDSubscribedGuilds::getRoleAwardedLevelsId,
+						GDEventConfigData::getChannelAwardedLevelsId,
+						GDEventConfigData::getRoleAwardedLevelsId,
 						event -> Optional.of(event.getAddedLevel().getId()),
 						event -> bot.database().findByID(GDAwardedLevels.class, event.getAddedLevel().getId())
 								.switchIfEmpty(Mono.fromCallable(GDAwardedLevels::new))
@@ -112,7 +112,7 @@ public class GDEventProcessor {
 								.compactView(bot, event.getAddedLevel(), "New rated level!",
 										"https://i.imgur.com/asoMj1W.png")
 								.map(embed -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleAwardedLevelsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleAwardedLevelsId)
 												+ randomFromArray(AWARDED_LEVEL_ADDED_MESSAGES),
 										embed)),
 						event -> "Congratulations for getting your level rated!",
@@ -121,15 +121,15 @@ public class GDEventProcessor {
 				Map.entry(AwardedLevelRemovedEvent.class, new GDEventProperties<AwardedLevelRemovedEvent>(
 						event -> bold("Awarded Level Removed") + " for level " + GDLevels.toString(event.getRemovedLevel()),
 						"channelAwardedLevelsId",
-						GDSubscribedGuilds::getChannelAwardedLevelsId,
-						GDSubscribedGuilds::getRoleAwardedLevelsId,
+						GDEventConfigData::getChannelAwardedLevelsId,
+						GDEventConfigData::getRoleAwardedLevelsId,
 						event -> Optional.empty(),
 						event -> gdService.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, gsg, old) -> GDLevels
 								.compactView(bot, event.getRemovedLevel(), "Level un-rated...",
 										"https://i.imgur.com/fPECXUz.png")
 								.map(embed -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleAwardedLevelsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleAwardedLevelsId)
 												+ randomFromArray(AWARDED_LEVEL_REMOVED_MESSAGES),
 										embed)),
 						event -> "Your level has been un-rated...",
@@ -138,8 +138,8 @@ public class GDEventProcessor {
 				Map.entry(AwardedLevelUpdatedEvent.class, new GDEventProperties<AwardedLevelUpdatedEvent>(
 						event -> bold("Awarded Level Updated") + " for level " + GDLevels.toString(event.getNewLevel()),
 						"channelAwardedLevelsId",
-						GDSubscribedGuilds::getChannelAwardedLevelsId,
-						GDSubscribedGuilds::getRoleAwardedLevelsId,
+						GDEventConfigData::getChannelAwardedLevelsId,
+						GDEventConfigData::getRoleAwardedLevelsId,
 						event -> Optional.of(event.getNewLevel().getId()),
 						event -> gdService.getGdClient().searchUser("" + event.getNewLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, gsg, old) -> GDLevels
@@ -154,8 +154,8 @@ public class GDEventProcessor {
 						event -> bold("Timely Level Changed") + " for "
 								+ event.getTimelyLevel().getType() + " #" + event.getTimelyLevel().getId(),
 						"channelTimelyLevelsId",
-						GDSubscribedGuilds::getChannelTimelyLevelsId,
-						GDSubscribedGuilds::getRoleTimelyLevelsId,
+						GDEventConfigData::getChannelTimelyLevelsId,
+						GDEventConfigData::getRoleTimelyLevelsId,
 						event -> Optional.empty(),
 						event -> event.getTimelyLevel().getLevel()
 								.flatMap(level -> gdService.getGdClient().searchUser("" + level.getCreatorID()))
@@ -169,7 +169,7 @@ public class GDEventProcessor {
 									.flatMap(level -> GDLevels.compactView(bot, level,
 											headerTitle + " #" + event.getTimelyLevel().getId(), headerLink))
 									.map(embed -> new MessageSpecTemplate(
-											mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleTimelyLevelsId)
+											mentionRoleIfSet(gsg, GDEventConfigData::getRoleTimelyLevelsId)
 													+ "There is a new " + headerTitle + " on Geometry Dash!!!",
 											embed));
 						},
@@ -180,8 +180,8 @@ public class GDEventProcessor {
 				Map.entry(UserPromotedToModEvent.class, new GDEventProperties<UserPromotedToModEvent>(
 						event -> bold("User Promoted To Mod") + " for user " + bold(event.getUser().getName()),
 						"channelGdModeratorsId",
-						GDSubscribedGuilds::getChannelGdModeratorsId,
-						GDSubscribedGuilds::getRoleGdModeratorsId,
+						GDEventConfigData::getChannelGdModeratorsId,
+						GDEventConfigData::getRoleGdModeratorsId,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
@@ -190,7 +190,7 @@ public class GDEventProcessor {
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User promoted!", "https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleGdModeratorsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleGdModeratorsId)
 												+ "A user has been promoted to Geometry Dash moderator!",
 										msg.getEmbed())),
 						event -> "Congratulations! You have been promoted to Geometry Dash moderator!",
@@ -199,8 +199,8 @@ public class GDEventProcessor {
 				Map.entry(UserPromotedToElderEvent.class, new GDEventProperties<UserPromotedToElderEvent>(
 						event -> bold("User Promoted To Elder") + " for user " + bold(event.getUser().getName()),
 						"channelGdModeratorsId",
-						GDSubscribedGuilds::getChannelGdModeratorsId,
-						GDSubscribedGuilds::getRoleGdModeratorsId,
+						GDEventConfigData::getChannelGdModeratorsId,
+						GDEventConfigData::getRoleGdModeratorsId,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
@@ -209,7 +209,7 @@ public class GDEventProcessor {
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User promoted!", "https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleGdModeratorsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleGdModeratorsId)
 												+ "A user has been promoted to Geometry Dash Elder moderator!",
 										msg.getEmbed())),
 						event -> "Congratulations! You have been promoted to Geometry Dash Elder moderator!",
@@ -218,8 +218,8 @@ public class GDEventProcessor {
 				Map.entry(UserDemotedFromModEvent.class, new GDEventProperties<UserDemotedFromModEvent>(
 						event -> bold("User Demoted From Mod") + " for user " + bold(event.getUser().getName()),
 						"channelGdModeratorsId",
-						GDSubscribedGuilds::getChannelGdModeratorsId,
-						GDSubscribedGuilds::getRoleGdModeratorsId,
+						GDEventConfigData::getChannelGdModeratorsId,
+						GDEventConfigData::getRoleGdModeratorsId,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
@@ -228,7 +228,7 @@ public class GDEventProcessor {
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User demoted...", "https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleGdModeratorsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleGdModeratorsId)
 												+ "A user has been demoted from Geometry Dash moderator...",
 										msg.getEmbed())),
 						event -> "Oh snap! You have been demoted from Geometry Dash moderator...",
@@ -237,8 +237,8 @@ public class GDEventProcessor {
 				Map.entry(UserDemotedFromElderEvent.class, new GDEventProperties<UserDemotedFromElderEvent>(
 						event -> bold("User Demoted From Elder") + " for user " + bold(event.getUser().getName()),
 						"channelGdModeratorsId",
-						GDSubscribedGuilds::getChannelGdModeratorsId,
-						GDSubscribedGuilds::getRoleGdModeratorsId,
+						GDEventConfigData::getChannelGdModeratorsId,
+						GDEventConfigData::getRoleGdModeratorsId,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, gsg, old) -> GDUsers
@@ -247,7 +247,7 @@ public class GDEventProcessor {
 								.flatMap(icons -> GDUsers.userProfileView(bot, Optional.empty(), event.getUser(),
 										"User demoted...", "https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(
-										mentionRoleIfSet(gsg, GDSubscribedGuilds::getRoleGdModeratorsId)
+										mentionRoleIfSet(gsg, GDEventConfigData::getRoleGdModeratorsId)
 												+ "A user has been demoted from Geometry Dash Elder moderator...",
 										msg.getEmbed())),
 						event -> "Oh snap! You have been demoted from Geometry Dash Elder moderator...",
@@ -256,7 +256,7 @@ public class GDEventProcessor {
 		);
 	}
 	
-	private static String mentionRoleIfSet(GDSubscribedGuilds gsg, Function<GDSubscribedGuilds, Long> getter) {
+	private static String mentionRoleIfSet(GDEventConfigData gsg, Function<GDEventConfigData, Long> getter) {
 		if (gsg == null) {
 			return "";
 		}
