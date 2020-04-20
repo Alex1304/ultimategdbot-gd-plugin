@@ -14,6 +14,8 @@ import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import discord4j.rest.http.client.ClientException;
 import reactor.core.publisher.Flux;
@@ -74,11 +76,14 @@ public class AccountCommand {
 						.filter(gdUser -> gdUser.getAccountId() > 0)
 						.switchIfEmpty(Mono.error(new CommandFailedException("This user is unregistered in Geometry Dash.")))
 						.flatMap(botUser -> {
-//							linkedUser.setConfirmationToken(Utils.defaultStringIfEmptyOrNull(linkedUser.getConfirmationToken(),
-//									GDUsers.generateAlphanumericToken(TOKEN_LENGTH)));
-//							linkedUser.setGdAccountId(gdUsername.getAccountId());
-//							return ctx.bot().database().save(linkedUser).thenReturn(botUser);
-							return Mono.just(Tuples.of(botUser, ""));
+							var token = linkedUser.confirmationToken().orElse(GDUsers.generateAlphanumericToken(TOKEN_LENGTH));
+							var data = ImmutableGDLinkedUserData.builder()
+									.from(linkedUser)
+									.confirmationToken(token)
+									.build();
+							return ctx.bot().database()
+									.useExtension(GDLinkedUserDao.class, dao -> dao.setUnconfirmedLink(data))
+									.thenReturn(Tuples.of(botUser, token));
 						})
 						.flatMap(TupleUtils.function((botUser, token) -> {
 							var menuEmbedContent = new StringBuilder();
@@ -86,7 +91,7 @@ public class AccountCommand {
 							menuEmbedContent.append("Step 2: Search for user \"").append(botUser.getName()).append("\" and open profile\n");
 							menuEmbedContent.append("Step 3: Click the button to send a private message\n");
 							menuEmbedContent.append("Step 4: In the \"Subject\" field, input `Confirm` (case insensitive)\n");
-							menuEmbedContent.append("Step 5: In the \"Body\" field, input the code `").append(linkedUser.confirmationToken())
+							menuEmbedContent.append("Step 5: In the \"Body\" field, input the code `").append(token)
 									.append("` (:warning: case sensitive)\n");
 							menuEmbedContent.append("Step 6: React below to indicate that you're done sending the confirmation message\n");
 							return InteractiveMenu.create(message -> {

@@ -166,7 +166,7 @@ public class GDEventsCommand {
 								.closeAfterReaction(false)
 								.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu));
 					} else {
-						menu = InteractiveMenu.createPaginated(null, ctx.bot().config().getPaginationControls(),
+						menu = InteractiveMenu.createPaginated(ctx.bot().config().getPaginationControls(),
 								page -> paginateEvents(page, lastPage, events));
 					}
 					return menu.deleteMenuOnClose(true)

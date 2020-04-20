@@ -30,7 +30,7 @@ import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
-import reactor.retry.Retry;
+import reactor.util.retry.Retry;
 
 @CommandDescriptor(
 		aliases = "announcement",
@@ -167,8 +167,9 @@ public class AnnouncementCommand {
 					}
 					return content.asString();
 				})
-				.retryWhen(Retry.anyOf(IOException.class)
-						.exponentialBackoffWithJitter(Duration.ofSeconds(1), Duration.ofMinutes(1)))
+				.retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
+						.maxBackoff(Duration.ofMinutes(1))
+						.filter(IOException.class::isInstance))
 				.timeout(Duration.ofMinutes(2), Mono.error(new CommandFailedException("Cannot download file, Discord "
 						+ "CDN took too long to respond. Try again later.")));
 	}

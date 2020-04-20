@@ -6,22 +6,24 @@ import java.util.Optional;
 
 import org.immutables.value.Value;
 
+import discord4j.rest.util.Snowflake;
+
 @Value.Immutable
 public interface GDLevelRequestSubmissionData {
 	
-	long id();
+	long submissionId();
 	
 	long levelId();
 	
 	Optional<String> youtubeLink();
 	
-	long messageId();
+	Optional<Snowflake> messageId();
 	
-	long messageChannelId();
+	Optional<Snowflake> messageChannelId();
 	
-	long guildId();
+	Snowflake guildId();
 	
-	long submitterId();
+	Snowflake submitterId();
 	
 	Timestamp submissionTimestamp();
 	

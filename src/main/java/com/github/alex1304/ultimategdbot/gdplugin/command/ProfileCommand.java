@@ -8,6 +8,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
@@ -39,13 +40,16 @@ public class ProfileCommand {
 				+ "- privacy settings (whether private messages are open, friend requests are enabled, etc)")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.bot().database().findByID(GDLinkedUserData.class, ctx.author().getId().asLong())
-						.filter(GDLinkedUserData::getIsLinkActivated)
-								.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
-										+ "show your own profile, link your Geometry Dash account using `"
-										+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
-										+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
-						.map(GDLinkedUserData::getGdAccountId)
+				.switchIfEmpty(ctx.bot().database()
+						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
+						.flatMap(Mono::justOrEmpty)
+						.filter(GDLinkedUserData::isLinkActivated)
+						.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
+								+ "show your own profile, link your Geometry Dash account using `"
+								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
+								+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
+						.map(GDLinkedUserData::gdAccountId)
+						.flatMap(Mono::justOrEmpty)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))

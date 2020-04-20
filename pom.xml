@@ -113,6 +113,12 @@
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>jdash</artifactId>
 			<version>3.3.7</version>
+			<exclusions>
+				<exclusion>
+					<groupId>io.projectreactor</groupId>
+					<artifactId>reactor-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>

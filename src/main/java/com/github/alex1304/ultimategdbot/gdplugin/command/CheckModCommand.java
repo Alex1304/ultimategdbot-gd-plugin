@@ -1,15 +1,19 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
+import java.util.Optional;
+
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.Role;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
+import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDModData;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserDemotedFromElderEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserDemotedFromModEvent;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.UserPromotedToElderEvent;
@@ -38,13 +42,16 @@ public class CheckModCommand {
 			+ "'M' badge on the profile, nothing else.")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.bot().database().findByID(GDLinkedUserData.class, ctx.author().getId().asLong())
-						.filter(GDLinkedUserData::getIsLinkActivated)
-								.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
-										+ "check your own mod status, link your Geometry Dash account using `" 
-										+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
-										+ "need to specify a user like so: `" + ctx.prefixUsed() + "checkmod <gd_user>`.")))
-						.map(GDLinkedUserData::getGdAccountId)
+				.switchIfEmpty(ctx.bot().database()
+						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
+						.flatMap(Mono::justOrEmpty)
+						.filter(GDLinkedUserData::isLinkActivated)
+						.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
+								+ "check your own mod status, link your Geometry Dash account using `" 
+								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
+								+ "need to specify a user like so: `" + ctx.prefixUsed() + "checkmod <gd_user>`.")))
+						.map(GDLinkedUserData::gdAccountId)
+						.map(Optional::orElseThrow)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(ctx.bot().emoji("success"), ctx.bot().emoji("failed"), ctx.bot().emoji("mod"))
 						.flatMap(emojis -> ctx.reply("Checking in-game mod status for user **" + user.getName() + "**...\n||"
@@ -53,7 +60,8 @@ public class CheckModCommand {
 								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
 						.then(GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
-						.then(ctx.bot().database().findByID(GDModData.class, user.getAccountId()))
+						.then(ctx.bot().database().withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
+						.flatMap(Mono::justOrEmpty)
 						.switchIfEmpty(Mono.defer(() -> {
 							if (user.getRole() == Role.USER) {
 								return Mono.empty();
@@ -61,27 +69,32 @@ public class CheckModCommand {
 							var isElder = user.getRole() == Role.ELDER_MODERATOR;
 							gdService.getGdEventDispatcher().dispatch(isElder ? new UserPromotedToElderEvent(user)
 									: new UserPromotedToModEvent(user));
-							var gdMod = new GDModData();
-							gdMod.setAccountId(user.getAccountId());
-							gdMod.setName(user.getName());
-							gdMod.setIsElder(isElder);
-							return ctx.bot().database().save(gdMod).then(Mono.empty());
+							var gdMod = ImmutableGDModData.builder()
+									.accountId(user.getAccountId())
+									.name(user.getName())
+									.isElder(isElder)
+									.build();
+							return ctx.bot().database()
+									.useExtension(GDModDao.class, dao -> dao.insert(gdMod))
+									.then(Mono.empty());
 						}))
 						.flatMap(gdMod -> {
 							if (user.getRole() == Role.USER) {
-								gdService.getGdEventDispatcher().dispatch(gdMod.getIsElder() 
+								gdService.getGdEventDispatcher().dispatch(gdMod.isElder() 
 										? new UserDemotedFromElderEvent(user) : new UserDemotedFromModEvent(user));
-								return ctx.bot().database().delete(gdMod);
+								return ctx.bot().database()
+										.useExtension(GDModDao.class, dao -> dao.delete(gdMod.accountId()));
 							} else {
-								if (user.getRole() == Role.MODERATOR && gdMod.getIsElder()) {
+								var updatedGdMod = ImmutableGDModData.builder().from(gdMod);
+								if (user.getRole() == Role.MODERATOR && gdMod.isElder()) {
 									gdService.getGdEventDispatcher().dispatch(new UserDemotedFromElderEvent(user));
-									gdMod.setIsElder(false);
-								} else if (user.getRole() == Role.ELDER_MODERATOR && !gdMod.getIsElder()) {
+									updatedGdMod.isElder(false);
+								} else if (user.getRole() == Role.ELDER_MODERATOR && !gdMod.isElder()) {
 									gdService.getGdEventDispatcher().dispatch(new UserPromotedToElderEvent(user));
-									gdMod.setIsElder(true);
+									updatedGdMod.isElder(true);
 								}
-								gdMod.setName(user.getName());
-								return ctx.bot().database().save(gdMod);
+								updatedGdMod.name(user.getName());
+								return ctx.bot().database().useExtension(GDModDao.class, dao -> dao.update(updatedGdMod.build()));
 							}
 						}))
 				.then();

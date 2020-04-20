@@ -4,12 +4,14 @@ import java.sql.Timestamp;
 
 import org.immutables.value.Value;
 
+import discord4j.rest.util.Snowflake;
+
 @Value.Immutable
 public interface GDLevelRequestReviewData {
 	
-	long id();
+	long reviewId();
 	
-	long reviewerId();
+	Snowflake reviewerId();
 	
 	Timestamp reviewTimestamp();
 	

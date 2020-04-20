@@ -16,16 +16,16 @@ public class GDEventProperties<E extends GDEvent> {
 	
 	private final Function<E, String> logText;
 	private final String databaseField;
-	private final Function<GDEventConfigData, Long> channelId;
-	private final Function<GDEventConfigData, Long> roleId;
+	private final Function<GDEventConfigData, Optional<Snowflake>> channelId;
+	private final Function<GDEventConfigData, Optional<Snowflake>> roleId;
 	private final Function<E, Optional<Long>> levelIdGetter;
 	private final Function<E, Mono<Long>> recipientAccountId;
 	private final Function3<E, GDEventConfigData, Message, Mono<MessageSpecTemplate>> messageTemplateFactory;
 	private final Function<E, String> congratMessage;
 	private final GDEventBroadcastStrategy broadcastStrategy;
 
-	GDEventProperties(Function<E, String> logText, String databaseField, Function<GDEventConfigData, Long> channelId,
-			Function<GDEventConfigData, Long> roleId, Function<E, Optional<Long>> levelIdGetter,
+	GDEventProperties(Function<E, String> logText, String databaseField, Function<GDEventConfigData, Optional<Snowflake>> channelId,
+			Function<GDEventConfigData, Optional<Snowflake>> roleId, Function<E, Optional<Long>> levelIdGetter,
 			Function<E, Mono<Long>> recipientAccountId,
 			Function3<E, GDEventConfigData, Message, Mono<MessageSpecTemplate>> messageTemplateFactory,
 			Function<E, String> congratMessage, GDEventBroadcastStrategy broadcastStrategy) {
@@ -70,11 +70,11 @@ public class GDEventProperties<E extends GDEvent> {
 	}
 	
 	public Snowflake channelId(GDEventConfigData gsg) {
-		return Snowflake.of(channelId.apply(gsg));
+		return channelId.apply(gsg).orElseThrow();
 	}
 	
 	public Snowflake roleId(GDEventConfigData gsg) {
-		return Snowflake.of(roleId.apply(gsg));
+		return roleId.apply(gsg).orElseThrow();
 	}
 
 	public GDEventBroadcastStrategy broadcastStrategy() {
