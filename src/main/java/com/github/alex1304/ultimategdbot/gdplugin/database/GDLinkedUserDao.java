@@ -1,8 +1,10 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
+import org.jdbi.v3.sqlobject.customizer.BindList;
 import org.jdbi.v3.sqlobject.customizer.BindPojo;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -40,4 +42,13 @@ public interface GDLinkedUserDao {
 			return getByDiscordUserId(discordUserId).orElseThrow();
 		});
 	}
+	
+	@SqlQuery("SELECT * FROM " + TABLE + " WHERE is_link_activated = 1 AND discord_user_id IN (<discordUserIds>)")
+	List<GDLinkedUserData> getAllIn(@BindList List<Long> discordUserIds);
+	
+	@SqlQuery("SELECT * FROM " + TABLE + " WHERE is_link_activated = 1")
+	List<GDLinkedUserData> getAll();
+	
+	@SqlQuery("SELECT * FROM gd_linked_user WHERE gd_account_id = ? AND is_link_activated = 1")
+	List<GDLinkedUserData> getLinkedAccountsForGdUser(long gdAccountId);
 }

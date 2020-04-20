@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -173,18 +172,17 @@ public class GDLevels {
 	}
 	
 	public static Mono<Void> searchAndSend(Context ctx, String header, Supplier<Mono<GDPaginator<GDLevel>>> searchFactory) {
-		var currentPage = new AtomicInteger();
 		var resultsOfCurrentPage = new AtomicReference<List<GDLevel>>();
 		return searchFactory.get()
 				.doOnNext(paginator -> resultsOfCurrentPage.set(paginator.asList()))
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createAsyncPaginated(currentPage, ctx.bot().config().getPaginationControls(), page -> {
+						: InteractiveMenu.createAsyncPaginated(ctx.bot().config().getPaginationControls(), page -> {
 							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
 							return results.goTo(page)
 								.map(GDPaginator::asList)
 								.doOnNext(resultsOfCurrentPage::set)
 								.onErrorReturn(MissingAccessException.class, List.of())
-								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, currentPage.get(), results.getTotalNumberOfPages()))
+								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, page, results.getTotalNumberOfPages()))
 								.map(MessageSpecTemplate::new);
 						})
 						.addMessageItem("select", interaction -> Mono

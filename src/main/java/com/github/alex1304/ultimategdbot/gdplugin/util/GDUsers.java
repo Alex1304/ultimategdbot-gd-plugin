@@ -28,6 +28,7 @@ import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.benmanes.caffeine.cache.Cache;
 
@@ -161,9 +162,10 @@ public final class GDUsers {
 					.onErrorMap(e -> new CommandFailedException("Not a valid mention."))
 					.flatMap(snowflake -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST).getUserById(snowflake))
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
-					.flatMap(user -> bot.database().findByID(GDLinkedUserData.class, user.getId().asLong()))
-					.filter(GDLinkedUserData::getIsLinkActivated)
-					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.getGdAccountId()))
+					.flatMap(user -> bot.database().withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
+					.flatMap(Mono::justOrEmpty)
+					.filter(GDLinkedUserData::isLinkActivated)
+					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdAccountId().orElseThrow()))
 					.switchIfEmpty(Mono.error(new CommandFailedException("This user doesn't have an associated Geometry Dash account.")));
 		}
 		if (!str.matches("[a-zA-Z0-9 _-]+")) {
@@ -197,9 +199,9 @@ public final class GDUsers {
 	}
 	
 	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, long gdUserId) {
-		return bot.database().query(GDLinkedUserData.class, "from GDLinkedUsers linkedUser where linkedUser.gdAccountId = ?0 "
-				+ "and linkedUser.isLinkActivated = 1", gdUserId)
+		return bot.database().withExtension(GDLinkedUserDao.class, dao -> dao.getLinkedAccountsForGdUser(gdUserId))
+				.flatMapMany(Flux::fromIterable)
 				.flatMap(linkedUser -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST)
-						.getUserById(Snowflake.of(linkedUser.getDiscordUserId())));
+						.getUserById(linkedUser.discordUserId()));
 	}
 }

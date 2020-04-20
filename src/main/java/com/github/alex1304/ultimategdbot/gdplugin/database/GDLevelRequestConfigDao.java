@@ -1,5 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.jdbi.v3.sqlobject.customizer.BindPojo;
@@ -40,4 +41,10 @@ public interface GDLevelRequestConfigDao extends GuildConfigDao<GDLevelRequestCo
 	@Override
 	@SqlUpdate("SELECT * FROM " + TABLE + " WHERE guild_id = ?")
 	Optional<GDLevelRequestConfigData> get(long guildId);
+	
+	@SqlUpdate("SELECT * FROM " + TABLE)
+	List<GDLevelRequestConfigData> getAll();
+	
+	@SqlUpdate("UPDATE " + TABLE + " SET is_open = :open WHERE guild_id = :guildId")
+	void toggleOpenState(long guildId, boolean open);
 }
