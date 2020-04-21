@@ -179,11 +179,11 @@ public class GDLevels {
 						: InteractiveMenu.createAsyncPaginated(ctx.bot().config().getPaginationControls(), page -> {
 							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
 							return results.goTo(page)
-								.map(GDPaginator::asList)
-								.doOnNext(resultsOfCurrentPage::set)
-								.onErrorReturn(MissingAccessException.class, List.of())
-								.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, page, results.getTotalNumberOfPages()))
-								.map(MessageSpecTemplate::new);
+									.map(GDPaginator::asList)
+									.doOnNext(resultsOfCurrentPage::set)
+									.onErrorReturn(MissingAccessException.class, List.of())
+									.flatMap(newResults -> searchResultsEmbed(ctx, newResults, header, page, results.getTotalNumberOfPages()))
+									.map(MessageSpecTemplate::new);
 						})
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().get(Integer.parseInt(interaction.getArgs().get(1)) - 1))

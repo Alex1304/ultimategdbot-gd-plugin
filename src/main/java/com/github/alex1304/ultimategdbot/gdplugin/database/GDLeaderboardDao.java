@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jdbi.v3.sqlobject.customizer.BindList;
+import org.jdbi.v3.sqlobject.customizer.BindPojo;
 import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -23,7 +24,7 @@ public interface GDLeaderboardDao {
 	
 	@SqlBatch("INSERT INTO " + TABLE + " VALUES (:accountId, :name, :stars, :diamonds, :userCoins, "
 			+ ":secretCoins, :demons, :creatorPoints, :lastRefreshed)")
-	void insertAll(List<? extends GDLeaderboardData> data);
+	void insertAll(@BindPojo List<? extends GDLeaderboardData> data);
 	
 	@SqlUpdate("TRUNCATE TABLE " + TABLE)
 	void deleteAll();

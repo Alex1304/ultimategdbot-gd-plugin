@@ -1,6 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 import org.immutables.value.Value;
 
@@ -13,7 +13,7 @@ public interface GDLevelRequestReviewData {
 	
 	Snowflake reviewerId();
 	
-	Timestamp reviewTimestamp();
+	Instant reviewTimestamp();
 	
 	String reviewContent();
 	

@@ -16,7 +16,7 @@ public interface GDAwardedLevelDao {
 	void insert(@BindPojo GDAwardedLevelData data);
 	
 	@SqlUpdate("UPDATE " + TABLE + " SET "
-			+ "insertDate = :insertDate, "
+			+ "insert_date = :insertDate, "
 			+ "downloads = :downloads, "
 			+ "likes = :likes "
 			+ "WHERE level_id = :levelId")
@@ -26,7 +26,7 @@ public interface GDAwardedLevelDao {
 	Optional<GDAwardedLevelData> get(long levelId);
 	
 	@Transaction(TransactionIsolationLevel.SERIALIZABLE)
-	default void insertIfNotExists(@BindPojo GDAwardedLevelData data) {
+	default void insertOrUpdate(GDAwardedLevelData data) {
 		get(data.levelId()).ifPresentOrElse(__ -> update(data), () -> insert(data));
 	}
 }

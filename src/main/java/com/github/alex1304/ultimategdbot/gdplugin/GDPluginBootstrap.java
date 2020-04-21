@@ -10,6 +10,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
+
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
 import com.github.alex1304.jdash.client.GDClientBuilder.Credentials;
@@ -40,11 +42,8 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionChecker;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.AnnotatedCommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
-import com.github.alex1304.ultimategdbot.api.util.DatabaseInputFunction;
-import com.github.alex1304.ultimategdbot.api.util.DiscordParser;
 import com.github.alex1304.ultimategdbot.api.util.PropertyReader;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
-import com.github.alex1304.ultimategdbot.gdplugin.command.AnnouncementCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.DailyCommand;
@@ -57,14 +56,21 @@ import com.github.alex1304.ultimategdbot.gdplugin.command.LevelsbyCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ModListCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ProfileCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.WeeklyCommand;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
-import discord4j.core.object.entity.Guild;
-import discord4j.core.object.entity.Role;
-import discord4j.core.object.entity.channel.TextChannel;
 import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -94,7 +100,21 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				.orElse(true);
 		var maxConnections = pluginProperties.readOptional("gdplugin.max_connections").map(Integer::parseInt).orElse(100);
 		var iconsCacheMaxSize = pluginProperties.readOptional("gdplugin.icons_cache_max_size").map(Integer::parseInt).orElse(2048);
-		var minMembers = pluginProperties.readOptional("gdplugin.events_min_members").map(Integer::parseInt).orElse(200);
+		// Database config
+		bot.database().configureJdbi(jdbi -> {
+			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
+					GDAwardedLevelData.class,
+					GDEventConfigData.class,
+					GDLeaderboardBanData.class,
+					GDLeaderboardData.class,
+					GDLevelRequestConfigData.class,
+					GDLevelRequestReviewData.class,
+					GDLevelRequestSubmissionData.class,
+					GDLinkedUserData.class,
+					GDModData.class);
+		});
+		bot.registerGuildConfigExtension(GDEventConfigDao.class);
+		bot.registerGuildConfigExtension(GDLevelRequestConfigDao.class);
 		// Resources
 		var buildingGDClient = GDClientBuilder.create()
 				.withHost(host)
@@ -117,98 +137,6 @@ public class GDPluginBootstrap implements PluginBootstrap {
 					var cmdProvider = initCommandProvider(gdService, bot, gdClient);
 					return Plugin.builder("Geometry Dash")
 							.setCommandProvider(cmdProvider)
-//							.addGuildSettingsEntry("channel_awarded_levels", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getChannelAwardedLevelsId,
-//									GDSubscribedGuilds::setChannelAwardedLevelsId,
-//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("channel_timely_levels", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getChannelTimelyLevelsId,
-//									GDSubscribedGuilds::setChannelTimelyLevelsId,
-//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("channel_gd_moderators", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getChannelGdModeratorsId,
-//									GDSubscribedGuilds::setChannelGdModeratorsId,
-//									(v, guildId) -> restrictedToChannelId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("channel_changelog", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getChannelChangelogId,
-//									GDSubscribedGuilds::setChannelChangelogId,
-//									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("role_awarded_levels", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getRoleAwardedLevelsId,
-//									GDSubscribedGuilds::setRoleAwardedLevelsId,
-//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromRoleId(bot)
-//							))
-//							.addGuildSettingsEntry("role_timely_levels", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getRoleTimelyLevelsId,
-//									GDSubscribedGuilds::setRoleTimelyLevelsId,
-//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromRoleId(bot)
-//							))
-//							.addGuildSettingsEntry("role_gd_moderators", new GuildSettingsEntry<>(
-//									GDSubscribedGuilds.class,
-//									GDSubscribedGuilds::getRoleGdModeratorsId,
-//									GDSubscribedGuilds::setRoleGdModeratorsId,
-//									(v, guildId) -> restrictedToRoleId(bot, v, guildId, minMembers),
-//									DatabaseOutputFunction.fromRoleId(bot)
-//							))
-//							.addGuildSettingsEntry("lvlreq_submission_queue_channel", new GuildSettingsEntry<>(
-//									GDLevelRequestsSettings.class,
-//									GDLevelRequestsSettings::getSubmissionQueueChannelId,
-//									GDLevelRequestsSettings::setSubmissionQueueChannelId,
-//									(v, guildId) -> DatabaseInputFunction.toChannelId(bot, TextChannel.class)
-//											.apply(v, guildId)
-//											.doOnNext(cachedSubmissionChannelIds::add)
-//											.flatMap(channelId -> bot.database().findByID(GDLevelRequestsSettings.class, guildId)
-//													.map(GDLevelRequestsSettings::getSubmissionQueueChannelId)
-//													.doOnNext(cachedSubmissionChannelIds::remove)
-//													.thenReturn(channelId)),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("lvlreq_reviewed_levels_channel", new GuildSettingsEntry<>(
-//									GDLevelRequestsSettings.class,
-//									GDLevelRequestsSettings::getReviewedLevelsChannelId,
-//									GDLevelRequestsSettings::setReviewedLevelsChannelId,
-//									DatabaseInputFunction.toChannelId(bot, TextChannel.class),
-//									DatabaseOutputFunction.fromChannelId(bot)
-//							))
-//							.addGuildSettingsEntry("lvlreq_reviewer_role", new GuildSettingsEntry<>(
-//									GDLevelRequestsSettings.class,
-//									GDLevelRequestsSettings::getReviewerRoleId,
-//									GDLevelRequestsSettings::setReviewerRoleId,
-//									DatabaseInputFunction.toRoleId(bot),
-//									DatabaseOutputFunction.fromRoleId(bot)
-//							))
-//							.addGuildSettingsEntry("lvlreq_nb_reviews_required", new GuildSettingsEntry<>(
-//									GDLevelRequestsSettings.class,
-//									GDLevelRequestsSettings::getMaxReviewsRequired,
-//									GDLevelRequestsSettings::setMaxReviewsRequired,
-//									DatabaseInputFunction.to(Integer::parseInt)
-//											.withValueCheck(i -> i > 0 && i <= 5, "Must be between 1 and 5"),
-//									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
-//							))
-//							.addGuildSettingsEntry("lvlreq_max_submissions_allowed", new GuildSettingsEntry<>(
-//									GDLevelRequestsSettings.class,
-//									GDLevelRequestsSettings::getMaxQueuedSubmissionsPerPerson,
-//									GDLevelRequestsSettings::setMaxQueuedSubmissionsPerPerson,
-//									DatabaseInputFunction.to(Integer::parseInt)
-//											.withValueCheck(i -> i > 0 && i <= 20, "Must be between 1 and 20"),
-//									DatabaseOutputFunction.from(i -> i == 0 ? "Not configured" : "" + i)
-//							))
 							.onReady(() -> {
 								GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
 								if (autostartScannerLoop) {
@@ -219,36 +147,6 @@ public class GDPluginBootstrap implements PluginBootstrap {
 							.build();
 				}));
 	}
-	
-	private static Mono<Long> restrictedToChannelId(Bot bot, String v, long guildId, long minMembers) {
-		return DatabaseInputFunction.asIs()
-				.apply(v, guildId)
-				.flatMap(str -> DiscordParser.parseGuildChannel(bot, Snowflake.of(guildId), str))
-				.ofType(TextChannel.class)
-				.flatMap(channel -> channel.getGuild()
-						.map(guild -> hasEnoughMembers(guild, minMembers))
-						.filter(Boolean::booleanValue)
-						.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
-						.thenReturn(channel))
-				.map(TextChannel::getId)
-				.map(Snowflake::asLong);
-	}
-	
-	private static Mono<Long> restrictedToRoleId(Bot bot, String v, long guildId, long minMembers) {
-		return DatabaseInputFunction.asIs()
-				.apply(v, guildId)
-				.flatMap(str -> DiscordParser.parseRole(bot, Snowflake.of(guildId), str))
-				.flatMap(role -> role.getGuild()
-						.map(guild -> hasEnoughMembers(guild, minMembers))
-						.switchIfEmpty(Mono.error(new IllegalArgumentException("This feature is restricted to servers with more than 200 members only.")))
-						.thenReturn(role))
-				.map(Role::getId)
-				.map(Snowflake::asLong);
-	}
-	
-	private static boolean hasEnoughMembers(Guild guild, long minMembers) {
-		return guild.getMemberCount() > minMembers;
-	}
 
 	private Set<GDEventScanner> initScanners() {
 		return Set.of(new AwardedSectionScanner(), new DailyLevelScanner(), new WeeklyDemonScanner());
@@ -258,7 +156,6 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		var cmdProvider = new AnnotatedCommandProvider();
 		// Commands
 		cmdProvider.addAnnotated(new AccountCommand(gdService));
-		cmdProvider.addAnnotated(new AnnouncementCommand(gdService));
 		cmdProvider.addAnnotated(new CheckModCommand(gdService));
 		cmdProvider.addAnnotated(new ClearGdCacheCommand(gdService));
 		cmdProvider.addAnnotated(new DailyCommand(gdService));
@@ -301,8 +198,8 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				.isGranted(PermissionLevel.GUILD_ADMIN, ctx)
 				.flatMap(isGuildAdmin -> isGuildAdmin ? Mono.just(true) : ctx.event().getMessage()
 						.getAuthorAsMember()
-						.flatMap(member -> GDLevelRequests.retrieveSettings(ctx)
-								.map(GDLevelRequestConfigData::roleReviewer)
+						.flatMap(member -> GDLevelRequests.retrieveConfig(ctx)
+								.map(GDLevelRequestConfigData::roleReviewerId)
 								.flatMap(Mono::justOrEmpty)
 								.map(member.getRoleIds()::contains))));
 		cmdProvider.setPermissionChecker(permChecker);

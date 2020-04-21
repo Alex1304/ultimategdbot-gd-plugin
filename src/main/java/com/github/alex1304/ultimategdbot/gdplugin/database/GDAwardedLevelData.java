@@ -1,6 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 import org.immutables.value.Value;
 
@@ -9,7 +9,7 @@ public interface GDAwardedLevelData {
 	
 	long levelId();
 	
-	Timestamp insertDate();
+	Instant insertDate();
 	
 	int downloads();
 	

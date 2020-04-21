@@ -23,7 +23,6 @@ public interface GDEventConfigDao extends GuildConfigDao<GDEventConfigData> {
 			+ "channel_awarded_levels_id = DEFAULT(channel_awarded_levels_id), "
 			+ "channel_timely_levels_id = DEFAULT(channel_timely_levels_id), "
 			+ "channel_gd_moderators_id = DEFAULT(channel_gd_moderators_id), "
-			+ "channel_changelog_id = DEFAULT(channel_changelog_id), "
 			+ "role_awarded_levels_id = DEFAULT(role_awarded_levels_id), "
 			+ "role_timely_levels_id = DEFAULT(role_timely_levels_id), "
 			+ "role_gd_moderators_id = DEFAULT(role_gd_moderators_id) "
@@ -32,18 +31,17 @@ public interface GDEventConfigDao extends GuildConfigDao<GDEventConfigData> {
 
 	@Override
 	@SqlUpdate("UPDATE " + TABLE + " SET "
-			+ "channel_awarded_levels_id = :channelAwardedLevels, "
-			+ "channel_timely_levels_id = :channelTimelyLevels, "
-			+ "channel_gd_moderators_id = :channelGdModerators, "
-			+ "channel_changelog_id = :channelChangelog, "
-			+ "role_awarded_levels_id = :roleAwardedLevels, "
-			+ "role_timely_levels_id = :roleTimelyLevels, "
-			+ "role_gd_moderators_id = :roleGdModerators "
+			+ "channel_awarded_levels_id = :channelAwardedLevelsId, "
+			+ "channel_timely_levels_id = :channelTimelyLevelsId, "
+			+ "channel_gd_moderators_id = :channelGdModeratorsId, "
+			+ "role_awarded_levels_id = :roleAwardedLevelsId, "
+			+ "role_timely_levels_id = :roleTimelyLevelsId, "
+			+ "role_gd_moderators_id = :roleGdModeratorsId "
 			+ "WHERE guild_id = :guildId")
 	void update(@BindPojo GDEventConfigData data);
 
 	@Override
-	@SqlUpdate("SELECT * FROM " + TABLE + " WHERE guild_id = ?")
+	@SqlQuery("SELECT * FROM " + TABLE + " WHERE guild_id = ?")
 	Optional<GDEventConfigData> get(long guildId);
 	
 	@SqlQuery("SELECT * FROM " + TABLE + " WHERE channel_<channel>_id IS NOT NULL")

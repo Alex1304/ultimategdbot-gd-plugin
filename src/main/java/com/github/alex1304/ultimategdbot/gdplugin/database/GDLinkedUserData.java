@@ -11,7 +11,7 @@ public interface GDLinkedUserData {
 	
 	Snowflake discordUserId();
 	
-	Optional<Long> gdAccountId();
+	long gdUserId();
 	
 	boolean isLinkActivated();
 	
