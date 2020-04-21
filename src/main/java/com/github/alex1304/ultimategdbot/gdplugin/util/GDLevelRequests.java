@@ -38,23 +38,23 @@ public class GDLevelRequests {
 	private GDLevelRequests() {}
 	
 	/**
-	 * Retrieves the level requests settings for the guild of the specified context. This
+	 * Retrieves the level requests config for the guild of the specified context. This
 	 * method checks and throws errors if level requests are not configured.
 	 * 
 	 * @param ctx the context
-	 * @return the level requests settings, or an error if not configured
+	 * @return the level requests config, or an error if not configured
 	 */
-	public static Mono<GDLevelRequestConfigData> retrieveSettings(Context ctx) {
+	public static Mono<GDLevelRequestConfigData> retrieveConfig(Context ctx) {
 		Objects.requireNonNull(ctx, "ctx was null");
 		var guildId = ctx.event().getGuildId().orElseThrow();
 		return ctx.bot().database()
 				.withExtension(GDLevelRequestConfigDao.class, dao -> dao.getOrCreate(guildId.asLong()))
-				.flatMap(lvlReqSettings -> !lvlReqSettings.isOpen()
-						&& (lvlReqSettings.channelSubmissionQueue().isEmpty()
-						|| lvlReqSettings.channelArchivedSubmissions().isEmpty()
-						|| lvlReqSettings.roleReviewer().isEmpty())
+				.flatMap(lvlReqCfg -> !lvlReqCfg.isOpen()
+						&& (lvlReqCfg.channelSubmissionQueueId().isEmpty()
+						|| lvlReqCfg.channelArchivedSubmissionsId().isEmpty()
+						|| lvlReqCfg.roleReviewerId().isEmpty())
 						? Mono.error(new CommandFailedException("Level requests are not configured."))
-						: Mono.just(lvlReqSettings));
+						: Mono.just(lvlReqCfg));
 	}
 	
 	/**
@@ -153,10 +153,10 @@ public class GDLevelRequests {
 	 */
 	public static void listenAndCleanSubmissionQueueChannels(Bot bot, Set<Long> cachedSubmissionChannelIds) {
 		bot.database().withExtension(GDLevelRequestConfigDao.class, GDLevelRequestConfigDao::getAll)
-				.<GDLevelRequestConfigData>flatMapMany(Flux::fromIterable)
-				.map(GDLevelRequestConfigData::channelSubmissionQueue)
-				.<Snowflake>flatMap(Mono::justOrEmpty)
-				.<Long>map(Snowflake::asLong)
+				.flatMapMany(Flux::fromIterable)
+				.map(GDLevelRequestConfigData::channelSubmissionQueueId)
+				.flatMap(Mono::justOrEmpty)
+				.map(Snowflake::asLong)
 				.collect(() -> cachedSubmissionChannelIds, Set::add)
 				.onErrorResume(e -> Mono.empty())
 				.thenMany(bot.gateway().on(MessageCreateEvent.class))

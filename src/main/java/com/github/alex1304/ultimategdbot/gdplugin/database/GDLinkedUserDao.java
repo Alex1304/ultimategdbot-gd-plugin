@@ -14,7 +14,7 @@ public interface GDLinkedUserDao {
 
 	String TABLE = "gd_linked_user";
 	
-	@SqlUpdate("INSERT INTO " + TABLE + "(discord_user_id, gd_user_id) VALUES (?, ?)")
+	@SqlUpdate("INSERT INTO " + TABLE + " VALUES (?, ?, 0, NULL)")
 	void create(long discordUserId, long gdUserId);
 	
 	@SqlQuery("SELECT * FROM " + TABLE + " WHERE discord_user_id = ?")
@@ -28,7 +28,7 @@ public interface GDLinkedUserDao {
 	
 	@SqlUpdate("UPDATE " + TABLE + " SET "
 			+ "confirmation_token = NULL, "
-			+ "is_link_activated = 1 "
+			+ "link_activated = 1 "
 			+ "WHERE discord_user_id = :discordUserId")
 	void confirmLink(long discordUserId);
 	
@@ -43,12 +43,12 @@ public interface GDLinkedUserDao {
 		});
 	}
 	
-	@SqlQuery("SELECT * FROM " + TABLE + " WHERE is_link_activated = 1 AND discord_user_id IN (<discordUserIds>)")
+	@SqlQuery("SELECT * FROM " + TABLE + " WHERE link_activated = 1 AND discord_user_id IN (<discordUserIds>)")
 	List<GDLinkedUserData> getAllIn(@BindList List<Long> discordUserIds);
 	
-	@SqlQuery("SELECT * FROM " + TABLE + " WHERE is_link_activated = 1")
+	@SqlQuery("SELECT * FROM " + TABLE + " WHERE link_activated = 1")
 	List<GDLinkedUserData> getAll();
 	
-	@SqlQuery("SELECT * FROM gd_linked_user WHERE gd_account_id = ? AND is_link_activated = 1")
+	@SqlQuery("SELECT * FROM gd_linked_user WHERE gd_user_id = ? AND link_activated = 1")
 	List<GDLinkedUserData> getLinkedAccountsForGdUser(long gdAccountId);
 }

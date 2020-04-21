@@ -13,10 +13,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -54,8 +52,9 @@ import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
 import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.rest.util.Snowflake;
-import reactor.core.Disposable;
+import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -166,10 +165,10 @@ public class LeaderboardCommand {
 														.map(GDLeaderboardBanData::accountId)
 														.collect(Collectors.toUnmodifiableSet()))
 										.map(function((emoji, userStats, bans) -> userStats.stream()
-												.peek(u -> lastRefreshed.compareAndSet(now, userStats.get(0).lastRefreshed().toInstant()))
+												.peek(u -> lastRefreshed.compareAndSet(now, userStats.get(0).lastRefreshed()))
 												.filter(u -> noBanList || !bans.contains(u.accountId()))
 												.flatMap(u -> linkedUsers.stream()
-														.filter(l -> l.gdAccountId().orElseThrow() == u.accountId())
+														.filter(l -> l.gdUserId() == u.accountId())
 														.map(GDLinkedUserData::discordUserId)
 														.map(Snowflake::asLong)
 														.map(members::get)
@@ -221,71 +220,69 @@ public class LeaderboardCommand {
 		}
 		isLocked = true;
 		LOGGER.debug("Locked leaderboards");
-		var cooldown = new AtomicReference<Duration>();
-		var disposableProgress = new AtomicReference<Disposable>();
-		var isSaving = new AtomicBoolean();
-		var loaded = new AtomicLong();
-		var total = new AtomicLong();
-		var now = Timestamp.from(Instant.now());
-		var progressRefreshRate = Duration.ofSeconds(2);
-		var progress = ctx.bot().emoji("info")
-				.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.author().getTag() + "**"))
-				.then(ctx.reply("Refreshing leaderboards..."))
-				.flatMapMany(message -> Flux.interval(progressRefreshRate, progressRefreshRate)
-						.map(tick -> isSaving.get() ? "Saving new player stats in database..." : "Refreshing leaderboards..."
-								+ (total.get() == 0 ? "" : " (" + loaded.get() + "/" + total.get() + " users processed)"))
-						.flatMap(text -> message.edit(spec -> spec.setContent(text)))
-						.doFinally(signal -> message.delete()
-								.then(ctx.bot().emoji("success"))
-								.flatMap(success -> ctx.bot().log(success + " Leaderboard refresh finished with success!")
-										.then(ctx.reply(success + " Leaderboards refreshed!")))
-								.subscribe()));
-		
+		var now = Instant.now();
 		return ctx.bot().database().withExtension(GDLeaderboardDao.class, GDLeaderboardDao::getLastRefreshed)
 				.flatMap(Mono::justOrEmpty)
 				.map(Timestamp::toInstant)
 				.defaultIfEmpty(Instant.MIN)
 				.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
-				.doOnNext(cooldown::set)
-				.filter(Duration::isNegative)
-				.switchIfEmpty(Mono.error(() -> new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
-						+ "Try again in " + BotUtils.formatDuration(cooldown.get().withNanos(0)))))
+				.flatMap(cooldown -> !cooldown.isNegative()
+						? Mono.error(new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
+								+ "Try again in " + BotUtils.formatDuration(cooldown.withNanos(0))))
+						: Mono.empty())
 				.then(ctx.bot().database().withExtension(GDLinkedUserDao.class, GDLinkedUserDao::getAll))
 				.flatMapMany(Flux::fromIterable)
-				.distinct(GDLinkedUserData::gdAccountId)
-				.buffer()
-				.doOnNext(buf -> total.set(buf.size()))
-				.doOnNext(buf -> disposableProgress.set(progress.subscribe()))
-				.doOnNext(buf -> gdService.getGdClient().clearCache())
-				.flatMap(Flux::fromIterable)
-				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdAccountId().orElseThrow())
-						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
-								+ linkedUser.gdAccountId(), e))), gdService.getLeaderboardRefreshParallelism())
-				.map(gdUser -> {
-					loaded.incrementAndGet();
-					return ImmutableGDLeaderboardData.builder()
-							.accountId(gdUser.getAccountId())
-							.name(gdUser.getName())
-							.lastRefreshed(now)
-							.stars(gdUser.getStars())
-							.diamonds(gdUser.getDiamonds())
-							.userCoins(gdUser.getUserCoins())
-							.secretCoins(gdUser.getSecretCoins())
-							.demons(gdUser.getDemons())
-							.creatorPoints(gdUser.getCreatorPoints())
-							.build();
-				})
+				.distinct(GDLinkedUserData::gdUserId)
 				.collectList()
-				.doOnNext(stats -> isSaving.set(true))
-				.flatMap(stats -> ctx.bot().database()
-						.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats)))
+				.flatMap(list -> ctx.bot().emoji("info")
+						.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.author().getTag() + "**"))
+						.then(ctx.reply("Refreshing leaderboards..."))
+						.flatMapMany(message -> {
+							var processor = EmitterProcessor.<Long>create();
+							var sink = processor.sink(FluxSink.OverflowStrategy.BUFFER);
+							var done = new AtomicBoolean();
+							processor.take(Duration.ofSeconds(2))
+									.takeLast(1)
+									.flatMap(i -> message
+											.edit(spec -> spec.setContent("Refreshing leaderboards... "
+													+ "(" + i + "/" + list.size() + " users processed)"))
+											.onErrorResume(e -> Mono.empty()))
+									.repeat(() -> !done.get())
+									.then(message.delete().onErrorResume(e -> Mono.empty()))
+									.subscribe();
+							return Flux.fromIterable(list)
+									.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId())
+											.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
+													+ linkedUser.gdUserId(), e))), gdService.getLeaderboardRefreshParallelism())
+									.index()
+									.map(function((i, gdUser) -> {
+										sink.next(i);
+										return ImmutableGDLeaderboardData.builder()
+												.accountId(gdUser.getAccountId())
+												.name(gdUser.getName())
+												.lastRefreshed(now)
+												.stars(gdUser.getStars())
+												.diamonds(gdUser.getDiamonds())
+												.userCoins(gdUser.getUserCoins())
+												.secretCoins(gdUser.getSecretCoins())
+												.demons(gdUser.getDemons())
+												.creatorPoints(gdUser.getCreatorPoints())
+												.build();
+									}))
+									.doFinally(__ -> done.set(true));
+						})
+						.collectList())
+				.flatMap(stats -> ctx.reply("Saving new player stats to database...")
+						.onErrorResume(e -> Mono.empty())
+						.flatMap(message -> ctx.bot().database()
+								.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats))
+								.then(message.delete())
+								.then(ctx.bot().emoji("success")
+										.flatMap(success -> ctx.reply(success + " Leaderboard refreshed!"))
+										.then())))
 				.doFinally(signal -> {
 					isLocked = false;
 					LOGGER.debug("Unlocked leaderboards");
-					var d = disposableProgress.get();
-					if (d != null) {
-						d.dispose();
-					}
 				});
 	}
 	
@@ -379,7 +376,7 @@ public class LeaderboardCommand {
 	}
 	
 	private static List<Long> gdAccIds(List<GDLinkedUserData> l) {
-		return l.stream().map(GDLinkedUserData::gdAccountId).map(Optional::orElseThrow).collect(toList());
+		return l.stream().map(GDLinkedUserData::gdUserId).collect(toList());
 	}
 	
 	private static class LeaderboardEntry implements Comparable<LeaderboardEntry> {

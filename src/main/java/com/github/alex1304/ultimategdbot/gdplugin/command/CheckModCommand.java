@@ -1,7 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
-import java.util.Optional;
-
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.Role;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
@@ -50,8 +48,7 @@ public class CheckModCommand {
 								+ "check your own mod status, link your Geometry Dash account using `" 
 								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
 								+ "need to specify a user like so: `" + ctx.prefixUsed() + "checkmod <gd_user>`.")))
-						.map(GDLinkedUserData::gdAccountId)
-						.map(Optional::orElseThrow)
+						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(ctx.bot().emoji("success"), ctx.bot().emoji("failed"), ctx.bot().emoji("mod"))
 						.flatMap(emojis -> ctx.reply("Checking in-game mod status for user **" + user.getName() + "**...\n||"

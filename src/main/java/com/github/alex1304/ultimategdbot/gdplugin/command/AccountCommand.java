@@ -51,7 +51,7 @@ public class AccountCommand {
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 				.flatMap(Mono::justOrEmpty)
 				.filter(GDLinkedUserData::isLinkActivated)
-				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdAccountId().orElseThrow()))
+				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId()))
 				.map(user -> Tuples.of(true, "You are currently linked to the Geometry Dash account **" + user.getName() + "**!"))
 				.defaultIfEmpty(Tuples.of(false, "You are not yet linked to any Geometry Dash account!"))
 				.flatMap(tuple -> ctx.reply("You can link your Discord account with your Geometry Dash account "

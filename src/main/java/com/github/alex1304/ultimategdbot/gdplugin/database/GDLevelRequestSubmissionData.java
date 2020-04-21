@@ -1,6 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,7 +25,7 @@ public interface GDLevelRequestSubmissionData {
 	
 	Snowflake submitterId();
 	
-	Timestamp submissionTimestamp();
+	Instant submissionTimestamp();
 	
 	boolean isReviewed();
 	

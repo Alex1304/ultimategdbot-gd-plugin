@@ -3,7 +3,6 @@ package com.github.alex1304.ultimategdbot.gdplugin.command;
 import static discord4j.core.retriever.EntityRetrievalStrategy.STORE_FALLBACK_REST;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -74,18 +73,18 @@ public class LevelRequestCommand {
 								? Mono.error(new CommandFailedException("Hmm, did you mean \"" + ctx.prefixUsed()
 										+ "lvlreq **submit** " + ctx.args().getAllAfter(1) + "\"?"))
 								: Mono.just(lvlReqCfg))
-						.zipWhen(lvlReqCfg -> Mono.justOrEmpty(lvlReqCfg.roleReviewer())
+						.zipWhen(lvlReqCfg -> Mono.justOrEmpty(lvlReqCfg.roleReviewerId())
 								.flatMap(roleId -> ctx.bot().gateway().getRoleById(guildId, roleId))
 								.map(DiscordFormatter::formatRole)
 								.defaultIfEmpty("*Not configured*"))
 						.flatMap(TupleUtils.function((lvlReqCfg, reviewerRole) -> ctx.reply("**__Get other players to play your "
 								+ "levels and give feedback with the Level Request feature!__**\n\n" + (lvlReqCfg.isOpen()
 								? success + " level requests are OPENED" : failed + " level requests are CLOSED") + "\n\n"
-								+ "**Submission channel:** " + formatChannel(lvlReqCfg.channelSubmissionQueue()) + "\n"
-								+ "**Reviewed levels channel:** " + formatChannel(lvlReqCfg.channelArchivedSubmissions()) + "\n"
+								+ "**Submission channel:** " + formatChannel(lvlReqCfg.channelSubmissionQueueId()) + "\n"
+								+ "**Reviewed levels channel:** " + formatChannel(lvlReqCfg.channelArchivedSubmissionsId()) + "\n"
 								+ "**Reviewer role:** " + reviewerRole + "\n"
 								+ "**Number of reviews required:** " + lvlReqCfg.minReviewsRequired() + "\n"
-								+ "**Max queued submissions per person:** " + lvlReqCfg.maxQueuedSubmissionPerUser() + "\n\n"
+								+ "**Max queued submissions per person:** " + lvlReqCfg.maxQueuedSubmissionsPerUser() + "\n\n"
 								+ "Server admins can change the above values via `" + ctx.prefixUsed() + "setup`, "
 								+ "and they can " + (lvlReqCfg.isOpen() ? "close" : "open") + " level requests by using `"
 								+ ctx.prefixUsed() + "levelrequest toggle`.\nFor more details on how level requests work, check "
@@ -119,7 +118,7 @@ public class LevelRequestCommand {
 	@CommandPermission(name = "LEVEL_REQUEST_REVIEWER")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
 		final var guildId = ctx.event().getGuildId().orElseThrow();
-		return ctx.channel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
+		return ctx.channel().typeUntil(GDLevelRequests.retrieveConfig(ctx)
 				.flatMap(lvlReqCfg -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqCfg, null, false)))
 				.then(ctx.bot().emoji("success").flatMap(emoji -> ctx.reply(emoji + " The submission has been updated.")))
 				.then();
@@ -135,11 +134,12 @@ public class LevelRequestCommand {
 		final var lvlReqCfg = new AtomicReference<GDLevelRequestConfigData>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissionData>>();
-		return ctx.channel().typeUntil(GDLevelRequests.retrieveSettings(ctx)
+		return ctx.channel().typeUntil(GDLevelRequests.retrieveConfig(ctx)
 				.doOnNext(lvlReqCfg::set)
-				.filter(lrs -> ctx.event().getMessage().getChannelId().equals(lrs.channelSubmissionQueue().orElseThrow()))
+				.doOnNext(System.err::println)
+				.filter(lrs -> ctx.event().getMessage().getChannelId().equals(lrs.channelSubmissionQueueId().orElseThrow()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You can only use this command in <#"
-						+ lvlReqCfg.get().channelSubmissionQueue().orElseThrow().asString() + ">.")))
+						+ lvlReqCfg.get().channelSubmissionQueueId().orElseThrow().asString() + ">.")))
 				.filter(GDLevelRequestConfigData::isOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException("Level requests are closed, no submissions are being accepted.")))
 				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId.asLong()).cache()))
@@ -153,9 +153,9 @@ public class LevelRequestCommand {
 								.hasElement()
 								.onErrorReturn(true))
 						.count()
-						.map(n -> n < lrs.maxQueuedSubmissionPerUser()))
+						.map(n -> n < lrs.maxQueuedSubmissionsPerUser()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException("You've reached the maximum number of submissions allowed in queue per person ("
-						+ lvlReqCfg.get().maxQueuedSubmissionPerUser() + "). Wait for one of your queued requests to be "
+						+ lvlReqCfg.get().maxQueuedSubmissionsPerUser() + "). Wait for one of your queued requests to be "
 						+ "reviewed before trying again.")))
 				.then(gdService.getGdClient()
 						.getLevelById(levelId)
@@ -165,7 +165,7 @@ public class LevelRequestCommand {
 								.submissionId(0) // unknown yet
 								.guildId(guildId)
 								.levelId(levelId)
-								.submissionTimestamp(Timestamp.from(Instant.now()))
+								.submissionTimestamp(Instant.now())
 								.submitterId(user.getId())
 								.youtubeLink(Optional.ofNullable(youtubeLink))
 								.isReviewed(false)
@@ -184,6 +184,7 @@ public class LevelRequestCommand {
 												s.submissionId(), 
 												message.getChannelId().asLong(), 
 												message.getId().asLong())))
+								.doOnError(Throwable::printStackTrace)
 								.onErrorResume(e -> ctx.bot().database()
 										.useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.delete(s.submissionId()))))))
 				.then(ctx.bot().emoji("success").flatMap(emoji -> ctx.reply(emoji + " Level request submitted!")))
@@ -195,7 +196,7 @@ public class LevelRequestCommand {
 	@CommandPermission(level = PermissionLevel.GUILD_ADMIN)
 	public Mono<Void> runToggle(Context ctx) {
 		var isOpening = new AtomicBoolean();
-		return GDLevelRequests.retrieveSettings(ctx)
+		return GDLevelRequests.retrieveConfig(ctx)
 				.doOnNext(lvlReqCfg -> isOpening.set(!lvlReqCfg.isOpen()))
 				.flatMap(lvlReqCfg -> ctx.bot().database()
 						.useExtension(GDLevelRequestConfigDao.class, dao -> dao.toggleOpenState(lvlReqCfg.guildId().asLong(), isOpening.get())))
@@ -208,7 +209,7 @@ public class LevelRequestCommand {
 	@CommandPermission(name = "LEVEL_REQUEST_REVIEWER")
 	public Mono<Void> runPurgeInvalidSubmissions(Context ctx) {
 		var guildId = ctx.event().getGuildId().orElseThrow();
-		return GDLevelRequests.retrieveSettings(ctx)
+		return GDLevelRequests.retrieveConfig(ctx)
 				.flatMap(lvlReqCfg -> GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId.asLong())
 						.flatMap(submission -> gdService.getGdClient().getLevelById(submission.levelId())
 								.filter(level -> level.getStars() > 0)
@@ -240,7 +241,7 @@ public class LevelRequestCommand {
 		}
 		return Mono.justOrEmpty(submissionObj)
 				.switchIfEmpty(ctx.bot().database().withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.get(submissionId))
-						.flatMap(Mono::justOrEmpty)
+						.<GDLevelRequestSubmissionData>flatMap(Mono::justOrEmpty)
 						.doOnNext(submission::set)
 						.filter(s -> s.guildId().asLong() == guildId)
 						.filter(s -> !s.isReviewed())
@@ -265,12 +266,14 @@ public class LevelRequestCommand {
 						.useExtension(GDLevelRequestReviewDao.class, dao -> dao.delete(r.reviewId()))
 						.then(Mono.empty()) : Mono.just(r))
 				.map(r -> ImmutableGDLevelRequestReviewData.builder()
-						.from(r)
-						.reviewContent(reviewContent)
-						.reviewerId(userId)
-						.reviewTimestamp(Timestamp.from(Instant.now()))
-						.submissionId(submission.get().submissionId())
-						.build())
+						.from(r))
+				.switchIfEmpty(Mono.fromCallable(() -> ImmutableGDLevelRequestReviewData.builder()
+							.reviewId(0)
+							.reviewContent(reviewContent)
+							.reviewerId(userId)
+							.reviewTimestamp(Instant.now())
+							.submissionId(submission.get().submissionId())))
+				.map(ImmutableGDLevelRequestReviewData.Builder::build)
 				.doOnNext(r -> submission.set(ImmutableGDLevelRequestSubmissionData.builder()
 						.from(submission.get())
 						.reviews(Stream.concat(submission.get().reviews().stream()
@@ -293,7 +296,7 @@ public class LevelRequestCommand {
 								.then(updatedMessage)
 								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(spec -> ctx.bot().gateway()
-										.getChannelById(lvlReqCfg.channelArchivedSubmissions().orElseThrow())
+										.getChannelById(lvlReqCfg.channelArchivedSubmissionsId().orElseThrow())
 										.ofType(TextChannel.class)
 										.flatMap(channel -> channel.createMessage(spec))
 //										.flatMap(message -> {

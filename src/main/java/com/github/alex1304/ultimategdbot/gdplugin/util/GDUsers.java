@@ -40,7 +40,6 @@ import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.retry.Repeat;
 
 public final class GDUsers {
 
@@ -117,7 +116,6 @@ public final class GDUsers {
 			try {
 				for (var iconType : IconType.values()) {
 						icons.add(iconSet.generateIcon(iconType));
-					
 				}
 			} catch (IllegalArgumentException e) {
 				return Mono.error(e);
@@ -138,8 +136,8 @@ public final class GDUsers {
 						.flatMap(c -> c.createMessage(mcs -> mcs.addFile(user.getId() + "-IconSet.png", istreamIconSet)))
 						.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
 						.filter(att -> att.getSize() > 0)
-						.repeatWhenEmpty(Repeat.times(5).randomBackoff(Duration.ofMillis(100), Duration.ofSeconds(1)))
-						.switchIfEmpty(Mono.error(new RuntimeException("Failed to upload the icon set to Discord. Retrying might fix it.")))
+						.timeout(Duration.ofSeconds(30), Mono.empty())
+						.switchIfEmpty(Mono.error(new CommandFailedException("Failed to upload the icon set to Discord. Retrying might fix it.")))
 						.map(Attachment::getUrl)
 						.doOnNext(url -> iconsCache.put(iconSet, url));
 			} catch (IOException e) {
@@ -165,7 +163,7 @@ public final class GDUsers {
 					.flatMap(user -> bot.database().withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
 					.flatMap(Mono::justOrEmpty)
 					.filter(GDLinkedUserData::isLinkActivated)
-					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdAccountId().orElseThrow()))
+					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()))
 					.switchIfEmpty(Mono.error(new CommandFailedException("This user doesn't have an associated Geometry Dash account.")));
 		}
 		if (!str.matches("[a-zA-Z0-9 _-]+")) {

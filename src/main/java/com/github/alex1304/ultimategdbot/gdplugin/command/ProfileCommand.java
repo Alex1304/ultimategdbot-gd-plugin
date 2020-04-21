@@ -48,7 +48,7 @@ public class ProfileCommand {
 								+ "show your own profile, link your Geometry Dash account using `"
 								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
 								+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
-						.map(GDLinkedUserData::gdAccountId)
+						.map(GDLinkedUserData::gdUserId)
 						.flatMap(Mono::justOrEmpty)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
