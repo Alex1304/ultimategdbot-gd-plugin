@@ -110,7 +110,7 @@ public class FeaturedInfoCommand {
 						.then());
 	}
 	
-	private Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
+	private static Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
 		return waitMessage.delete().then(ctx.event().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
 						+ GDLevels.toString(level) + " is currently placed in page **" + (page + 1)
 						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
