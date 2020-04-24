@@ -85,7 +85,7 @@ public class GDEventProcessor {
 										.and(Mono.fromRunnable(() -> LOGGER.error("An error occured while dispatching GD event", e)))))));
 	}
 	
-	private Mono<Void> log(Bot bot, String text) {
+	private static Mono<Void> log(Bot bot, String text) {
 		return Mono.when(bot.log(text).onErrorResume(e -> Mono.empty()), Mono.fromRunnable(() -> LOGGER.info(text)));
 	}
 	

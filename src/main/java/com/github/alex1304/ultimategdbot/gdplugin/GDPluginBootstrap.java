@@ -148,11 +148,11 @@ public class GDPluginBootstrap implements PluginBootstrap {
 				}));
 	}
 
-	private Set<GDEventScanner> initScanners() {
+	private static Set<GDEventScanner> initScanners() {
 		return Set.of(new AwardedSectionScanner(), new DailyLevelScanner(), new WeeklyDemonScanner());
 	}
 	
-	private CommandProvider initCommandProvider(GDService gdService, Bot bot, AuthenticatedGDClient gdClient) {
+	private static CommandProvider initCommandProvider(GDService gdService, Bot bot, AuthenticatedGDClient gdClient) {
 		var cmdProvider = new AnnotatedCommandProvider();
 		// Commands
 		cmdProvider.addAnnotated(new AccountCommand(gdService));
@@ -247,7 +247,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		return cmdProvider;
 	}
 	
-	private GDEventSubscriber initGDEventSubscriber(GDEventDispatcher gdEventDispatcher, GDService gdService, Bot bot) {
+	private static GDEventSubscriber initGDEventSubscriber(GDEventDispatcher gdEventDispatcher, GDService gdService, Bot bot) {
 		var subscriber = new GDEventSubscriber(bot, gdService);
 		gdEventDispatcher.on(GDEvent.class).subscribe(subscriber);
 		return subscriber;
