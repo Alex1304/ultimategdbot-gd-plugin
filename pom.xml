@@ -116,7 +116,7 @@
 		            <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
 		            <injectAllReactorProjects>true</injectAllReactorProjects>
 		            <generateGitPropertiesFile>true</generateGitPropertiesFile>
-		            <generateGitPropertiesFilename>${project.build.outputDirectory}/geometry_dash.git.properties</generateGitPropertiesFilename>
+		            <generateGitPropertiesFilename>${project.build.outputDirectory}/META-INF/git/geometry_dash.git.properties</generateGitPropertiesFilename>
 		        </configuration>
 		    </plugin>
 			<plugin>
@@ -135,7 +135,6 @@
 								<zip basedir="${project.build.directory}"
 										destfile="${plugin.outputdir}.zip"
 										includes="${project.artifactId}/**" />
-								<delete dir="${plugin.outputdir}" />
 							</target>
 						</configuration>
 					</execution>
@@ -148,7 +147,7 @@
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>ultimategdbot-api</artifactId>
-			<version>6.0.0-SNAPSHOT</version>
+			<version>6.0.0-alpha1</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
