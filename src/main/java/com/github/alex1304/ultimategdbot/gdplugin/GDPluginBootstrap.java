@@ -82,70 +82,72 @@ public class GDPluginBootstrap implements PluginBootstrap {
 	private static final Logger LOGGER = Loggers.getLogger(GDPluginBootstrap.class);
 
 	@Override
-	public Mono<Plugin> setup(Bot bot, PropertyReader pluginProperties) {
-		// Properties
-		var username = pluginProperties.read("gdplugin.username");
-		var password = pluginProperties.read("gdplugin.password");
-		var iconChannelId = pluginProperties.readAs("gdplugin.icon_channel_id", Snowflake::of);
-		var host = pluginProperties.readOptional("gdplugin.host").orElse(Routes.BASE_URL);
-		var cacheTtl = pluginProperties.readOptional("gdplugin.cache_ttl")
-				.map(v -> Duration.ofMillis(Long.parseLong(v)))
-				.orElse(GDClientBuilder.DEFAULT_CACHE_TTL);
-		var requestTimeout = pluginProperties.readOptional("gdplugin.request_timeout")
-				.map(v -> Duration.ofMillis(Long.parseLong(v)))
-				.orElse(GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
-		var scannerLoopInterval = Duration.ofSeconds(pluginProperties.readOptional("gdplugin.scanner_loop_interval").map(Integer::parseInt).orElse(10));
-		var autostartScannerLoop = pluginProperties.readOptional("gdplugin.autostart_scanner_loop")
-				.map(Boolean::parseBoolean)
-				.orElse(true);
-		var maxConnections = pluginProperties.readOptional("gdplugin.max_connections").map(Integer::parseInt).orElse(100);
-		var iconsCacheMaxSize = pluginProperties.readOptional("gdplugin.icons_cache_max_size").map(Integer::parseInt).orElse(2048);
-		// Database config
-		bot.database().configureJdbi(jdbi -> {
-			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
-					GDAwardedLevelData.class,
-					GDEventConfigData.class,
-					GDLeaderboardBanData.class,
-					GDLeaderboardData.class,
-					GDLevelRequestConfigData.class,
-					GDLevelRequestReviewData.class,
-					GDLevelRequestSubmissionData.class,
-					GDLinkedUserData.class,
-					GDModData.class);
+	public Mono<Plugin> setup(Bot bot) {
+		return initPluginProperties().flatMap(pluginProperties -> {
+			// Properties
+			var username = pluginProperties.read("gdplugin.username");
+			var password = pluginProperties.read("gdplugin.password");
+			var iconChannelId = pluginProperties.readAs("gdplugin.icon_channel_id", Snowflake::of);
+			var host = pluginProperties.readOptional("gdplugin.host").orElse(Routes.BASE_URL);
+			var cacheTtl = pluginProperties.readOptional("gdplugin.cache_ttl")
+					.map(v -> Duration.ofMillis(Long.parseLong(v)))
+					.orElse(GDClientBuilder.DEFAULT_CACHE_TTL);
+			var requestTimeout = pluginProperties.readOptional("gdplugin.request_timeout")
+					.map(v -> Duration.ofMillis(Long.parseLong(v)))
+					.orElse(GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
+			var scannerLoopInterval = Duration.ofSeconds(pluginProperties.readOptional("gdplugin.scanner_loop_interval").map(Integer::parseInt).orElse(10));
+			var autostartScannerLoop = pluginProperties.readOptional("gdplugin.autostart_scanner_loop")
+					.map(Boolean::parseBoolean)
+					.orElse(true);
+			var maxConnections = pluginProperties.readOptional("gdplugin.max_connections").map(Integer::parseInt).orElse(100);
+			var iconsCacheMaxSize = pluginProperties.readOptional("gdplugin.icons_cache_max_size").map(Integer::parseInt).orElse(2048);
+			// Database config
+			bot.database().configureJdbi(jdbi -> {
+				jdbi.getConfig(JdbiImmutables.class).registerImmutable(
+						GDAwardedLevelData.class,
+						GDEventConfigData.class,
+						GDLeaderboardBanData.class,
+						GDLeaderboardData.class,
+						GDLevelRequestConfigData.class,
+						GDLevelRequestReviewData.class,
+						GDLevelRequestSubmissionData.class,
+						GDLinkedUserData.class,
+						GDModData.class);
+			});
+			bot.registerGuildConfigExtension(GDEventConfigDao.class);
+			bot.registerGuildConfigExtension(GDLevelRequestConfigDao.class);
+			// Resources
+			var buildingGDClient = GDClientBuilder.create()
+					.withHost(host)
+					.withCacheTtl(cacheTtl)
+					.withRequestTimeout(requestTimeout)
+					.buildAuthenticated(new Credentials(username, password))
+					.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e));
+			var creatingSpriteFactory = Mono.fromCallable(SpriteFactory::create)
+					.onErrorMap(e -> new RuntimeException("An error occured when loading the GD icons sprite factory", e));
+			
+			return Mono.zip(buildingGDClient, creatingSpriteFactory)
+					.map(function((gdClient, spriteFactory) -> {
+						var gdEventDispatcher = new GDEventDispatcher();
+						var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
+						var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
+						var gdService = new GDService(gdClient, spriteFactory,
+								iconsCacheMaxSize, gdEventDispatcher, scannerLoop,
+								cachedSubmissionChannelIds, maxConnections, iconChannelId);
+						initGDEventSubscriber(gdEventDispatcher, gdService, bot);
+						var cmdProvider = initCommandProvider(gdService, bot, gdClient);
+						return Plugin.builder("Geometry Dash")
+								.setCommandProvider(cmdProvider)
+								.onReady(() -> {
+									GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
+									if (autostartScannerLoop) {
+										scannerLoop.start();
+									}
+									return Mono.empty();
+								})
+								.build();
+					}));
 		});
-		bot.registerGuildConfigExtension(GDEventConfigDao.class);
-		bot.registerGuildConfigExtension(GDLevelRequestConfigDao.class);
-		// Resources
-		var buildingGDClient = GDClientBuilder.create()
-				.withHost(host)
-				.withCacheTtl(cacheTtl)
-				.withRequestTimeout(requestTimeout)
-				.buildAuthenticated(new Credentials(username, password))
-				.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e));
-		var creatingSpriteFactory = Mono.fromCallable(SpriteFactory::create)
-				.onErrorMap(e -> new RuntimeException("An error occured when loading the GD icons sprite factory", e));
-		
-		return Mono.zip(buildingGDClient, creatingSpriteFactory)
-				.map(function((gdClient, spriteFactory) -> {
-					var gdEventDispatcher = new GDEventDispatcher();
-					var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
-					var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
-					var gdService = new GDService(gdClient, spriteFactory,
-							iconsCacheMaxSize, gdEventDispatcher, scannerLoop,
-							cachedSubmissionChannelIds, maxConnections, iconChannelId);
-					initGDEventSubscriber(gdEventDispatcher, gdService, bot);
-					var cmdProvider = initCommandProvider(gdService, bot, gdClient);
-					return Plugin.builder("Geometry Dash")
-							.setCommandProvider(cmdProvider)
-							.onReady(() -> {
-								GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
-								if (autostartScannerLoop) {
-									scannerLoop.start();
-								}
-								return Mono.empty();
-							})
-							.build();
-				}));
 	}
 
 	private static Set<GDEventScanner> initScanners() {
@@ -253,8 +255,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		return subscriber;
 	}
 
-	@Override
-	public Mono<PropertyReader> initPluginProperties() {
+	private static Mono<PropertyReader> initPluginProperties() {
 		return PropertyReader.fromPropertiesFile(Path.of(".", "config", "gd.properties"));
 	}
 }
