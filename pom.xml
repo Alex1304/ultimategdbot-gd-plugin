@@ -152,6 +152,21 @@
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>jdash</artifactId>
 			<version>3.3.8</version>
+			<exclusions>
+				<!-- Use reactor version provided by ultimategdbot-api -->
+				<exclusion>
+					<groupId>io.projectreactor</groupId>
+					<artifactId>reactor-core</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>io.projectreactor.addons</groupId>
+					<artifactId>reactor-extra</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>io.projectreactor.netty</groupId>
+					<artifactId>reactor-netty</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
