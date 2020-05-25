@@ -151,7 +151,7 @@
 		<dependency>
 			<groupId>com.github.alex1304</groupId>
 			<artifactId>jdash</artifactId>
-			<version>3.3.7</version>
+			<version>3.3.8</version>
 			
 			<exclusions>
 				<!-- Use reactor version provided by ultimategdbot-api -->
