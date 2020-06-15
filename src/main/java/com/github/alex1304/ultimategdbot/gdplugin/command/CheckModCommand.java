@@ -25,7 +25,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "checkmod",
-		shortDescription = "Checks for the presence of the Moderator badge on someone's profile."
+		shortDescription = "tr:cmddoc_gd_checkmod/short_description"
 )
 public class CheckModCommand {
 
@@ -36,27 +36,25 @@ public class CheckModCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Checks for the presence of the Moderator badge on someone's profile. This command "
-			+ "displays the mod status as if you pressed the 'REQ' button in-game, but note that it "
-			+ "doesn't actually push this button for you. It just checks for the presence of the "
-			+ "'M' badge on the profile, nothing else.")
+	@CommandDoc("tr:cmddoc_gd_checkmod/run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
 				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
 						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
-						.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
-								+ "check your own mod status, link your Geometry Dash account using `" 
-								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
-								+ "need to specify a user like so: `" + ctx.prefixUsed() + "checkmod <gd_user>`.")))
+						.switchIfEmpty(Mono.error(new CommandFailedException(
+								ctx.translate("misc_gd_users", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
-				.flatMap(user -> Mono.zip(ctx.bot().service(EmojiService.class).emoji("success"), ctx.bot().service(EmojiService.class).emoji("failed"), ctx.bot().service(EmojiService.class).emoji("mod"))
-						.flatMap(emojis -> ctx.reply("Checking in-game mod status for user **" + user.getName() + "**...\n||"
+				.flatMap(user -> Mono.zip(
+								ctx.bot().service(EmojiService.class).emoji("success"),
+								ctx.bot().service(EmojiService.class).emoji("failed"),
+								ctx.bot().service(EmojiService.class).emoji("mod"))
+						.flatMap(emojis -> ctx.reply(ctx.translate("cmdtext_gd_checkmod", "checking_mod", user.getName()) + "\n||"
 								+ (user.getRole() == Role.USER
-								? emojis.getT2() + " Failed. Nothing found."
-								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
+								? emojis.getT2() + ' ' + ctx.translate("cmdtext_gd_checkmod", "failed")
+								: emojis.getT1() + ' ' + ctx.translate("cmdtext_gd_checkmod", "success", user.getRole().toString()) + "||")))
 						.then(GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))

@@ -22,7 +22,7 @@ import reactor.util.function.Tuples;
 
 @CommandDescriptor(
 		aliases = "featuredinfo",
-		shortDescription = "Finds the exact position of a level in the Featured section."
+		shortDescription = "tr:cmddoc_gd_featuredinfo/short_description"
 )
 public class FeaturedInfoCommand {
 
@@ -33,16 +33,11 @@ public class FeaturedInfoCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Finds the exact position of a level in the Featured section. Levels are sorted "
-			+ "in the Featured section by a score. This score is given by "
-			+ "RobTop and determines its position in the Featured section. The bot uses this "
-			+ "score in order to perform a dichotomous search in the Featured section, "
-			+ "allowing it to find the position of any level in only a few seconds, regardless "
-			+ "of how far back it is.")
+	@CommandDoc("tr:cmddoc_gd_featuredinfo/run")
 	public Mono<Void> run(Context ctx, GDLevel level) {
 		final var score = level.getFeaturedScore();
 		if (score == 0) {
-			return Mono.error(new CommandFailedException("This level is not featured."));
+			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_featuredinfo", "error_not_featured")));
 		}
 		final var initialMax = 3000;
 		final var min = new AtomicInteger();
@@ -52,7 +47,7 @@ public class FeaturedInfoCommand {
 		final var continueAlgo = new AtomicBoolean(true);
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
-		return ctx.reply("Searching, please wait...")
+		return ctx.reply(ctx.translate("cmdtext_gd_featuredinfo", "searching"))
 				.flatMap(waitMessage -> Mono.defer(() -> gdService.getGdClient().browseFeaturedLevels(currentPage.get())
 						.flatMap(paginator -> {
 							alreadyVisitedPages.add(currentPage.get());
@@ -104,15 +99,16 @@ public class FeaturedInfoCommand {
 						})))
 						.repeat(continueAlgo::get)
 						.then(Mono.defer(() -> result.get() == null
-								? Mono.error(new CommandFailedException("Unable to find " + GDLevels.toString(level) + " in the Featured section."))
+								? Mono.error(new CommandFailedException(
+										ctx.translate("cmdtext_gd_featuredinfo", "error_not_found", GDLevels.toString(level))))
 								: sendResult(waitMessage, ctx, level, result.get().getT1(), result.get().getT2())))
 						.doOnTerminate(() -> waitMessage.delete().onErrorResume(e -> Mono.empty()).subscribe())
 						.then());
 	}
 	
 	private static Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
-		return waitMessage.delete().then(ctx.event().getMessage().getAuthor().map(author -> ctx.reply(author.getMention() + ", "
-						+ GDLevels.toString(level) + " is currently placed in page **" + (page + 1)
-						+ "** of the Featured section at position " + position)).orElse(Mono.empty()));
+		return waitMessage.delete()
+				.then(ctx.reply(ctx.author().getMention() + ", "
+						+ ctx.translate("cmdtext_gd_featuredinfo", "success", GDLevels.toString(level), page + 1, position)));
 	}
 }

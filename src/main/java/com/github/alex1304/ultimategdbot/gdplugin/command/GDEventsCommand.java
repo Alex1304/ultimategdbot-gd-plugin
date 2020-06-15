@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
-import static com.github.alex1304.ultimategdbot.api.util.Markdown.code;
 import static java.util.stream.Collectors.joining;
 
 import java.util.Collections;
@@ -13,6 +12,7 @@ import com.github.alex1304.jdashevents.event.AwardedLevelRemovedEvent;
 import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
+import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
@@ -39,7 +39,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "gdevents",
-		shortDescription = "Allows the bot owner to manage the GD event broadcasting system."
+		shortDescription = "tr:cmddoc_gd_gdevents/short_description"
 )
 @CommandPermission(level = PermissionLevel.BOT_OWNER)
 public class GDEventsCommand {
@@ -51,19 +51,7 @@ public class GDEventsCommand {
 	}
 	
 	@CommandAction("dispatch")
-	@CommandDoc("Manually dispatches a new GD event.\n`event_name` can be one of:\n"
-				+ "- `daily_level_changed`: dispatches the current Daily level\n"
-				+ "- `late_daily_level_changed`: dispatches the current Daily level, without tagging subscriber roles\n"
-				+ "- `weekly_demon_changed`: dispatches the current Weekly demon\n"
-				+ "- `late_weekly_demon_changed`: dispatches the current Weekly demon, without tagging subscriber roles\n"
-				+ "- `awarded_level_added <level_id>`: dispatches the level with the specified ID as a newly awarded level\n"
-				+ "- `late_awarded_level_added <level_id>`: dispatches the level with the specified ID as a newly awarded "
-				+ "level, without tagging subscriber roles\n"
-				+ "- `awarded_level_removed <level_id>`: dispatches the level with the specified ID as a level that got unrated\n"
-				+ "- `late_awarded_level_removed <level_id>`: dispatches the level with the specified ID as a level that got "
-				+ "unrated, without tagging subscriber roles\n"
-				+ "- `awarded_level_updated <level_id>`: dispatches the level with the specified ID as a level that got its "
-				+ "rating changed. Only works for levels that were previously dispatched as new rates.\n")
+	@CommandDoc("tr:cmddoc_gd_gdevents/run_dispatch")
 	public Mono<Void> runDispatch(Context ctx, String eventName, @Nullable Long levelId) {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
@@ -75,7 +63,7 @@ public class GDEventsCommand {
 				break;
 			default:
 				if (levelId == null) {
-					return Mono.error(new CommandFailedException("Please specify a level ID."));
+					return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_id_not_specified")));
 				}
 				switch (eventName) {
 					case "awarded_level_added":
@@ -89,40 +77,38 @@ public class GDEventsCommand {
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
-						return Mono.error(new CommandFailedException("Unknown event. See " + code(ctx.prefixUsed()
-								+ "help gdevents dispatch") + " to see the existing events."));
+						return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_id_not_specified", ctx.prefixUsed())));
 				}
 		}
 		
 		return eventToDispatch.doOnNext(gdService.getGdEventDispatcher()::dispatch)
-				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
+				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + ' '
+						+ ctx.translate("cmdtext_gd_gdevents", "dispatch_success"))))
 				.then();
 	}
 	
-	@CommandAction("scanner_loop")
-	@CommandDoc("Starts or stops the GD event scanner loop. If stopped, GD events will no longer be dispatched "
-			+ "automatically when they happen in game. The possible `action`s are `start` and `stop`, respectively.")
-	public Mono<Void> runScannerLoop(Context ctx, String action) {
+	@CommandAction("loop")
+	@CommandDoc("tr:cmddoc_gd_gdevents/run_loop")
+	public Mono<Void> runLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":
 				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::start)
-						.then(ctx.reply("GD event scanner loop has been started."))
+						.then(ctx.reply(ctx.translate("cmdtext_gd_gdevents", "event_loop_started")))
 						.then();
 			case "stop":
 				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::stop)
-						.then(ctx.reply("GD event scanner loop has been stopped."))
+						.then(ctx.reply(ctx.translate("cmdtext_gd_gdevents", "event_loop_stopped")))
 						.then();
 			default:
-				return Mono.error(new CommandFailedException("Unknown action. See " + code(ctx.prefixUsed()
-						+ "help gdevents scanner_loop") + " to see the different actions possible"));
+				return Mono.error(new CommandFailedException(
+						ctx.translate("cmdtext_gd_gdevents", "error_unknown_action", ctx.prefixUsed())));
 		}
 	}
 	
 	@CommandAction("dispatch_all_awarded_resuming_from")
-	@CommandDoc("Dispatches new awarded events for the given level plus all levels that have been rated after it.")
+	@CommandDoc("tr:cmddoc_gd_gdevents/run_dispatch_all_awarded_resuming_from")
 	@FlagDoc(
-			@FlagInfo(name = "max-page", description = "The maximum page where to search the level in the awarded section. "
-					+ "Default is 10.")
+			@FlagInfo(name = "max-page", description = "tr:cmddoc_gd_gdevents/flag_max_page")
 	)
 	public Mono<Void> runDispatchAllAwardedResumingFrom(Context ctx, long levelId) {
 		var maxPage = ctx.flags().get("max-page").map(v -> {
@@ -133,7 +119,7 @@ public class GDEventsCommand {
 			}
 		}).orElse(10);
 		if (maxPage < 1) {
-			return Mono.error(new CommandFailedException("Invalid `max-page`"));
+			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_invalid_max_page")));
 		}
 		
 		var processor = EmitterProcessor.<GDLevel>create(false);
@@ -151,7 +137,8 @@ public class GDEventsCommand {
 										sink.next(level);
 									}
 								}))
-						.doOnComplete(() -> sink.error(new CommandFailedException("Reached max-page (" + maxPage + ") without finding the level.")))
+						.doOnComplete(() -> sink.error(new CommandFailedException(
+								ctx.translate("cmdtext_gd_gdevents", "error_max_page_reached", maxPage))))
 						.doOnError(sink::error)
 						.then())
 				.onErrorResume(e -> Mono.empty())
@@ -164,17 +151,20 @@ public class GDEventsCommand {
 					var lastPage = (events.size() - 1) / 10;
 					InteractiveMenu menu;
 					if (lastPage == 0) {
-						menu = ctx.bot().service(InteractiveMenuService.class).create(paginateEvents(0, 0, events).getContent())
+						menu = ctx.bot().service(InteractiveMenuService.class)
+								.create(paginateEvents(ctx, 0, 0, events).getContent())
 								.closeAfterReaction(false)
 								.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu));
 					} else {
-						menu = ctx.bot().service(InteractiveMenuService.class).createPaginated((tr, page) -> paginateEvents(page, lastPage, events));
+						menu = ctx.bot().service(InteractiveMenuService.class)
+								.createPaginated((tr, page) -> paginateEvents(tr, page, lastPage, events));
 					}
 					return menu.deleteMenuOnClose(true)
 							.addReactionItem("success", interaction -> {
 								events.forEach(gdService.getGdEventDispatcher()::dispatch);
 								return ctx.bot().service(EmojiService.class).emoji("success")
-										.flatMap(success -> ctx.reply(success + " Dispatched " + events.size() + " events."))
+										.flatMap(success -> ctx.reply(success + ' '
+												+ ctx.translate("cmdtext_gd_gdevents", "dispatch_success_multi", events.size())))
 										.then(Mono.fromRunnable(interaction::closeMenu));
 							})
 							.open(ctx);
@@ -182,15 +172,15 @@ public class GDEventsCommand {
 				.then();
 	}
 	
-	private static MessageSpecTemplate paginateEvents(int page, int lastPage, List<AwardedLevelAddedEvent> events) {
+	private static MessageSpecTemplate paginateEvents(Translator tr, int page, int lastPage, List<AwardedLevelAddedEvent> events) {
 		PageNumberOutOfRangeException.check(page, 0, lastPage);
-		return new MessageSpecTemplate("AwardedLevelAddedEvents are going to be dispatched for the following levels:\n\n"
-				+ "Page " + (page + 1) + " of " + (lastPage + 1) + "\n"
+		return new MessageSpecTemplate(tr.translate("cmdtext_gd_gdevents", "dispatch_list") + "\n\n"
+				+ tr.translate("generic", "pagination_page_count", page + 1, lastPage + 1) + '\n'
 				+ events.stream()
 						.skip(page * 10)
 						.limit(10)
 						.map(event -> Markdown.quote(GDLevels.toString(event.getAddedLevel())))
 						.collect(joining("\n"))
-				+ "\n\nReact below to confirm.");
+				+ "\n\n" + tr.translate("cmdtext_gd_gdevents", "dispatch_confirm"));
 	}
 }

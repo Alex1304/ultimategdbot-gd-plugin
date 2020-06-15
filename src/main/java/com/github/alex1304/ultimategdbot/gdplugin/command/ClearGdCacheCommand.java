@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "cleargdcache",
-		shortDescription = "Clears the cache of the HTTP client used to make requests to Geometry Dash servers"
+		shortDescription = "tr:cmddoc_gd_cleargdcache/short_description"
 )
 @CommandPermission(level = PermissionLevel.BOT_ADMIN)
 public class ClearGdCacheCommand {
@@ -25,7 +25,7 @@ public class ClearGdCacheCommand {
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
 		return Mono.fromRunnable(gdService.getGdClient()::clearCache)
-				.then(ctx.reply("GD client cache has been cleared."))
+				.then(ctx.reply(ctx.translate("cmdtext_gd_cleargdcache", "success")))
 				.then();
 	}
 }

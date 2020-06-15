@@ -27,7 +27,7 @@ import reactor.util.function.Tuples;
 
 @CommandDescriptor(
 		aliases = "account",
-		shortDescription = "Allows you to manage your connection with your Geometry Dash account."
+		shortDescription = "tr:cmddoc_gd_account/short_description"
 )
 public class AccountCommand {
 
@@ -39,44 +39,33 @@ public class AccountCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Shows your account linking status. Linking your account allows UltimateGDBot to etablish a mapping between Geometry "
-			+ "Dash users and Discord users, which can unlock a lot of possibilities. For example you can use some commands by "
-			+ "tagging directly a Discord user instead of typing his GD username, build a server-wide Geometry Dash leaderboard "
-			+ "(see leaderboard command), and more. Use the `link` subcommand to start linking your account, "
-			+ "then you need to follow instructions given by the command to complete the linking process. "
-			+ "When you have followed all instructions, type `done` in chat. To unlink your account, use the subcommand `unlink`. "
-			+ "Note that you can link several Discord accounts to the same GD account, but you can't link several GD accounts to "
-			+ "the same Discord account. This is designed so if you lose access to your Discord account, you can still use a new "
-			+ "Discord account to link.")
+	@CommandDoc("tr:cmddoc_gd_account/run")
 	public Mono<Void> run(Context ctx) {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 				.flatMap(Mono::justOrEmpty)
 				.filter(GDLinkedUserData::isLinkActivated)
 				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId()))
-				.map(user -> Tuples.of(true, "You are currently linked to the Geometry Dash account **" + user.getName() + "**!"))
-				.defaultIfEmpty(Tuples.of(false, "You are not yet linked to any Geometry Dash account!"))
-				.flatMap(tuple -> ctx.reply("You can link your Discord account with your Geometry Dash account "
-						+ "to get access to cool stuff in UltimateGDBot. You can for example use the `profile` "
-						+ "command without arguments to display your own info, let others easily access your "
-						+ "profile by mentionning you, or appear in server-wide Geometry Dash leaderboards.\n\n"
+				.map(user -> Tuples.of(true, ctx.translate("cmdtext_gd_account", "currently_linked", user.getName())))
+				.defaultIfEmpty(Tuples.of(false, ctx.translate("cmdtext_gd_account", "not_yet_linked")))
+				.flatMap(tuple -> ctx.reply(ctx.translate("cmdtext_gd_account", "link_intro") + "\n\n"
 						+ tuple.getT2() + "\n"
-						+ (tuple.getT1() ? "If you want to unlink your account, run `" + ctx.prefixUsed() + "account unlink`"
-								: "To start linking your account, run `" + ctx.prefixUsed() + "account link <your_gd_username>`")))
+						+ (tuple.getT1() ? ctx.translate("cmdtext_gd_account", "how_to_unlink", ctx.prefixUsed())
+								: ctx.translate("cmdtext_gd_account", "how_to_link", ctx.prefixUsed()))))
 				.then();
 	}
 	
 	@CommandAction("link")
-	@CommandDoc("Allows you to link a Geometry Dash account to your Discord account.")
+	@CommandDoc("tr:cmddoc_gd_account/run_link")
 	public Mono<Void> runLink(Context ctx, GDUser gdUsername) {
 		final var authorId = ctx.author().getId().asLong();
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUsername.getAccountId()))
 				.filter(not(GDLinkedUserData::isLinkActivated))
-				.switchIfEmpty(Mono.error(new CommandFailedException("You are already linked to a Geometry Dash account.")))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_already_linked"))))
 				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(gdService.getGdClient().getAccountID())
 						.filter(gdUser -> gdUser.getAccountId() > 0)
-						.switchIfEmpty(Mono.error(new CommandFailedException("This user is unregistered in Geometry Dash.")))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_unregistered_user"))))
 						.flatMap(botUser -> {
 							var token = linkedUser.confirmationToken().orElse(GDUsers.generateAlphanumericToken(TOKEN_LENGTH));
 							var data = ImmutableGDLinkedUserData.builder()
@@ -89,20 +78,16 @@ public class AccountCommand {
 						})
 						.flatMap(TupleUtils.function((botUser, token) -> {
 							var menuEmbedContent = new StringBuilder();
-							menuEmbedContent.append("Step 1: Open Geometry Dash\n");
-							menuEmbedContent.append("Step 2: Search for user \"").append(botUser.getName()).append("\" and open profile\n");
-							menuEmbedContent.append("Step 3: Click the button to send a private message\n");
-							menuEmbedContent.append("Step 4: In the \"Subject\" field, input `Confirm` (case insensitive)\n");
-							menuEmbedContent.append("Step 5: In the \"Body\" field, input the code `").append(token)
-									.append("` (:warning: case sensitive)\n");
-							menuEmbedContent.append("Step 6: React below to indicate that you're done sending the confirmation message\n");
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_1")).append('\n');
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_2", botUser.getName())).append('\n');
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_3")).append('\n');
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_4")).append('\n');
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_5", token)).append('\n');
+							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_6")).append('\n');
 							return ctx.bot().service(InteractiveMenuService.class).create(message -> {
-										message.setContent("You have requested to link your Discord account with the Geometry Dash "
-											+ "account **" + gdUsername.getName() + "**. Now you need to prove that you are the owner of "
-											+ "this account. Please follow the instructions below to finalize the linking "
-											+ "process.\n");
+										message.setContent(ctx.translate("cmdtext_gd_account", "link_request", gdUsername.getName()) + '\n');
 										message.setEmbed(embed -> {
-											embed.setTitle("Steps to confirm your account");
+											embed.setTitle(ctx.translate("cmdtext_gd_account", "link_steps"));
 											embed.setDescription(menuEmbedContent.toString());
 										});
 									})
@@ -125,42 +110,39 @@ public class AccountCommand {
 	}
 	
 	@CommandAction("unlink")
-	@CommandDoc("Allows you to unlink your Geometry Dash account from your Discord account.")
+	@CommandDoc("tr:cmddoc_gd_account/run_unlink")
 	public Mono<Void> runUnlink(Context ctx) {
 		final var authorId = ctx.event().getMessage().getAuthor().get().getId().asLong();
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(authorId))
-				.switchIfEmpty(Mono.error(new CommandFailedException("You aren't linked to any account.")))
-				.flatMap(linkedUser -> ctx.bot().service(InteractiveMenuService.class).create("Are you sure?")
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_not_linked"))))
+				.flatMap(linkedUser -> ctx.bot().service(InteractiveMenuService.class).create(ctx.translate("cmdtext_gd_account", "unlink_confirm"))
 						.deleteMenuOnClose(true)
 						.deleteMenuOnTimeout(true)
 						.closeAfterReaction(true)
 						.addReactionItem("success", interaction -> ctx.bot().service(DatabaseService.class)
 							.useExtension(GDLinkedUserDao.class, dao -> dao.delete(authorId))
 							.then(ctx.bot().service(EmojiService.class).emoji("success")
-									.flatMap(successEmoji -> ctx.reply(successEmoji + " Successfully unlinked your account.")))
+									.flatMap(successEmoji -> ctx.reply(successEmoji + ' ' + ctx.translate("cmdtext_gd_account", "unlink_success"))))
 							.then())
 						.addReactionItem("cross", interaction -> Mono.empty())
 						.open(ctx));
 	}
 	
 	private Mono<Void> handleDone(Context ctx, String token, GDUser user, GDUser botUser) {
-		return ctx.reply("Checking messages, please wait...")
+		return ctx.reply(ctx.translate("cmdtext_gd_account", "checking_messages"))
 				.flatMap(waitMessage -> gdService.getGdClient().getPrivateMessages(0)
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
-						.switchIfEmpty(Mono.error(new CommandFailedException("Unable to find your confirmation message in Geometry Dash. "
-								+ "Have you sent it? Follow the steps again and retry by clicking the reaction again.")))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_confirmation_not_found"))))
 						.next()
 						.flatMap(GDMessage::getBody)
 						.filter(body -> body.equals(token))
-						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
-								+ "Make sure you have typed it correctly and retry by clicking the reaction again. Note that it's case sensitive.")))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_confirmation_mismatch"))))
 						.then(ctx.bot().service(DatabaseService.class).useExtension(GDLinkedUserDao.class, dao -> dao.confirmLink(ctx.author().getId().asLong())))
-						.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
-								+ "Geometry Dash account **" + user.getName() + "**!")))
-						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
-								+ "Retry later."))
+						.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + ' '
+								+ ctx.translate("cmdtext_gd_account", "link_success", user.getName()))))
+						.onErrorMap(GDClientException.class, e -> new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_pm_access")))
 						.doFinally(signal -> waitMessage.delete().subscribe())
 						.then());
 	}

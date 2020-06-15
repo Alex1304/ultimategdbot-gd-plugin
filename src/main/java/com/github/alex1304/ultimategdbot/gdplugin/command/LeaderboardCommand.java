@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
-import static com.github.alex1304.ultimategdbot.api.util.Markdown.code;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
@@ -65,7 +64,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = { "leaderboard", "leaderboards" },
-		shortDescription = "Builds and displays a server-wide Geometry Dash leaderboard.",
+		shortDescription = "tr:cmddoc_gd_leaderboard/short_description",
 		scope = Scope.GUILD_ONLY
 )
 public class LeaderboardCommand {
@@ -81,14 +80,10 @@ public class LeaderboardCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("Displays a server-wide Geometry Dash leaderboard of the given type. All members of the current server that have a Geometry "
-			+ "Dash account linked may be shown in the leaderboards provided by this command.\n"
-			+ "`stat_name` can be one of: `stars`, `demons`, `diamonds`, `ucoins`, `scoins`, `cp` to show respectively stars, demons, diamonds, "
-			+ "user coins, secret coins and creator points leaderboards. Leaderboards are refreshed once in a while, up to 4 times per day.")
+	@CommandDoc("tr:cmddoc_gd_leaderboard/run")
 	public Mono<Void> run(Context ctx, @Nullable String statName) {
 		if (isLocked) {
-			return Mono.error(new CommandFailedException("Leaderboards are temporarily locked because "
-					+ "they are currently being refreshed. Retry later."));
+			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_lb_locked")));
 		}
 		var starEmoji = ctx.bot().service(EmojiService.class).emoji("star");
 		var diamondEmoji = ctx.bot().service(EmojiService.class).emoji("diamond");
@@ -98,15 +93,14 @@ public class LeaderboardCommand {
 		var cpEmoji = ctx.bot().service(EmojiService.class).emoji("creator_points");
 		if (statName == null) {
 			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
-					.flatMap(tuple -> ctx.reply("**Compare your stats with other players in this server by "
-							+ "showing a server-wide Geometry Dash leaderboard!**\n"
-							+ "__To get started, select which type of leaderboard you want to show:__\n"
-							+ "To view " + tuple.getT1() + " Stars leaderboard, run `" + ctx.prefixUsed() + "leaderboard stars`\n"
-							+ "To view " + tuple.getT2() + " Diamonds leaderboard, run `" + ctx.prefixUsed() + "leaderboard diamonds`\n"
-							+ "To view " + tuple.getT3() + " User Coins leaderboard, run `" + ctx.prefixUsed() + "leaderboard ucoins`\n"
-							+ "To view " + tuple.getT4() + " Secret Coins leaderboard, run `" + ctx.prefixUsed() + "leaderboard scoins`\n"
-							+ "To view " + tuple.getT5() + " Demons leaderboard, run `" + ctx.prefixUsed() + "leaderboard demons`\n"
-							+ "To view " + tuple.getT6() + " Creator Points leaderboard, run `" + ctx.prefixUsed() + "leaderboard cp`\n"))
+					.flatMap(tuple -> ctx.reply("**" + ctx.translate("cmdtext_gd_leaderboard", "intro") + "**\n"
+							+ "__" + ctx.translate("cmdtext_gd_leaderboard", "select_lb") + "__\n"
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT1() + " Stars", ctx.prefixUsed(), "stars")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT2() + " Diamonds", ctx.prefixUsed(), "diamonds")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT3() + " User Coins", ctx.prefixUsed(), "ucoins")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT4() + " Secret Coins", ctx.prefixUsed(), "scoins")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT5() + " Demons", ctx.prefixUsed(), "demons")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT6() + " Creator Points", ctx.prefixUsed(), "cp")))
 					.then();
 		}
 		ToIntFunction<GDLeaderboardData> stat;
@@ -144,9 +138,7 @@ public class LeaderboardCommand {
 				noBanList = true;
 				break;
 			default:
-				return Mono.error(new CommandFailedException("Unknown leaderboard type, expected " + code("stars") + ", "
-						+ code("diamonds") + ", " + code("ucoins") + ", " + code("scoins") + ", " + code("demons") + " or "
-						+ code("cp") + "."));
+				return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_unknown_lb_type")));
 		}
 		var now = Instant.now();
 		var lastRefreshed = new AtomicReference<Instant>(now);
@@ -193,14 +185,17 @@ public class LeaderboardCommand {
 							return ctx.bot().service(InteractiveMenuService.class).createPaginated(paginator)
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
-											.switchIfEmpty(Mono.error(new UnexpectedReplyException("Please specify a GD username.")))
+											.switchIfEmpty(Mono.error(new UnexpectedReplyException(
+													ctx.translate("cmdtext_gd_leaderboard", "error_username_not_specified"))))
 											.flatMap(userName -> GDUsers.stringToUser(ctx.bot(), gdService.getGdClient(), userName))
-											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException("Unable to fetch info from that user in Geometry Dash."))
+											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException(
+													ctx.translate("cmdtext_gd_leaderboard", "error_user_fetch")))
 											.flatMap(gdUser -> {
 												final var ids = list.stream().map(entry -> entry.getStats().accountId()).collect(Collectors.toList());
 												final var rank = ids.indexOf(gdUser.getAccountId());
 												if (rank == -1) {
-													return Mono.error(new UnexpectedReplyException("This user wasn't found on this leaderboard."));
+													return Mono.error(new UnexpectedReplyException(
+															ctx.translate("cmdtext_gd_leaderboard", "error_user_not_on_lb")));
 												}
 												final var jumpTo = rank / ENTRIES_PER_PAGE;
 												interaction.set("currentPage", jumpTo);
@@ -214,25 +209,25 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("refresh")
-	@CommandDoc("Refreshes the leaderboard (bot admin only). Leaderboard refresh is an heavy process that consists of "
-			+ "loading profiles of all users that have linked their account to the bot. This command "
-			+ "may be run once in 6 hours.")
+	@CommandDoc("tr:cmddoc_gd_leaderboard/run_refresh")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runRefresh(Context ctx) {
 		if (isLocked) {
-			return Mono.error(new CommandFailedException("Refresh is already in progress."));
+			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_refresh_in_progress")));
 		}
 		isLocked = true;
 		LOGGER.debug("Locked leaderboards");
 		var now = Instant.now();
-		return ctx.bot().service(DatabaseService.class).withExtension(GDLeaderboardDao.class, GDLeaderboardDao::getLastRefreshed)
+		return ctx.bot().service(DatabaseService.class)
+				.withExtension(GDLeaderboardDao.class, GDLeaderboardDao::getLastRefreshed)
 				.flatMap(Mono::justOrEmpty)
 				.map(Timestamp::toInstant)
 				.defaultIfEmpty(Instant.MIN)
 				.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
 				.flatMap(cooldown -> !cooldown.isNegative()
-						? Mono.error(new CommandFailedException("The leaderboard has already been refreshed less than 6 hours ago. "
-								+ "Try again in " + DurationUtils.format(cooldown.withNanos(0))))
+						? Mono.error(new CommandFailedException(
+								ctx.translate("cmdtext_gd_leaderboard", "error_already_refreshed",
+										DurationUtils.format(cooldown.withNanos(0)))))
 						: Mono.empty())
 				.then(ctx.bot().service(DatabaseService.class).withExtension(GDLinkedUserDao.class, GDLinkedUserDao::getAll))
 				.flatMapMany(Flux::fromIterable)
@@ -240,7 +235,7 @@ public class LeaderboardCommand {
 				.collectList()
 				.flatMap(list -> ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.author().getTag() + "**"))
-						.then(ctx.reply("Refreshing leaderboards..."))
+						.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "refreshing")))
 						.flatMapMany(message -> {
 							var processor = EmitterProcessor.<Long>create();
 							var sink = processor.sink(FluxSink.OverflowStrategy.BUFFER);
@@ -248,8 +243,8 @@ public class LeaderboardCommand {
 							processor.take(Duration.ofSeconds(2))
 									.takeLast(1)
 									.flatMap(i -> message
-											.edit(spec -> spec.setContent("Refreshing leaderboards... "
-													+ "(" + i + "/" + list.size() + " users processed)"))
+											.edit(spec -> spec.setContent(
+													ctx.translate("cmdtext_gd_leaderboard", "refreshing_progress", i, list.size())))
 											.onErrorResume(e -> Mono.empty()))
 									.repeat(() -> !done.get())
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
@@ -276,13 +271,13 @@ public class LeaderboardCommand {
 									.doFinally(__ -> done.set(true));
 						})
 						.collectList())
-				.flatMap(stats -> ctx.reply("Saving new player stats to database...")
+				.flatMap(stats -> ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "saving_to_db"))
 						.onErrorResume(e -> Mono.empty())
 						.flatMap(message -> ctx.bot().service(DatabaseService.class)
 								.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats))
 								.then(message.delete())
 								.then(ctx.bot().service(EmojiService.class).emoji("success")
-										.flatMap(success -> ctx.reply(success + " Leaderboard refreshed!"))
+										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("cmdtext_gd_leaderboard", "refresh_success")))
 										.then())))
 				.doFinally(signal -> {
 					isLocked = false;
@@ -291,9 +286,7 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("ban")
-	@CommandDoc("Bans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
-			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
-			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
+	@CommandDoc("tr:cmddoc_gd_leaderboard/run_ban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
 		return ctx.bot().service(DatabaseService.class)
@@ -312,9 +305,7 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("unban")
-	@CommandDoc("Unbans a player from server leaderboards (bot admin only). Players that are banned from leaderboards won't be displayed in the results of "
-			+ "the `leaderboard` command in any server, regardless of whether they have an account linked. Bans are by GD account and "
-			+ "not by Discord account, so linking with a different Discord account does not allow ban evasion.")
+	@CommandDoc("tr:cmddoc_gd_leaderboard/run_unban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
 		return ctx.bot().service(DatabaseService.class)
