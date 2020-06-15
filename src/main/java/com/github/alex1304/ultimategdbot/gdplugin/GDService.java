@@ -11,7 +11,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.BroadcastResultCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import discord4j.rest.util.Snowflake;
+import discord4j.common.util.Snowflake;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 

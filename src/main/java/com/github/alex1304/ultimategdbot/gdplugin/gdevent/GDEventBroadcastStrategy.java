@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
@@ -24,7 +25,7 @@ public interface GDEventBroadcastStrategy {
 	static class NewMessageBroadcastStrategy implements GDEventBroadcastStrategy {
 		@Override
 		public Mono<Integer> broadcast(Bot bot, GDEvent event, GDEventProperties<? extends GDEvent> eventProps, BroadcastResultCache resultCache) {
-			var guildBroadcast = bot.database().withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(eventProps.databaseField()))
+			var guildBroadcast = bot.service(DatabaseService.class).withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(eventProps.databaseField()))
 					.flatMapMany(Flux::fromIterable)
 					.flatMap(gsg -> eventProps.createMessageTemplate(event, gsg, null)
 							.flatMap(msg -> bot.rest().getChannelById(eventProps.channelId(gsg))

@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 
-import static com.github.alex1304.ultimategdbot.api.util.BotUtils.formatDuration;
 import static com.github.alex1304.ultimategdbot.api.util.Markdown.bold;
 import static com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventBroadcastStrategy.CREATING;
 import static com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventBroadcastStrategy.EDITING;
@@ -21,6 +20,9 @@ import com.github.alex1304.jdashevents.event.AwardedLevelUpdatedEvent;
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
@@ -30,7 +32,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDAwardedLev
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
-import discord4j.rest.util.Snowflake;
+import discord4j.common.util.Snowflake;
 import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -74,13 +76,13 @@ public class GDEventProcessor {
 			return Mono.empty();
 		}
 		var logText = eventProps.logText(event);
-		return Mono.zip(bot.emoji("info"), bot.emoji("success"), bot.emoji("failed"))
+		return Mono.zip(bot.service(EmojiService.class).emoji("info"), bot.service(EmojiService.class).emoji("success"), bot.service(EmojiService.class).emoji("failed"))
 				.flatMap(function((info, success, failed) -> log(bot, info + " GD event fired: " + logText)
 						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdService.getBroadcastResultCache())
 								.elapsed()
 								.flatMap(function((time, count) -> log(bot, success + " Successfully processed event " + logText + "\n"
 										+ "Messages " + (eventProps.broadcastStrategy() == CREATING ? "sent" : "edited") + ": " + bold("" + count) + "\n"
-										+ "Execution time: " + bold(formatDuration(Duration.ofMillis(time))))))
+										+ "Execution time: " + bold(DurationUtils.format(Duration.ofMillis(time))))))
 								.onErrorResume(e -> bot.log(failed + " An error occured while dispatching event " + logText + ": " + Markdown.code(e.getClass().getName()))
 										.and(Mono.fromRunnable(() -> LOGGER.error("An error occured while dispatching GD event", e)))))));
 	}
@@ -97,7 +99,7 @@ public class GDEventProcessor {
 						GDEventConfigData::channelAwardedLevelsId,
 						GDEventConfigData::roleAwardedLevelsId,
 						event -> Optional.of(event.getAddedLevel().getId()),
-						event -> bot.database().useExtension(GDAwardedLevelDao.class, dao -> dao.insertOrUpdate(
+						event -> bot.service(DatabaseService.class).useExtension(GDAwardedLevelDao.class, dao -> dao.insertOrUpdate(
 										ImmutableGDAwardedLevelData.builder()
 												.levelId(event.getAddedLevel().getId())
 												.insertDate(Instant.now())

@@ -21,12 +21,13 @@ import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.util.BotUtils;
+import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
+import com.github.alex1304.ultimategdbot.api.command.menu.PageNumberOutOfRangeException;
+import com.github.alex1304.ultimategdbot.api.command.menu.UnexpectedReplyException;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.util.menu.UnexpectedReplyException;
 
 import discord4j.core.object.entity.Message;
 import discord4j.core.spec.EmbedCreateSpec;
@@ -45,9 +46,9 @@ public class GDLevels {
 	}
 	
 	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, Iterable<GDLevel> results, String title, int page, int totalPages) {
-		return Mono.zip(o -> o, ctx.bot().emoji("copy"), ctx.bot().emoji("object_overflow"), ctx.bot().emoji("downloads"),
-				ctx.bot().emoji("like"), ctx.bot().emoji("length"), ctx.bot().emoji("user_coin"),
-				ctx.bot().emoji("user_coin_unverified"), ctx.bot().emoji("star"), ctx.bot().emoji("dislike"))
+		return Mono.zip(o -> o, ctx.bot().service(EmojiService.class).emoji("copy"), ctx.bot().service(EmojiService.class).emoji("object_overflow"), ctx.bot().service(EmojiService.class).emoji("downloads"),
+				ctx.bot().service(EmojiService.class).emoji("like"), ctx.bot().service(EmojiService.class).emoji("length"), ctx.bot().service(EmojiService.class).emoji("user_coin"),
+				ctx.bot().service(EmojiService.class).emoji("user_coin_unverified"), ctx.bot().service(EmojiService.class).emoji("star"), ctx.bot().service(EmojiService.class).emoji("dislike"))
 				.zipWith(getLevelDifficultyAndSongFromSearchResults(ctx, results))
 				.map(tuple -> {
 					var emojis = tuple.getT1();
@@ -89,10 +90,10 @@ public class GDLevels {
 	}
 	
 	public static Mono<Consumer<EmbedCreateSpec>> detailedView(Context ctx, GDLevel level, String authorName, String authorIconUrl) {
-		return Mono.zip(o -> o, ctx.bot().emoji("play"), ctx.bot().emoji("downloads"), ctx.bot().emoji("dislike"),
-				ctx.bot().emoji("like"), ctx.bot().emoji("length"), ctx.bot().emoji("lock"),
-				ctx.bot().emoji("copy"), ctx.bot().emoji("object_overflow"), ctx.bot().emoji("user_coin"),
-				ctx.bot().emoji("user_coin_unverified"))
+		return Mono.zip(o -> o, ctx.bot().service(EmojiService.class).emoji("play"), ctx.bot().service(EmojiService.class).emoji("downloads"), ctx.bot().service(EmojiService.class).emoji("dislike"),
+				ctx.bot().service(EmojiService.class).emoji("like"), ctx.bot().service(EmojiService.class).emoji("length"), ctx.bot().service(EmojiService.class).emoji("lock"),
+				ctx.bot().service(EmojiService.class).emoji("copy"), ctx.bot().service(EmojiService.class).emoji("object_overflow"), ctx.bot().service(EmojiService.class).emoji("user_coin"),
+				ctx.bot().service(EmojiService.class).emoji("user_coin_unverified"))
 				.zipWith(Mono.zip(level.download(), formatSongPrimaryMetadata(level.getSong()),
 						formatSongSecondaryMetadata(ctx, level.getSong())))
 				.map(tuple -> {
@@ -146,9 +147,9 @@ public class GDLevels {
 	}
 	
 	public static Mono<Consumer<EmbedCreateSpec>> compactView(Bot bot, GDLevel level, String authorName, String authorIconUrl) {
-		return Mono.zip(o -> o, bot.emoji("play"), bot.emoji("downloads"), bot.emoji("dislike"),
-				bot.emoji("like"), bot.emoji("length"), bot.emoji("copy"),
-				bot.emoji("object_overflow"), bot.emoji("user_coin"), bot.emoji("user_coin_unverified"))
+		return Mono.zip(o -> o, bot.service(EmojiService.class).emoji("play"), bot.service(EmojiService.class).emoji("downloads"), bot.service(EmojiService.class).emoji("dislike"),
+				bot.service(EmojiService.class).emoji("like"), bot.service(EmojiService.class).emoji("length"), bot.service(EmojiService.class).emoji("copy"),
+				bot.service(EmojiService.class).emoji("object_overflow"), bot.service(EmojiService.class).emoji("user_coin"), bot.service(EmojiService.class).emoji("user_coin_unverified"))
 				.zipWith(formatSongPrimaryMetadata(level.getSong()))
 				.map(tuple -> {
 					final var emojis = tuple.getT1();
@@ -176,7 +177,7 @@ public class GDLevels {
 		return searchFactory.get()
 				.doOnNext(paginator -> resultsOfCurrentPage.set(paginator.asList()))
 				.flatMap(results -> results.asList().size() == 1 ? sendSelectedSearchResult(ctx, results.asList().get(0), false)
-						: InteractiveMenu.createAsyncPaginated(ctx.bot().config().getPaginationControls(), page -> {
+						: ctx.bot().service(InteractiveMenuService.class).createAsyncPaginated((tr, page) -> {
 							PageNumberOutOfRangeException.check(page, 0, results.getTotalNumberOfPages() - 1);
 							return results.goTo(page)
 									.map(GDPaginator::asList)
@@ -198,7 +199,7 @@ public class GDLevels {
 	private static Mono<Void> sendSelectedSearchResult(Context ctx, GDLevel level, boolean withCloseOption) {
 		return detailedView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")
 				.<Consumer<MessageCreateSpec>>map(embed -> m -> m.setEmbed(embed))
-				.flatMap(m -> !withCloseOption ? ctx.reply(m).then() : InteractiveMenu.create(m)
+				.flatMap(m -> !withCloseOption ? ctx.reply(m).then() : ctx.bot().service(InteractiveMenuService.class).create(m)
 						.addReactionItem("cross", interaction -> Mono.empty())
 						.deleteMenuOnClose(true)
 						.open(ctx));
@@ -213,7 +214,7 @@ public class GDLevels {
 						.flatMap(level -> detailedView(ctx, level, headerTitle + " #" + timely.getId(), headerLink)
 								.flatMap(embed -> {
 									var cooldown = Duration.ofSeconds(timely.getCooldown());
-									var formattedCooldown = BotUtils.formatDuration(cooldown);
+									var formattedCooldown = DurationUtils.format(cooldown);
 									return ctx.reply(message -> {
 										message.setContent(ctx.event().getMessage().getAuthor().get().getMention()
 												+ ", here is the " + headerTitle + " of today. "
@@ -280,7 +281,7 @@ public class GDLevels {
 	}
 	
 	private static Mono<Map<GDLevel, Tuple2<String, String>>> getLevelDifficultyAndSongFromSearchResults(Context ctx, Iterable<GDLevel> results) {
-		return ctx.bot().emoji("star")
+		return ctx.bot().service(EmojiService.class).emoji("star")
 				.flatMap(starEmoji -> Flux.fromIterable(results)
 						.flatMap(level -> {
 							var difficulty = new StringBuilder("icon_");
@@ -299,7 +300,7 @@ public class GDLevels {
 									
 						})
 						
-						.flatMap(tuple -> ctx.bot().emoji(tuple.getT2().getT1())
+						.flatMap(tuple -> ctx.bot().service(EmojiService.class).emoji(tuple.getT2().getT1())
 								.map(emoji -> Tuples.of(tuple.getT1(), Tuples.of(emoji, tuple.getT2().getT2()))))
 						.collectMap(Tuple2::getT1, Tuple2::getT2));
 	}
@@ -311,7 +312,7 @@ public class GDLevels {
 	}
 
 	private static Mono<String> formatSongSecondaryMetadata(Context ctx, Mono<GDSong> monoSong) {
-		return Mono.zip(ctx.bot().emoji("play"), ctx.bot().emoji("download_song"))
+		return Mono.zip(ctx.bot().service(EmojiService.class).emoji("play"), ctx.bot().service(EmojiService.class).emoji("download_song"))
 				.flatMap(emojis -> {
 					final var ePlay = emojis.getT1();
 					final var eDlSong = emojis.getT2();

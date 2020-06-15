@@ -1,5 +1,5 @@
-import com.github.alex1304.ultimategdbot.api.PluginBootstrap;
-import com.github.alex1304.ultimategdbot.gdplugin.GDPluginBootstrap;
+import com.github.alex1304.ultimategdbot.api.Plugin;
+import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 
 module ultimategdbot.gd {
 	opens com.github.alex1304.ultimategdbot.gdplugin.command;
@@ -18,5 +18,5 @@ module ultimategdbot.gd {
 	requires static com.google.errorprone.annotations;
 	requires static org.immutables.value;
 	
-	provides PluginBootstrap with GDPluginBootstrap;
+	provides Plugin with GDPlugin;
 }

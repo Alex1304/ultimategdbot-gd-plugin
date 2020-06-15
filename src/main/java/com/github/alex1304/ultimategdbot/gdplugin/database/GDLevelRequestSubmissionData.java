@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import org.immutables.value.Value;
 
-import discord4j.rest.util.Snowflake;
+import discord4j.common.util.Snowflake;
 
 @Value.Immutable
 public interface GDLevelRequestSubmissionData {

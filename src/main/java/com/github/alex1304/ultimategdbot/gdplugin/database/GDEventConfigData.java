@@ -1,23 +1,23 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import static com.github.alex1304.ultimategdbot.api.guildconfig.ValueGetters.forOptionalGuildChannel;
-import static com.github.alex1304.ultimategdbot.api.guildconfig.ValueGetters.forOptionalGuildRole;
+import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildChannel;
+import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildRole;
 
 import java.util.Optional;
 
 import org.immutables.value.Value;
 
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.api.guildconfig.GuildChannelConfigEntry;
-import com.github.alex1304.ultimategdbot.api.guildconfig.GuildConfigData;
-import com.github.alex1304.ultimategdbot.api.guildconfig.GuildConfigurator;
-import com.github.alex1304.ultimategdbot.api.guildconfig.GuildRoleConfigEntry;
-import com.github.alex1304.ultimategdbot.api.guildconfig.Validator;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildChannelConfigEntry;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigData;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigurator;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildRoleConfigEntry;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.Validator;
 
 import discord4j.core.object.entity.Role;
 import discord4j.core.object.entity.channel.Channel;
 import discord4j.core.object.entity.channel.GuildChannel;
-import discord4j.rest.util.Snowflake;
+import discord4j.common.util.Snowflake;
 
 @Value.Immutable
 public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {

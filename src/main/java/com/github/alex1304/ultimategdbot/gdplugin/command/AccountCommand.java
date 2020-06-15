@@ -10,7 +10,9 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
+import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
@@ -47,7 +49,7 @@ public class AccountCommand {
 			+ "the same Discord account. This is designed so if you lose access to your Discord account, you can still use a new "
 			+ "Discord account to link.")
 	public Mono<Void> run(Context ctx) {
-		return ctx.bot().database()
+		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 				.flatMap(Mono::justOrEmpty)
 				.filter(GDLinkedUserData::isLinkActivated)
@@ -68,7 +70,7 @@ public class AccountCommand {
 	@CommandDoc("Allows you to link a Geometry Dash account to your Discord account.")
 	public Mono<Void> runLink(Context ctx, GDUser gdUsername) {
 		final var authorId = ctx.author().getId().asLong();
-		return ctx.bot().database()
+		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUsername.getAccountId()))
 				.filter(not(GDLinkedUserData::isLinkActivated))
 				.switchIfEmpty(Mono.error(new CommandFailedException("You are already linked to a Geometry Dash account.")))
@@ -81,7 +83,7 @@ public class AccountCommand {
 									.from(linkedUser)
 									.confirmationToken(token)
 									.build();
-							return ctx.bot().database()
+							return ctx.bot().service(DatabaseService.class)
 									.useExtension(GDLinkedUserDao.class, dao -> dao.setUnconfirmedLink(data))
 									.thenReturn(Tuples.of(botUser, token));
 						})
@@ -94,7 +96,7 @@ public class AccountCommand {
 							menuEmbedContent.append("Step 5: In the \"Body\" field, input the code `").append(token)
 									.append("` (:warning: case sensitive)\n");
 							menuEmbedContent.append("Step 6: React below to indicate that you're done sending the confirmation message\n");
-							return InteractiveMenu.create(message -> {
+							return ctx.bot().service(InteractiveMenuService.class).create(message -> {
 										message.setContent("You have requested to link your Discord account with the Geometry Dash "
 											+ "account **" + gdUsername.getName() + "**. Now you need to prove that you are the owner of "
 											+ "this account. Please follow the instructions below to finalize the linking "
@@ -107,7 +109,7 @@ public class AccountCommand {
 									.addReactionItem("success", interaction -> interaction.getEvent().isAddEvent() 
 											? handleDone(ctx, token, gdUsername, botUser)
 													.then(Mono.<Void>fromRunnable(interaction::closeMenu))
-													.onErrorResume(CommandFailedException.class, e -> ctx.bot().emoji("cross")
+													.onErrorResume(CommandFailedException.class, e -> ctx.bot().service(EmojiService.class).emoji("cross")
 															.flatMap(cross -> ctx.reply(cross + " " + e.getMessage()))
 															.and(interaction.getMenuMessage()
 																	.removeReaction(interaction.getEvent().getEmoji(), ctx.author().getId())
@@ -126,16 +128,16 @@ public class AccountCommand {
 	@CommandDoc("Allows you to unlink your Geometry Dash account from your Discord account.")
 	public Mono<Void> runUnlink(Context ctx) {
 		final var authorId = ctx.event().getMessage().getAuthor().get().getId().asLong();
-		return ctx.bot().database()
+		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(authorId))
 				.switchIfEmpty(Mono.error(new CommandFailedException("You aren't linked to any account.")))
-				.flatMap(linkedUser -> InteractiveMenu.create("Are you sure?")
+				.flatMap(linkedUser -> ctx.bot().service(InteractiveMenuService.class).create("Are you sure?")
 						.deleteMenuOnClose(true)
 						.deleteMenuOnTimeout(true)
 						.closeAfterReaction(true)
-						.addReactionItem("success", interaction -> ctx.bot().database()
+						.addReactionItem("success", interaction -> ctx.bot().service(DatabaseService.class)
 							.useExtension(GDLinkedUserDao.class, dao -> dao.delete(authorId))
-							.then(ctx.bot().emoji("success")
+							.then(ctx.bot().service(EmojiService.class).emoji("success")
 									.flatMap(successEmoji -> ctx.reply(successEmoji + " Successfully unlinked your account.")))
 							.then())
 						.addReactionItem("cross", interaction -> Mono.empty())
@@ -154,8 +156,8 @@ public class AccountCommand {
 						.filter(body -> body.equals(token))
 						.switchIfEmpty(Mono.error(new CommandFailedException("The confirmation code you sent me doesn't match. "
 								+ "Make sure you have typed it correctly and retry by clicking the reaction again. Note that it's case sensitive.")))
-						.then(ctx.bot().database().useExtension(GDLinkedUserDao.class, dao -> dao.confirmLink(ctx.author().getId().asLong())))
-						.then(ctx.bot().emoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
+						.then(ctx.bot().service(DatabaseService.class).useExtension(GDLinkedUserDao.class, dao -> dao.confirmLink(ctx.author().getId().asLong())))
+						.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + " You are now linked to "
 								+ "Geometry Dash account **" + user.getName() + "**!")))
 						.onErrorMap(GDClientException.class, e -> new CommandFailedException("I can't access my private messages right now. "
 								+ "Retry later."))

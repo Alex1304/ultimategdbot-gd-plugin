@@ -1,12 +1,12 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
 import static java.util.Collections.synchronizedSet;
-import static reactor.function.TupleUtils.function;
+import static reactor.function.TupleUtils.consumer;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
@@ -33,16 +33,18 @@ import com.github.alex1304.jdashevents.scanner.GDEventScanner;
 import com.github.alex1304.jdashevents.scanner.WeeklyDemonScanner;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Plugin;
-import com.github.alex1304.ultimategdbot.api.PluginBootstrap;
+import com.github.alex1304.ultimategdbot.api.PluginMetadata;
 import com.github.alex1304.ultimategdbot.api.command.CommandErrorHandler;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.CommandProvider;
+import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionChecker;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
-import com.github.alex1304.ultimategdbot.api.command.annotated.AnnotatedCommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
-import com.github.alex1304.ultimategdbot.api.util.PropertyReader;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.util.VersionUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.command.AccountCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.CheckModCommand;
 import com.github.alex1304.ultimategdbot.gdplugin.command.ClearGdCacheCommand;
@@ -71,83 +73,92 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventSubscriber;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
-import discord4j.rest.util.Snowflake;
+import discord4j.common.GitProperties;
+import discord4j.common.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
-public class GDPluginBootstrap implements PluginBootstrap {
+public class GDPlugin implements Plugin {
 
-	private static final Logger LOGGER = Loggers.getLogger(GDPluginBootstrap.class);
+	private static final Logger LOGGER = Loggers.getLogger(GDPlugin.class);
+	private static final String PLUGIN_NAME = "Geometry Dash";
 
 	@Override
-	public Mono<Plugin> setup(Bot bot) {
-		return initPluginProperties().flatMap(pluginProperties -> {
-			// Properties
-			var username = pluginProperties.read("gdplugin.username");
-			var password = pluginProperties.read("gdplugin.password");
-			var iconChannelId = pluginProperties.readAs("gdplugin.icon_channel_id", Snowflake::of);
-			var host = pluginProperties.readOptional("gdplugin.host").orElse(Routes.BASE_URL);
-			var cacheTtl = pluginProperties.readOptional("gdplugin.cache_ttl")
-					.map(v -> Duration.ofMillis(Long.parseLong(v)))
-					.orElse(GDClientBuilder.DEFAULT_CACHE_TTL);
-			var requestTimeout = pluginProperties.readOptional("gdplugin.request_timeout")
-					.map(v -> Duration.ofMillis(Long.parseLong(v)))
-					.orElse(GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
-			var scannerLoopInterval = Duration.ofSeconds(pluginProperties.readOptional("gdplugin.scanner_loop_interval").map(Integer::parseInt).orElse(10));
-			var autostartScannerLoop = pluginProperties.readOptional("gdplugin.autostart_scanner_loop")
-					.map(Boolean::parseBoolean)
-					.orElse(true);
-			var maxConnections = pluginProperties.readOptional("gdplugin.max_connections").map(Integer::parseInt).orElse(100);
-			var iconsCacheMaxSize = pluginProperties.readOptional("gdplugin.icons_cache_max_size").map(Integer::parseInt).orElse(2048);
-			// Database config
-			bot.database().configureJdbi(jdbi -> {
-				jdbi.getConfig(JdbiImmutables.class).registerImmutable(
-						GDAwardedLevelData.class,
-						GDEventConfigData.class,
-						GDLeaderboardBanData.class,
-						GDLeaderboardData.class,
-						GDLevelRequestConfigData.class,
-						GDLevelRequestReviewData.class,
-						GDLevelRequestSubmissionData.class,
-						GDLinkedUserData.class,
-						GDModData.class);
-			});
-			bot.registerGuildConfigExtension(GDEventConfigDao.class);
-			bot.registerGuildConfigExtension(GDLevelRequestConfigDao.class);
-			// Resources
-			var buildingGDClient = GDClientBuilder.create()
-					.withHost(host)
-					.withCacheTtl(cacheTtl)
-					.withRequestTimeout(requestTimeout)
-					.buildAuthenticated(new Credentials(username, password))
-					.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e));
-			var creatingSpriteFactory = Mono.fromCallable(SpriteFactory::create)
-					.onErrorMap(e -> new RuntimeException("An error occured when loading the GD icons sprite factory", e));
-			
-			return Mono.zip(buildingGDClient, creatingSpriteFactory)
-					.map(function((gdClient, spriteFactory) -> {
-						var gdEventDispatcher = new GDEventDispatcher();
-						var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
-						var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
-						var gdService = new GDService(gdClient, spriteFactory,
-								iconsCacheMaxSize, gdEventDispatcher, scannerLoop,
-								cachedSubmissionChannelIds, maxConnections, iconChannelId);
-						initGDEventSubscriber(gdEventDispatcher, gdService, bot);
-						var cmdProvider = initCommandProvider(gdService, bot, gdClient);
-						return Plugin.builder("Geometry Dash")
-								.setCommandProvider(cmdProvider)
-								.onReady(() -> {
-									GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
-									if (autostartScannerLoop) {
-										scannerLoop.start();
-									}
-									return Mono.empty();
-								})
-								.build();
-					}));
+	public Mono<Void> setup(Bot bot) {
+		// Properties
+		var gdConfig = bot.config("gd");
+		var username = gdConfig.read("gdplugin.username");
+		var password = gdConfig.read("gdplugin.password");
+		var iconChannelId = gdConfig.readAs("gdplugin.icon_channel_id", Snowflake::of);
+		var host = gdConfig.readOptional("gdplugin.host").orElse(Routes.BASE_URL);
+		var cacheTtl = gdConfig.readOptional("gdplugin.cache_ttl")
+				.map(v -> Duration.ofMillis(Long.parseLong(v)))
+				.orElse(GDClientBuilder.DEFAULT_CACHE_TTL);
+		var requestTimeout = gdConfig.readOptional("gdplugin.request_timeout")
+				.map(v -> Duration.ofMillis(Long.parseLong(v)))
+				.orElse(GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
+		var scannerLoopInterval = Duration.ofSeconds(gdConfig.readOptional("gdplugin.scanner_loop_interval").map(Integer::parseInt).orElse(10));
+		var autostartScannerLoop = gdConfig.readOptional("gdplugin.autostart_scanner_loop")
+				.map(Boolean::parseBoolean)
+				.orElse(true);
+		var maxConnections = gdConfig.readOptional("gdplugin.max_connections").map(Integer::parseInt).orElse(100);
+		var iconsCacheMaxSize = gdConfig.readOptional("gdplugin.icons_cache_max_size").map(Integer::parseInt).orElse(2048);
+		// Database config
+		bot.service(DatabaseService.class).configureJdbi(jdbi -> {
+			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
+					GDAwardedLevelData.class,
+					GDEventConfigData.class,
+					GDLeaderboardBanData.class,
+					GDLeaderboardData.class,
+					GDLevelRequestConfigData.class,
+					GDLevelRequestReviewData.class,
+					GDLevelRequestSubmissionData.class,
+					GDLinkedUserData.class,
+					GDModData.class);
 		});
+		bot.service(DatabaseService.class).registerGuildConfigExtension(GDEventConfigDao.class);
+		bot.service(DatabaseService.class).registerGuildConfigExtension(GDLevelRequestConfigDao.class);
+		// Resources
+		var buildingGDClient = GDClientBuilder.create()
+				.withHost(host)
+				.withCacheTtl(cacheTtl)
+				.withRequestTimeout(requestTimeout)
+				.buildAuthenticated(new Credentials(username, password))
+				.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e));
+		var creatingSpriteFactory = Mono.fromCallable(SpriteFactory::create)
+				.onErrorMap(e -> new RuntimeException("An error occured when loading the GD icons sprite factory", e));
+		
+		return Mono.zip(buildingGDClient, creatingSpriteFactory)
+				.doOnNext(consumer((gdClient, spriteFactory) -> {
+					var gdEventDispatcher = new GDEventDispatcher();
+					var scannerLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(), scannerLoopInterval);
+					var cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
+					var gdService = new GDService(gdClient, spriteFactory,
+							iconsCacheMaxSize, gdEventDispatcher, scannerLoop,
+							cachedSubmissionChannelIds, maxConnections, iconChannelId);
+					initGDEventSubscriber(gdEventDispatcher, gdService, bot);
+					var cmdProvider = initCommandProvider(gdService, bot, gdClient);
+					bot.service(CommandService.class).addProvider(cmdProvider);
+					GDLevelRequests.listenAndCleanSubmissionQueueChannels(bot, cachedSubmissionChannelIds);
+					if (autostartScannerLoop) {
+						scannerLoop.start();
+					}
+				}))
+				.then();
+	}
+
+	@Override
+	public Mono<PluginMetadata> metadata() {
+		return VersionUtils.getGitProperties("META-INF/git/core.git.properties")
+				.map(props -> props.readOptional(GitProperties.APPLICATION_VERSION))
+				.map(version -> PluginMetadata.builder(PLUGIN_NAME)
+						.setDescription("Commands and useful features dedicated to the platformer game Geometry Dash.")
+						.setVersion(version.orElse(null))
+						.setDevelopers(List.of("Alex1304"))
+						.setUrl("https://github.com/ultimategdbot/ultimategdbot-core-plugin")
+						.build());
 	}
 
 	private static Set<GDEventScanner> initScanners() {
@@ -155,7 +166,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 	}
 	
 	private static CommandProvider initCommandProvider(GDService gdService, Bot bot, AuthenticatedGDClient gdClient) {
-		var cmdProvider = new AnnotatedCommandProvider();
+		var cmdProvider = new CommandProvider(PLUGIN_NAME);
 		// Commands
 		cmdProvider.addAnnotated(new AccountCommand(gdService));
 		cmdProvider.addAnnotated(new CheckModCommand(gdService));
@@ -195,7 +206,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		});
 		// Permission checker
 		var permChecker = new PermissionChecker();
-		permChecker.register("LEVEL_REQUEST_REVIEWER", ctx -> ctx.bot().commandKernel()
+		permChecker.register("LEVEL_REQUEST_REVIEWER", ctx -> ctx.bot().service(CommandService.class)
 				.getPermissionChecker()
 				.isGranted(PermissionLevel.GUILD_ADMIN, ctx)
 				.flatMap(isGuildAdmin -> isGuildAdmin ? Mono.just(true) : ctx.event().getMessage()
@@ -207,15 +218,15 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		cmdProvider.setPermissionChecker(permChecker);
 		// Error handlers
 		var cmdErrorHandler = new CommandErrorHandler();
-		cmdErrorHandler.addHandler(CommandFailedException.class, (e, ctx) -> ctx.bot().emoji("cross")
+		cmdErrorHandler.addHandler(CommandFailedException.class, (e, ctx) -> ctx.bot().service(EmojiService.class).emoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " " + e.getMessage()))
 				.then());
-		cmdErrorHandler.addHandler(MissingAccessException.class, (e, ctx) -> ctx.bot().emoji("cross")
+		cmdErrorHandler.addHandler(MissingAccessException.class, (e, ctx) -> ctx.bot().service(EmojiService.class).emoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " Nothing found."))
 				.then());
 		cmdErrorHandler.addHandler(BadResponseException.class, (e, ctx) -> {
 			var status = e.getResponse().status();
-			return ctx.bot().emoji("cross")
+			return ctx.bot().service(EmojiService.class).emoji("cross")
 					.flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned a `" + status.code() + " "
 							+ status.reasonPhrase() + "` error. Try again later."))
 					.then();
@@ -225,7 +236,7 @@ public class GDPluginBootstrap implements PluginBootstrap {
 			if (content.length() > 500) {
 				content = content.substring(0, 497) + "...";
 			}
-			return Flux.merge(ctx.bot().emoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned corrupted data."
+			return Flux.merge(ctx.bot().service(EmojiService.class).emoji("cross").flatMap(cross -> ctx.reply(cross + " Geometry Dash server returned corrupted data."
 					+ "Unable to complete your request.")), 
 					ctx.bot().log(":warning: Geometry Dash server returned corrupted data.\nContext dump: `"
 							+ ctx + "`.\n"
@@ -236,13 +247,13 @@ public class GDPluginBootstrap implements PluginBootstrap {
 									+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "") + "`"),
 					Mono.fromRunnable(() -> LOGGER.warn("Geometry Dash server returned corrupted data", e))).then();
 		});
-		cmdErrorHandler.addHandler(TimeoutException.class, (e, ctx) -> ctx.bot().emoji("cross")
+		cmdErrorHandler.addHandler(TimeoutException.class, (e, ctx) -> ctx.bot().service(EmojiService.class).emoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
 				.then());
-		cmdErrorHandler.addHandler(IOException.class, (e, ctx) -> ctx.bot().emoji("cross")
+		cmdErrorHandler.addHandler(IOException.class, (e, ctx) -> ctx.bot().service(EmojiService.class).emoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " Cannot connect to Geometry Dash servers due to network issues. Try again later."))
 				.then());
-		cmdErrorHandler.addHandler(NoTimelyAvailableException.class, (e, ctx) -> ctx.bot().emoji("cross")
+		cmdErrorHandler.addHandler(NoTimelyAvailableException.class, (e, ctx) -> ctx.bot().service(EmojiService.class).emoji("cross")
 				.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
 				.then());
 		cmdProvider.setErrorHandler(cmdErrorHandler);
@@ -253,9 +264,5 @@ public class GDPluginBootstrap implements PluginBootstrap {
 		var subscriber = new GDEventSubscriber(bot, gdService);
 		gdEventDispatcher.on(GDEvent.class).subscribe(subscriber);
 		return subscriber;
-	}
-
-	private static Mono<PropertyReader> initPluginProperties() {
-		return PropertyReader.fromPropertiesFile(Path.of(".", "config", "gd.properties"));
 	}
 }

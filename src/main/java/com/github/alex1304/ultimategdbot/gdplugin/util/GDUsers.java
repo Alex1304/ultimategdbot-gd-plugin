@@ -27,16 +27,18 @@ import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Utils;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.benmanes.caffeine.cache.Cache;
 
+import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Attachment;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.core.spec.EmbedCreateSpec;
-import discord4j.rest.util.Snowflake;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -48,12 +50,13 @@ public final class GDUsers {
 	
 	public static Mono<MessageSpecTemplate> userProfileView(Bot bot, Optional<User> author, GDUser user, 
 			String authorName, String authorIconUrl, String iconSetUrl) {
-		return Mono.zip(o -> o, bot.emoji("star"), bot.emoji("diamond"), bot.emoji("user_coin"),
-				bot.emoji("secret_coin"), bot.emoji("demon"), bot.emoji("creator_points"),
-				bot.emoji("mod"), bot.emoji("elder_mod"), bot.emoji("global_rank"),
-				bot.emoji("youtube"), bot.emoji("twitter"), bot.emoji("twitch"),
-				bot.emoji("discord"), bot.emoji("friends"), bot.emoji("messages"),
-				bot.emoji("comment_history"))
+		var emojiService = bot.service(EmojiService.class);
+		return Mono.zip(o -> o, emojiService.emoji("star"), emojiService.emoji("diamond"), emojiService.emoji("user_coin"),
+				emojiService.emoji("secret_coin"), emojiService.emoji("demon"), emojiService.emoji("creator_points"),
+				emojiService.emoji("mod"), emojiService.emoji("elder_mod"), emojiService.emoji("global_rank"),
+				emojiService.emoji("youtube"), emojiService.emoji("twitter"), emojiService.emoji("twitch"),
+				emojiService.emoji("discord"), emojiService.emoji("friends"), emojiService.emoji("messages"),
+				emojiService.emoji("comment_history"))
 				.zipWith(getDiscordAccountsForGDUser(bot, user.getAccountId()).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
@@ -160,7 +163,7 @@ public final class GDUsers {
 					.onErrorMap(e -> new CommandFailedException("Not a valid mention."))
 					.flatMap(snowflake -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST).getUserById(snowflake))
 					.onErrorMap(e -> new CommandFailedException("Could not resolve the mention to a valid user."))
-					.flatMap(user -> bot.database().withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
+					.flatMap(user -> bot.service(DatabaseService.class).withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
 					.flatMap(Mono::justOrEmpty)
 					.filter(GDLinkedUserData::isLinkActivated)
 					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()))
@@ -197,7 +200,8 @@ public final class GDUsers {
 	}
 	
 	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, long gdUserId) {
-		return bot.database().withExtension(GDLinkedUserDao.class, dao -> dao.getLinkedAccountsForGdUser(gdUserId))
+		return bot.service(DatabaseService.class)
+				.withExtension(GDLinkedUserDao.class, dao -> dao.getLinkedAccountsForGdUser(gdUserId))
 				.flatMapMany(Flux::fromIterable)
 				.flatMap(linkedUser -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST)
 						.getUserById(linkedUser.discordUserId()));

@@ -4,9 +4,10 @@ import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
-import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
@@ -40,7 +41,7 @@ public class ProfileCommand {
 				+ "- privacy settings (whether private messages are open, friend requests are enabled, etc)")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.bot().database()
+				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
 						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)

@@ -11,7 +11,7 @@ import org.jdbi.v3.sqlobject.customizer.BindPojo;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
-import com.github.alex1304.ultimategdbot.api.guildconfig.GuildConfigDao;
+import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigDao;
 
 @RegisterRowMapper(MapMapper.class)
 public interface GDLevelRequestConfigDao extends GuildConfigDao<GDLevelRequestConfigData> {

@@ -22,10 +22,12 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
 import com.github.alex1304.ultimategdbot.api.command.annotated.FlagDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.FlagInfo;
+import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenu;
+import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
+import com.github.alex1304.ultimategdbot.api.command.menu.PageNumberOutOfRangeException;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.api.util.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.api.util.menu.PageNumberOutOfRangeException;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
@@ -93,7 +95,7 @@ public class GDEventsCommand {
 		}
 		
 		return eventToDispatch.doOnNext(gdService.getGdEventDispatcher()::dispatch)
-				.then(ctx.bot().emoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
+				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + " Event has been dispatched.")))
 				.then();
 	}
 	
@@ -162,17 +164,16 @@ public class GDEventsCommand {
 					var lastPage = (events.size() - 1) / 10;
 					InteractiveMenu menu;
 					if (lastPage == 0) {
-						menu = InteractiveMenu.create(paginateEvents(0, 0, events).getContent())
+						menu = ctx.bot().service(InteractiveMenuService.class).create(paginateEvents(0, 0, events).getContent())
 								.closeAfterReaction(false)
 								.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu));
 					} else {
-						menu = InteractiveMenu.createPaginated(ctx.bot().config().getPaginationControls(),
-								page -> paginateEvents(page, lastPage, events));
+						menu = ctx.bot().service(InteractiveMenuService.class).createPaginated((tr, page) -> paginateEvents(page, lastPage, events));
 					}
 					return menu.deleteMenuOnClose(true)
 							.addReactionItem("success", interaction -> {
 								events.forEach(gdService.getGdEventDispatcher()::dispatch);
-								return ctx.bot().emoji("success")
+								return ctx.bot().service(EmojiService.class).emoji("success")
 										.flatMap(success -> ctx.reply(success + " Dispatched " + events.size() + " events."))
 										.then(Mono.fromRunnable(interaction::closeMenu));
 							})

@@ -3,7 +3,9 @@ package com.github.alex1304.ultimategdbot.gdplugin.command;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
-import com.github.alex1304.ultimategdbot.api.util.BotUtils;
+import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
 
 import reactor.core.publisher.Mono;
@@ -17,8 +19,8 @@ public class ModListCommand {
 
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
-		return Mono.zip(ctx.bot().emoji("mod"), ctx.bot().emoji("elder_mod"), 
-						ctx.bot().database().withExtension(GDModDao.class, GDModDao::getAll))
+		return Mono.zip(ctx.bot().service(EmojiService.class).emoji("mod"), ctx.bot().service(EmojiService.class).emoji("elder_mod"), 
+						ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, GDModDao::getAll))
 				.flatMap(TupleUtils.function((modEmoji, elderModEmoji, modList) -> {
 					var sb = new StringBuilder("**__Geometry Dash Moderator List:__\n**");
 					sb.append("This list is automatically updated when the `")
@@ -28,7 +30,9 @@ public class ModListCommand {
 						sb.append(gdMod.isElder() ? elderModEmoji : modEmoji);
 						sb.append(" **").append(gdMod.name()).append("**\n");
 					}
-					return BotUtils.sendPaginatedMessage(ctx, sb.toString());
+					return ctx.bot().service(InteractiveMenuService.class)
+							.createPaginated(sb.toString(), 800)
+							.open(ctx);
 				})).then();
 	}
 }

@@ -7,6 +7,8 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
+import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
@@ -40,7 +42,7 @@ public class CheckModCommand {
 			+ "'M' badge on the profile, nothing else.")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
-				.switchIfEmpty(ctx.bot().database()
+				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
 						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
@@ -50,14 +52,14 @@ public class CheckModCommand {
 								+ "need to specify a user like so: `" + ctx.prefixUsed() + "checkmod <gd_user>`.")))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
-				.flatMap(user -> Mono.zip(ctx.bot().emoji("success"), ctx.bot().emoji("failed"), ctx.bot().emoji("mod"))
+				.flatMap(user -> Mono.zip(ctx.bot().service(EmojiService.class).emoji("success"), ctx.bot().service(EmojiService.class).emoji("failed"), ctx.bot().service(EmojiService.class).emoji("mod"))
 						.flatMap(emojis -> ctx.reply("Checking in-game mod status for user **" + user.getName() + "**...\n||"
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + " Failed. Nothing found."
 								: emojis.getT1() + " Success! Access granted: " + user.getRole()) + "||"))
 						.then(GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
-						.then(ctx.bot().database().withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
+						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
 						.flatMap(Mono::justOrEmpty)
 						.switchIfEmpty(Mono.defer(() -> {
 							if (user.getRole() == Role.USER) {
@@ -71,7 +73,7 @@ public class CheckModCommand {
 									.name(user.getName())
 									.isElder(isElder)
 									.build();
-							return ctx.bot().database()
+							return ctx.bot().service(DatabaseService.class)
 									.useExtension(GDModDao.class, dao -> dao.insert(gdMod))
 									.then(Mono.empty());
 						}))
@@ -79,7 +81,7 @@ public class CheckModCommand {
 							if (user.getRole() == Role.USER) {
 								gdService.getGdEventDispatcher().dispatch(gdMod.isElder() 
 										? new UserDemotedFromElderEvent(user) : new UserDemotedFromModEvent(user));
-								return ctx.bot().database()
+								return ctx.bot().service(DatabaseService.class)
 										.useExtension(GDModDao.class, dao -> dao.delete(gdMod.accountId()));
 							} else {
 								var updatedGdMod = ImmutableGDModData.builder().from(gdMod);
@@ -91,7 +93,7 @@ public class CheckModCommand {
 									updatedGdMod.isElder(true);
 								}
 								updatedGdMod.name(user.getName());
-								return ctx.bot().database().useExtension(GDModDao.class, dao -> dao.update(updatedGdMod.build()));
+								return ctx.bot().service(DatabaseService.class).useExtension(GDModDao.class, dao -> dao.update(updatedGdMod.build()));
 							}
 						}))
 				.then();
