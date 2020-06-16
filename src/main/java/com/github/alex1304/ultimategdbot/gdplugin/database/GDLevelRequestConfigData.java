@@ -1,13 +1,15 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
 import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildChannel;
-import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.*;
+import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildRole;
+import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forSimpleValue;
 
 import java.util.Optional;
 
 import org.immutables.value.Value;
 
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildChannelConfigEntry;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigData;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigurator;
@@ -15,9 +17,9 @@ import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildRoleConfi
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.IntegerConfigEntry;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.Validator;
 
+import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Role;
 import discord4j.core.object.entity.channel.Channel;
-import discord4j.common.util.Snowflake;
 
 @Value.Immutable
 public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequestConfigData> {
@@ -35,49 +37,46 @@ public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequest
 	int minReviewsRequired();
 	
 	@Override
-	default GuildConfigurator<GDLevelRequestConfigData> configurator(Bot bot) {
-		return GuildConfigurator.builder("Geometry Dash Level Requests", this, GDLevelRequestConfigDao.class)
-				.setDescription("A full-fledged level request system right in your Discord server! "
-						+ "Configure a channel where to receive requests, and a role to enable the "
-						+ "ability to review them. See more details on how it works here: "
-						+ "<https://github.com/ultimategdbot/ultimategdbot-gd-plugin/wiki/Level-Requests-Tutorial>")
+	default GuildConfigurator<GDLevelRequestConfigData> configurator(Translator tr, Bot bot) {
+		return GuildConfigurator.builder(tr.translate("guildconfig_gd_lvlreq", "title"), this, GDLevelRequestConfigDao.class)
+				.setDescription(tr.translate("guildconfig_gd_lvlreq", "desc"))
 				.addEntry(GuildChannelConfigEntry.<GDLevelRequestConfigData>builder("channel_submission_queue")
-						.setDisplayName("submission queue channel")
+						.setDisplayName(tr.translate("guildconfig_gd_lvlreq", "display_channel_submission_queue"))
 						.setValueGetter(forOptionalGuildChannel(bot, GDLevelRequestConfigData::channelSubmissionQueueId))
 						.setValueSetter((data, channel) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
 								.channelSubmissionQueueId(Optional.ofNullable(channel).map(Channel::getId))
 								.build()))
 				.addEntry(GuildChannelConfigEntry.<GDLevelRequestConfigData>builder("channel_archived_submissions")
-						.setDisplayName("archived submissions channel")
+						.setDisplayName(tr.translate("guildconfig_gd_lvlreq", "display_channel_archived_submissions"))
 						.setValueGetter(forOptionalGuildChannel(bot, GDLevelRequestConfigData::channelArchivedSubmissionsId))
 						.setValueSetter((data, channel) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
 								.channelArchivedSubmissionsId(Optional.ofNullable(channel).map(Channel::getId))
 								.build()))
 				.addEntry(GuildRoleConfigEntry.<GDLevelRequestConfigData>builder("role_reviewer")
-						.setDisplayName("reviewer role")
+						.setDisplayName(tr.translate("guildconfig_gd_lvlreq", "display_role_reviewer"))
 						.setValueGetter(forOptionalGuildRole(bot, GDLevelRequestConfigData::roleReviewerId))
 						.setValueSetter((data, role) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
 								.roleReviewerId(Optional.ofNullable(role).map(Role::getId))
 								.build()))
 				.addEntry(IntegerConfigEntry.<GDLevelRequestConfigData>builder("max_queued_submissions_per_user")
-						.setDisplayName("max queued submissions per user")
+						.setDisplayName(tr.translate("guildconfig_gd_lvlreq", "display_max_queued_submissions_per_user"))
 						.setValueGetter(forSimpleValue(GDLevelRequestConfigData::maxQueuedSubmissionsPerUser))
 						.setValueSetter((data, value) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
 								.maxQueuedSubmissionsPerUser(value)
 								.build())
-						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 20, "must be between 1 and 20")))
+						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 20, tr.translate("guildconfig_gd_lvlreq", "validate_range", 1, 20))))
 				.addEntry(IntegerConfigEntry.<GDLevelRequestConfigData>builder("min_reviews_required")
-						.setDisplayName("min reviews required")
+						.setDisplayName(tr.translate("guildconfig_gd_lvlreq", "display_min_reviews_required"))
 						.setValueGetter(forSimpleValue(GDLevelRequestConfigData::minReviewsRequired))
 						.setValueSetter((data, value) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
 								.minReviewsRequired(value)
 								.build())
-						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 5, "must be between 1 and 5")))
+						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 5, tr.translate("guildconfig_gd_lvlreq", "validate_range", 1, 5))))
 				.build();
 	}
 }

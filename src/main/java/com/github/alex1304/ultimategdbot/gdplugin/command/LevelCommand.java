@@ -29,7 +29,7 @@ public class LevelCommand {
 		if (!query.matches("[a-zA-Z0-9 _-]+")) {
 			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_level", "error_invalid_characters")));
 		}
-		return GDLevels.searchAndSend(ctx, ctx.translate("cmdtext_gd_level", "search_results"),
+		return GDLevels.searchAndSend(ctx, ctx.translate("cmdtext_gd_level", "search_results", query),
 				() -> gdService.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

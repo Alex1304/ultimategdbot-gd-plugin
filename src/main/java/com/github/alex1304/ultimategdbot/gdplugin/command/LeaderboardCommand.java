@@ -97,11 +97,11 @@ public class LeaderboardCommand {
 			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
 					.flatMap(tuple -> ctx.reply("**" + ctx.translate("cmdtext_gd_leaderboard", "intro") + "**\n"
 							+ "__" + ctx.translate("cmdtext_gd_leaderboard", "select_lb") + "__\n"
-							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT1() + " Stars", ctx.prefixUsed(), "stars")
-							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT2() + " Diamonds", ctx.prefixUsed(), "diamonds")
-							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT3() + " User Coins", ctx.prefixUsed(), "ucoins")
-							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT4() + " Secret Coins", ctx.prefixUsed(), "scoins")
-							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT5() + " Demons", ctx.prefixUsed(), "demons")
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT1() + " Stars", ctx.prefixUsed(), "stars") + '\n'
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT2() + " Diamonds", ctx.prefixUsed(), "diamonds") + '\n'
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT3() + " User Coins", ctx.prefixUsed(), "ucoins") + '\n'
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT4() + " Secret Coins", ctx.prefixUsed(), "scoins") + '\n'
+							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT5() + " Demons", ctx.prefixUsed(), "demons") + '\n'
 							+ ctx.translate("cmdtext_gd_leaderboard", "select_lb_item", tuple.getT6() + " Creator Points", ctx.prefixUsed(), "cp")))
 					.then();
 		}
@@ -305,7 +305,7 @@ public class LeaderboardCommand {
 				.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "ban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
-						.translate("cmdtext_gd_leaderboard", "ban_log", gdUser.getName(), ctx.author().getTag()))));
+								.translate("cmdtext_gd_leaderboard", "ban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 	
 	@CommandAction("unban")
@@ -318,10 +318,10 @@ public class LeaderboardCommand {
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_user_already_unbanned"))))
 				.flatMap(banData -> ctx.bot().service(DatabaseService.class)
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
-				.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "error_user_already_unbanned", gdUser.getName())))
+				.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "unban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
-						.translate("cmdtext_gd_leaderboard", "unban_log", gdUser.getName(), ctx.author().getTag()))));
+								.translate("cmdtext_gd_leaderboard", "unban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 
 	private static Consumer<EmbedCreateSpec> leaderboardView(Translator tr, String prefix, Guild guild,

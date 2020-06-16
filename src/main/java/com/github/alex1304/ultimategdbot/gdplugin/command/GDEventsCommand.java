@@ -108,7 +108,7 @@ public class GDEventsCommand {
 	@CommandAction("dispatch_all_awarded_resuming_from")
 	@CommandDoc("tr:cmddoc_gd_gdevents/run_dispatch_all_awarded_resuming_from")
 	@FlagDoc(
-			@FlagInfo(name = "max-page", description = "tr:cmddoc_gd_gdevents/flag_max_page")
+			@FlagInfo(name = "max-page", valueFormat = "number", description = "tr:cmddoc_gd_gdevents/flag_max_page")
 	)
 	public Mono<Void> runDispatchAllAwardedResumingFrom(Context ctx, long levelId) {
 		var maxPage = ctx.flags().get("max-page").map(v -> {

@@ -54,7 +54,7 @@ public class CheckModCommand {
 						.flatMap(emojis -> ctx.reply(ctx.translate("cmdtext_gd_checkmod", "checking_mod", user.getName()) + "\n||"
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + ' ' + ctx.translate("cmdtext_gd_checkmod", "failed")
-								: emojis.getT1() + ' ' + ctx.translate("cmdtext_gd_checkmod", "success", user.getRole().toString()) + "||")))
+								: emojis.getT1() + ' ' + ctx.translate("cmdtext_gd_checkmod", "success", user.getRole().toString()))+ "||"))
 						.then(GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))

@@ -83,9 +83,9 @@ public class LevelRequestCommand {
 								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_submission_channel") + "** " + formatChannel(ctx, lvlReqCfg.channelSubmissionQueueId()) + "\n"
 								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_archive_channel") + "** " + formatChannel(ctx, lvlReqCfg.channelArchivedSubmissionsId()) + "\n"
 								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_reviewer_role") + "** " + reviewerRole + "\n"
-								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_reviews_required") + lvlReqCfg.minReviewsRequired() + "\n"
-								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_max_submissions") + lvlReqCfg.maxQueuedSubmissionsPerUser() + "\n\n"
-								+ ctx.translate("cmdtext_gd_lvlreq", "bottom_text"))))))
+								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_reviews_required") + "** " + lvlReqCfg.minReviewsRequired() + "\n"
+								+ "**" + ctx.translate("cmdtext_gd_lvlreq", "label_max_submissions") + "** " + lvlReqCfg.maxQueuedSubmissionsPerUser() + "\n\n"
+								+ ctx.translate("cmdtext_gd_lvlreq", "bottom_text", ctx.prefixUsed()))))))
 				.then();
 	}
 	
