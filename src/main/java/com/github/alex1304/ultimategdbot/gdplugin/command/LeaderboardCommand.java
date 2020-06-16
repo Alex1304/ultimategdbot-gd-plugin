@@ -24,6 +24,7 @@ import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.exception.GDClientException;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
+import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.Scope;
@@ -85,12 +86,13 @@ public class LeaderboardCommand {
 		if (isLocked) {
 			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_lb_locked")));
 		}
-		var starEmoji = ctx.bot().service(EmojiService.class).emoji("star");
-		var diamondEmoji = ctx.bot().service(EmojiService.class).emoji("diamond");
-		var userCoinEmoji = ctx.bot().service(EmojiService.class).emoji("user_coin");
-		var secretCoinEmoji = ctx.bot().service(EmojiService.class).emoji("secret_coin");
-		var demonEmoji = ctx.bot().service(EmojiService.class).emoji("demon");
-		var cpEmoji = ctx.bot().service(EmojiService.class).emoji("creator_points");
+		var emojiService = ctx.bot().service(EmojiService.class);
+		var starEmoji = emojiService.emoji("star");
+		var diamondEmoji = emojiService.emoji("diamond");
+		var userCoinEmoji = emojiService.emoji("user_coin");
+		var secretCoinEmoji = emojiService.emoji("secret_coin");
+		var demonEmoji = emojiService.emoji("demon");
+		var cpEmoji = emojiService.emoji("creator_points");
 		if (statName == null) {
 			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
 					.flatMap(tuple -> ctx.reply("**" + ctx.translate("cmdtext_gd_leaderboard", "intro") + "**\n"
@@ -173,13 +175,13 @@ public class LeaderboardCommand {
 						.defaultIfEmpty(List.of())
 						.flatMap(list -> {
 							if (list.size() <= ENTRIES_PER_PAGE) {
-								return ctx.reply(m -> m.setEmbed(leaderboardView(ctx.prefixUsed(), guild, list, 0,
+								return ctx.reply(m -> m.setEmbed(leaderboardView(ctx, ctx.prefixUsed(), guild, list, 0,
 										lastRefreshed.get(), null, emojiRef.get()))).then();
 							}
 							var highlighted = new AtomicReference<String>();
 							BiFunction<Translator, Integer, MessageSpecTemplate> paginator = (tr, page) -> {
 								PageNumberOutOfRangeException.check(page, 0, (list.size() - 1) / ENTRIES_PER_PAGE);
-								return new MessageSpecTemplate(leaderboardView(ctx.prefixUsed(), guild, list, page,
+								return new MessageSpecTemplate(leaderboardView(ctx, ctx.prefixUsed(), guild, list, page,
 										lastRefreshed.get(), highlighted.get(), emojiRef.get()));
 							};
 							return ctx.bot().service(InteractiveMenuService.class).createPaginated(paginator)
@@ -234,7 +236,9 @@ public class LeaderboardCommand {
 				.distinct(GDLinkedUserData::gdUserId)
 				.collectList()
 				.flatMap(list -> ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + " Leaderboard refresh triggered by **" + ctx.author().getTag() + "**"))
+						.flatMap(info -> ctx.bot().log(info + ' '
+								+ Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+										.translate("cmdtext_gd_leaderboard", "refresh_log", ctx.author().getTag())))
 						.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "refreshing")))
 						.flatMapMany(message -> {
 							var processor = EmitterProcessor.<Long>create();
@@ -292,16 +296,16 @@ public class LeaderboardCommand {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
-				.flatMap(__ -> Mono.error(new CommandFailedException("This user is already banned.")))
+				.flatMap(__ -> Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_user_already_banned"))))
 				.then(ctx.bot().service(DatabaseService.class)
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.insert(ImmutableGDLeaderboardBanData.builder()
 								.accountId(gdUser.getAccountId())
 								.bannedBy(ctx.author().getId())
 								.build())))
-				.then(ctx.reply("**" + gdUser.getName() + "** is now banned from leaderboards!"))
+				.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "ban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + " Leaderboard ban added: **" + gdUser.getName()
-								+ "**, by **" + ctx.author().getTag() + "**")));
+						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+						.translate("cmdtext_gd_leaderboard", "ban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 	
 	@CommandAction("unban")
@@ -311,15 +315,16 @@ public class LeaderboardCommand {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
-				.switchIfEmpty(Mono.error(new CommandFailedException("This user is already unbanned.")))
-				.flatMap(banData -> ctx.bot().service(DatabaseService.class).useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
-				.then(ctx.reply("**" + gdUser.getName() + "** has been unbanned from leaderboards!"))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_leaderboard", "error_user_already_unbanned"))))
+				.flatMap(banData -> ctx.bot().service(DatabaseService.class)
+						.useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
+				.then(ctx.reply(ctx.translate("cmdtext_gd_leaderboard", "error_user_already_unbanned", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + " Leaderboard ban removed: **" + gdUser.getName()
-								+ "**, by **" + ctx.author().getTag() + "**")));
+						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+						.translate("cmdtext_gd_leaderboard", "unban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 
-	private static Consumer<EmbedCreateSpec> leaderboardView(String prefix, Guild guild,
+	private static Consumer<EmbedCreateSpec> leaderboardView(Translator tr, String prefix, Guild guild,
 			List<LeaderboardEntry> entryList, int page, Instant lastRefreshed, String highlighted, String emoji) {
 		final var size = entryList.size();
 		final var maxPage = (size - 1) / ENTRIES_PER_PAGE;
@@ -327,9 +332,9 @@ public class LeaderboardCommand {
 		final var subList = entryList.subList(offset, Math.min(offset + ENTRIES_PER_PAGE, size));
 		final var refreshed = Duration.between(lastRefreshed, Instant.now()).withNanos(0);
 		return embed -> {
-			embed.setTitle("Geometry Dash leaderboard for server __" + guild.getName() + "__");
+			embed.setTitle(tr.translate("cmdtext_gd_leaderboard", "lb_title", guild.getName()));
 			if (size == 0 || subList.isEmpty()) {
-				embed.setDescription("No entries.");
+				embed.setDescription(tr.translate("cmdtext_gd_leaderboard", "lb_no_entries"));
 				return;
 			}
 			var sb = new StringBuilder();
@@ -357,15 +362,13 @@ public class LeaderboardCommand {
 					sb.append("**");
 				}
 			}
-			embed.setDescription("**Total players: " + size + ", " + emoji + " leaderboard**\n\n" + sb.toString());
-			embed.addField("Last refreshed: " + DurationUtils.format(refreshed) + " ago", "Note that members of this server must have "
-					+ "linked their Geometry Dash account with `" + prefix + "account` in order to be displayed on this "
-					+ "leaderboard. If you have just freshly linked your account, you will need to wait for next leaderboard refresh "
-					+ "in order to be displayed.", false);
+			embed.setDescription("**" + tr.translate("cmdtext_gd_leaderboard", "lb_total_players", size, emoji) + "**\n\n" + sb.toString());
+			embed.addField(tr.translate("cmdtext_gd_leaderboard", "lb_last_refreshed", DurationUtils.format(refreshed)),
+					tr.translate("cmdtext_gd_leaderboard", "lb_account_notice", prefix), false);
 			if (maxPage > 0) {
-				embed.addField("Page " + (page + 1) + "/" + (maxPage + 1),
-						"To go to a specific page, type `page <number>`, e.g `page 3`\n"
-						+ "To jump to the page where a specific user is, type `finduser <GD_username>`", false);
+				embed.addField(tr.translate("generic", "pagination_page_counter", page + 1, maxPage + 1),
+						tr.translate("generic", "pagination_page_go_to") + '\n'
+						+ tr.translate("cmdtext_gd_leaderboard", "lb_jump_to_user"), false);
 			}
 		};
 	}

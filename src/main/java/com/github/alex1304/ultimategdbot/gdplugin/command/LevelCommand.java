@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "level",
-		shortDescription = "Searches for online levels in Geometry Dash."
+		shortDescription = "tr:cmddoc_gd_level/short_description"
 )
 public class LevelCommand {
 
@@ -24,14 +24,12 @@ public class LevelCommand {
 	}
 	
 	@CommandAction
-	@CommandDoc("Searches for online levels in Geometry Dash. You can specify the level either by "
-			+ "its name or its ID. If several results are found, an interactive menu will open "
-			+ "allowing you to navigate through results and select the result you want.")
-	public Mono<Void> execute(Context ctx, String query) {
+	@CommandDoc("tr:cmddoc_gd_level/run")
+	public Mono<Void> run(Context ctx, String query) {
 		if (!query.matches("[a-zA-Z0-9 _-]+")) {
-			return Mono.error(new CommandFailedException("Your query contains invalid characters."));
+			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_level", "error_invalid_characters")));
 		}
-		return GDLevels.searchAndSend(ctx, "Search results for `" + query + "`",
+		return GDLevels.searchAndSend(ctx, ctx.translate("cmdtext_gd_level", "search_results"),
 				() -> gdService.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "levelsby",
-		shortDescription = "Browse levels from a specific player in Geometry Dash."
+		shortDescription = "tr:cmddoc_gd_levelsby/short_description"
 )
 public class LevelsbyCommand {
 
@@ -23,12 +23,9 @@ public class LevelsbyCommand {
 	}
 	
 	@CommandAction
-	@CommandDoc("Browse levels from a specific player in Geometry Dash. You can specify "
-			+ "the user either by their name or their player ID. If several results are "
-			+ "found, an interactive menu will open allowing you to navigate through "
-			+ "results and select the result you want.")
-	public Mono<Void> execute(Context ctx, GDUser user) {
-		return GDLevels.searchAndSend(ctx, user.getName() + "'s levels",
+	@CommandDoc("tr:cmddoc_gd_levelsby/run")
+	public Mono<Void> run(Context ctx, GDUser user) {
+		return GDLevels.searchAndSend(ctx, ctx.translate("cmdtext_gd_levelsby", "player_levels", user.getName()),
 				() -> gdService.getGdClient().getLevelsByUser(user, 0));
 	}
 }
