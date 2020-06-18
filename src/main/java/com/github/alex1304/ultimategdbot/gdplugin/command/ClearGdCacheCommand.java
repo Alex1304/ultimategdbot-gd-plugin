@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "cleargdcache",
-		shortDescription = "tr:cmddoc_gd_cleargdcache/short_description"
+		shortDescription = "tr:strings_gd/cleargdcache_desc"
 )
 @CommandPermission(level = PermissionLevel.BOT_ADMIN)
 public class ClearGdCacheCommand {
@@ -25,7 +25,7 @@ public class ClearGdCacheCommand {
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
 		return Mono.fromRunnable(gdService.getGdClient()::clearCache)
-				.then(ctx.reply(ctx.translate("cmdtext_gd_cleargdcache", "success")))
+				.then(ctx.reply(ctx.translate("strings_gd", "cache_clear_success")))
 				.then();
 	}
 }

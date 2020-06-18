@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "level",
-		shortDescription = "tr:cmddoc_gd_level/short_description"
+		shortDescription = "tr:strings_gd/level_desc"
 )
 public class LevelCommand {
 
@@ -24,12 +24,12 @@ public class LevelCommand {
 	}
 	
 	@CommandAction
-	@CommandDoc("tr:cmddoc_gd_level/run")
+	@CommandDoc("tr:strings_gd/level_run")
 	public Mono<Void> run(Context ctx, String query) {
 		if (!query.matches("[a-zA-Z0-9 _-]+")) {
-			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_level", "error_invalid_characters")));
+			return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_invalid_characters")));
 		}
-		return GDLevels.searchAndSend(ctx, ctx.translate("cmdtext_gd_level", "search_results", query),
+		return GDLevels.searchAndSend(ctx, ctx.translate("strings_gd", "search_results", query),
 				() -> gdService.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

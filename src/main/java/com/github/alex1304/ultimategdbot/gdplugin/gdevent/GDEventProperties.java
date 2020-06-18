@@ -1,20 +1,22 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
+import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigData;
 
-import discord4j.core.object.entity.Message;
 import discord4j.common.util.Snowflake;
+import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
 import reactor.function.Function3;
 
 public class GDEventProperties<E extends GDEvent> {
 	
-	private final Function<E, String> logText;
+	private final BiFunction<Translator, E, String> logText;
 	private final String databaseField;
 	private final Function<GDEventConfigData, Optional<Snowflake>> channelId;
 	private final Function<GDEventConfigData, Optional<Snowflake>> roleId;
@@ -24,7 +26,7 @@ public class GDEventProperties<E extends GDEvent> {
 	private final Function<E, String> congratMessage;
 	private final GDEventBroadcastStrategy broadcastStrategy;
 
-	GDEventProperties(Function<E, String> logText, String databaseField, Function<GDEventConfigData, Optional<Snowflake>> channelId,
+	GDEventProperties(BiFunction<Translator, E, String> logText, String databaseField, Function<GDEventConfigData, Optional<Snowflake>> channelId,
 			Function<GDEventConfigData, Optional<Snowflake>> roleId, Function<E, Optional<Long>> levelIdGetter,
 			Function<E, Mono<Long>> recipientAccountId,
 			Function3<E, GDEventConfigData, Message, Mono<MessageSpecTemplate>> messageTemplateFactory,
@@ -41,8 +43,8 @@ public class GDEventProperties<E extends GDEvent> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public String logText(GDEvent event) {
-		return logText.apply((E) event);
+	public String logText(Translator tr, GDEvent event) {
+		return logText.apply(tr, (E) event);
 	}
 	
 	public String databaseField() {

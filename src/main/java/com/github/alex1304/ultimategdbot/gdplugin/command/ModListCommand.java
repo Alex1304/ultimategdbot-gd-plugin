@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = "modlist",
-		shortDescription = "tr:cmddoc_gd_modlist/short_description"
+		shortDescription = "tr:strings_gd/modlist_desc"
 )
 public class ModListCommand {
 
@@ -23,8 +23,8 @@ public class ModListCommand {
 		return Mono.zip(ctx.bot().service(EmojiService.class).emoji("mod"), ctx.bot().service(EmojiService.class).emoji("elder_mod"), 
 						ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, GDModDao::getAll))
 				.flatMap(function((modEmoji, elderModEmoji, modList) -> {
-					var sb = new StringBuilder("**__" + ctx.translate("cmdtext_gd_modlist", "mod_list") + "__\n**");
-					sb.append(ctx.translate("cmdtext_gd_modlist", "intro", ctx.prefixUsed()) + "\n\n");
+					var sb = new StringBuilder("**__" + ctx.translate("strings_gd", "mod_list") + "__\n**");
+					sb.append(ctx.translate("strings_gd", "modlist_intro", ctx.prefixUsed()) + "\n\n");
 					for (var gdMod : modList) {
 						sb.append(gdMod.isElder() ? elderModEmoji : modEmoji);
 						sb.append(" **").append(gdMod.name()).append("**\n");

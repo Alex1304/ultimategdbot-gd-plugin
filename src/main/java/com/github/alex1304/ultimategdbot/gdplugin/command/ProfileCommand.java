@@ -18,7 +18,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "profile",
-		shortDescription = "tr:cmddoc_gd_profile/short_description"
+		shortDescription = "tr:strings_gd/profile_desc"
 )
 public class ProfileCommand {
 
@@ -29,7 +29,7 @@ public class ProfileCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:cmddoc_gd_profile/run")
+	@CommandDoc("tr:strings_gd/profile_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
 				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
@@ -43,10 +43,10 @@ public class ProfileCommand {
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(Mono::justOrEmpty)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
-				.flatMap(user -> GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
+				.flatMap(user -> GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))
-						.flatMap(icons -> GDUsers.userProfileView(ctx.bot(), ctx.event().getMessage().getAuthor(), user,
-										ctx.translate("cmdtext_gd_profile", "user_profile"), "https://i.imgur.com/ppg4HqJ.png", icons)
+						.flatMap(icons -> GDUsers.userProfileView(ctx, ctx.bot(), ctx.author(), user,
+										ctx.translate("strings_gd", "user_profile"), "https://i.imgur.com/ppg4HqJ.png", icons)
 								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(ctx::reply)))
 				.then();

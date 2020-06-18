@@ -19,6 +19,7 @@ import com.github.alex1304.jdash.exception.NoTimelyAvailableException;
 import com.github.alex1304.jdash.exception.SongNotAllowedForUseException;
 import com.github.alex1304.jdash.util.GDPaginator;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
@@ -46,9 +47,11 @@ public class GDLevels {
 	}
 	
 	public static Mono<Consumer<EmbedCreateSpec>> searchResultsEmbed(Context ctx, Iterable<GDLevel> results, String title, int page, int totalPages) {
-		return Mono.zip(o -> o, ctx.bot().service(EmojiService.class).emoji("copy"), ctx.bot().service(EmojiService.class).emoji("object_overflow"), ctx.bot().service(EmojiService.class).emoji("downloads"),
-				ctx.bot().service(EmojiService.class).emoji("like"), ctx.bot().service(EmojiService.class).emoji("length"), ctx.bot().service(EmojiService.class).emoji("user_coin"),
-				ctx.bot().service(EmojiService.class).emoji("user_coin_unverified"), ctx.bot().service(EmojiService.class).emoji("star"), ctx.bot().service(EmojiService.class).emoji("dislike"))
+		var emojiService = ctx.bot().service(EmojiService.class);
+		return Mono.zip(o -> o, emojiService.emoji("copy"), emojiService.emoji("object_overflow"),
+						emojiService.emoji("downloads"), emojiService.emoji("like"), emojiService.emoji("length"),
+						emojiService.emoji("user_coin"), emojiService.emoji("user_coin_unverified"),
+						emojiService.emoji("star"), emojiService.emoji("dislike"))
 				.zipWith(getLevelDifficultyAndSongFromSearchResults(ctx, results))
 				.map(tuple -> {
 					var emojis = tuple.getT1();
@@ -80,21 +83,22 @@ public class GDLevels {
 							i++;
 						}
 						if (i == 1) {
-							embed.setDescription("No results found.");
+							embed.setDescription('*' + ctx.translate("strings_gd", "no_results") + '*');
 						}
-						embed.addField("Page " + (page + 1) + "/" + totalPages,
-								"To go to a specific page, type `page <number>`, e.g `page 3`\n"
-								+ "To view more details on a specific search result item, type `select <result_number>`", false);
+						embed.addField(ctx.translate("strings_common", "pagination_page_counter", page + 1, totalPages),
+								ctx.translate("strings_common", "pagination_go_to")+ '\n'
+								+ ctx.translate("strings_gd", "select_result"), false);
 					};
 				});
 	}
 	
 	public static Mono<Consumer<EmbedCreateSpec>> detailedView(Context ctx, GDLevel level, String authorName, String authorIconUrl) {
-		return Mono.zip(o -> o, ctx.bot().service(EmojiService.class).emoji("play"), ctx.bot().service(EmojiService.class).emoji("downloads"), ctx.bot().service(EmojiService.class).emoji("dislike"),
-				ctx.bot().service(EmojiService.class).emoji("like"), ctx.bot().service(EmojiService.class).emoji("length"), ctx.bot().service(EmojiService.class).emoji("lock"),
-				ctx.bot().service(EmojiService.class).emoji("copy"), ctx.bot().service(EmojiService.class).emoji("object_overflow"), ctx.bot().service(EmojiService.class).emoji("user_coin"),
-				ctx.bot().service(EmojiService.class).emoji("user_coin_unverified"))
-				.zipWith(Mono.zip(level.download(), formatSongPrimaryMetadata(level.getSong()),
+		var emojiService = ctx.bot().service(EmojiService.class);
+		return Mono.zip(o -> o, emojiService.emoji("play"), emojiService.emoji("downloads"), emojiService.emoji("dislike"),
+						emojiService.emoji("like"), emojiService.emoji("length"), emojiService.emoji("lock"),
+						emojiService.emoji("copy"), emojiService.emoji("object_overflow"),
+						emojiService.emoji("user_coin"), emojiService.emoji("user_coin_unverified"))
+				.zipWith(Mono.zip(level.download(), formatSongPrimaryMetadata(ctx, level.getSong()),
 						formatSongSecondaryMetadata(ctx, level.getSong())))
 				.map(tuple -> {
 					final var emojis = tuple.getT1();
@@ -106,39 +110,45 @@ public class GDLevels {
 						embed.setAuthor(authorName, null, authorIconUrl);
 						embed.setThumbnail(getDifficultyImageForLevel(level));
 						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
-						var description = "**Description:** " + (level.getDescription().isEmpty() ? "*(No description provided)*"
-								: Markdown.escape(level.getDescription()));
-						var coins = "Coins: " + coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 8 : 9], level.getCoinCount(), false);
+						var description = "**" + ctx.translate("strings_gd", "label_description") + "** "
+								+ (level.getDescription().isEmpty()
+										? "*(" + ctx.translate("strings_gd", "no_description") + ")*"
+										: Markdown.escape(level.getDescription()));
+						var coins = ctx.translate("strings_gd", "label_coins") + ' '
+								+ coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 8 : 9], level.getCoinCount(), false);
 						var downloadLikesLength = emojis[1] + " " + formatCode(level.getDownloads(), dlWidth) + "\n"
 								+ (level.getLikes() < 0 ? emojis[2] + " " : emojis[3] + " ") + formatCode(level.getLikes(), dlWidth) + "\n"
 								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
-						var objCount = "**Object count:** ";
+						var objCount = "**" + ctx.translate("strings_gd", "label_object_count") + "** ";
 						if (level.getObjectCount() > 0 || level.getLevelVersion() >= 21) {
-							if (level.getObjectCount() == 65535)
+							if (level.getObjectCount() == 65535) {
 								objCount += ">";
+							}
 							objCount += level.getObjectCount();
 						} else
-							objCount += "_Unknown_";
+							objCount += '_' + ctx.translate("strings_gd", "unknown") + '_';
 						objCount += "\n";
 						var extraInfo = new StringBuilder();
-						extraInfo.append("**Level ID:** " + level.getId() + "\n");
-						extraInfo.append("**Level version:** " + level.getLevelVersion() + "\n");
-						extraInfo.append("**Minimum GD version required to play this level:** " + formatGameVersion(level.getGameVersion()) + "\n");
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_level_id") + "** " + level.getId() + "\n");
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_level_version") + "** " + level.getLevelVersion() + "\n");
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_game_version") + "** " + formatGameVersion(level.getGameVersion()) + "\n");
 						extraInfo.append(objCount);
 						var pass = "";
 						if (data.getPass() == -2)
-							pass = "Yes, no passcode required";
+							pass = ctx.translate("strings_gd", "free_to_copy");
 						else if (data.getPass() == -1)
-							pass = "No";
+							pass = ctx.translate("strings_common", "no");
 						else
-							pass = "Yes, " + emojis[5] + " passcode: " + String.format("||%06d||", data.getPass());
-						extraInfo.append("**Copyable:** " + pass + "\n");
-						extraInfo.append("**Uploaded:** " + data.getUploadTimestamp() + " ago\n");
-						extraInfo.append("**Last updated:** " + data.getLastUpdatedTimestamp() + " ago\n");
+							pass = ctx.translate("strings_gd", "protected_copyable", emojis[5], data.getPass());
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_copyable") + "** " + pass + "\n");
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_uploaded") + "** "
+								+ ctx.translate("strings_gd", "time_ago", data.getUploadTimestamp()) + '\n');
+						extraInfo.append("**" + ctx.translate("strings_gd", "label_last_updated") + "** "
+								+ ctx.translate("strings_gd", "time_ago", data.getLastUpdatedTimestamp()) + '\n');
 						if (level.getOriginalLevelID() > 0)
-							extraInfo.append(emojis[6] + " **Original:** " + level.getOriginalLevelID() + "\n");
+							extraInfo.append(emojis[6] + " **" + ctx.translate("strings_gd", "label_original") + "** " + level.getOriginalLevelID() + "\n");
 						if (level.getObjectCount() > 40000)
-							extraInfo.append(emojis[7] + " **This level may lag on low end devices**\n");
+							extraInfo.append(emojis[7] + " **" + ctx.translate("strings_gd", "lag_notice") + "**\n");
 						embed.addField(title, description, false);
 						embed.addField(coins, downloadLikesLength + "\n_ _", false);
 						embed.addField(songInfo, songInfo2 + "\n_ _\n" + extraInfo, false);
@@ -146,11 +156,13 @@ public class GDLevels {
 				});
 	}
 	
-	public static Mono<Consumer<EmbedCreateSpec>> compactView(Bot bot, GDLevel level, String authorName, String authorIconUrl) {
-		return Mono.zip(o -> o, bot.service(EmojiService.class).emoji("play"), bot.service(EmojiService.class).emoji("downloads"), bot.service(EmojiService.class).emoji("dislike"),
-				bot.service(EmojiService.class).emoji("like"), bot.service(EmojiService.class).emoji("length"), bot.service(EmojiService.class).emoji("copy"),
-				bot.service(EmojiService.class).emoji("object_overflow"), bot.service(EmojiService.class).emoji("user_coin"), bot.service(EmojiService.class).emoji("user_coin_unverified"))
-				.zipWith(formatSongPrimaryMetadata(level.getSong()))
+	public static Mono<Consumer<EmbedCreateSpec>> compactView(Translator tr, Bot bot, GDLevel level, String authorName, String authorIconUrl) {
+		var emojiService = bot.service(EmojiService.class);
+		return Mono.zip(o -> o, emojiService.emoji("play"), emojiService.emoji("downloads"), emojiService.emoji("dislike"),
+						emojiService.emoji("like"), emojiService.emoji("length"), emojiService.emoji("copy"),
+						emojiService.emoji("object_overflow"), emojiService.emoji("user_coin"),
+						emojiService.emoji("user_coin_unverified"))
+				.zipWith(formatSongPrimaryMetadata(tr, level.getSong()))
 				.map(tuple -> {
 					final var emojis = tuple.getT1();
 					final var songInfo = ":musical_note:   " + tuple.getT2();
@@ -167,7 +179,7 @@ public class GDLevels {
 								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
 						embed.addField(title, downloadLikesLength, false);
 						embed.addField(coins, songInfo, false);
-						embed.setFooter("Level ID: " + level.getId(), null);
+						embed.setFooter(tr.translate("strings_gd", "label_level_id") + ' ' + level.getId(), null);
 					};
 				});
 	}
@@ -189,15 +201,17 @@ public class GDLevels {
 						.addMessageItem("select", interaction -> Mono
 								.fromCallable(() -> resultsOfCurrentPage.get().get(Integer.parseInt(interaction.getArgs().get(1)) - 1))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
-										interaction.getArgs().tokenCount() == 1 ? "Please secify a result number"
-												: "Your input refers to a non-existing result."))
-								.onErrorMap(NumberFormatException.class, e -> new UnexpectedReplyException("Invalid input"))
+										interaction.getArgs().tokenCount() == 1
+												? ctx.translate("strings_gd", "error_select_not_specified")
+												: ctx.translate("strings_gd", "error_select_not_existing")))
+								.onErrorMap(NumberFormatException.class, e -> new UnexpectedReplyException(
+										ctx.translate("strings_gd", "error_invalid_input")))
 								.flatMap(level -> sendSelectedSearchResult(ctx, level, true)))
 						.open(ctx));
 	}
 	
 	private static Mono<Void> sendSelectedSearchResult(Context ctx, GDLevel level, boolean withCloseOption) {
-		return detailedView(ctx, level, "Search result", "https://i.imgur.com/a9B6LyS.png")
+		return detailedView(ctx, level, ctx.translate("strings_gd", "search_result"), "https://i.imgur.com/a9B6LyS.png")
 				.<Consumer<MessageCreateSpec>>map(embed -> m -> m.setEmbed(embed))
 				.flatMap(m -> !withCloseOption ? ctx.reply(m).then() : ctx.bot().service(InteractiveMenuService.class).create(m)
 						.addReactionItem("cross", interaction -> Mono.empty())
@@ -207,7 +221,7 @@ public class GDLevels {
 	
 	public static Mono<Message> sendTimelyInfo(Context ctx, AuthenticatedGDClient gdClient, boolean isWeekly) {
 		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
-		var headerTitle = isWeekly ? "Weekly demon" : "Daily level" ;
+		var headerTitle = isWeekly ? ctx.translate("strings_gd", "daily") : ctx.translate("strings_gd", "weekly");
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return timelyMono
 				.flatMap(timely -> timely.getLevel()
@@ -216,14 +230,13 @@ public class GDLevels {
 									var cooldown = Duration.ofSeconds(timely.getCooldown());
 									var formattedCooldown = DurationUtils.format(cooldown);
 									return ctx.reply(message -> {
-										message.setContent(ctx.event().getMessage().getAuthor().get().getMention()
-												+ ", here is the " + headerTitle + " of today. "
-												+ "Next " + headerTitle + " in " + formattedCooldown + ".");
+										message.setContent(ctx.translate("strings_gd", "timely_of_today",
+												ctx.author().getMention(), headerTitle, formattedCooldown));
 										message.setEmbed(embed);
 									});
 								})))
-				.onErrorMap(NoTimelyAvailableException.class, e -> new CommandFailedException("There is no "
-						+ headerTitle + " set in-game at the moment. Come back later!"));
+				.onErrorMap(NoTimelyAvailableException.class, e -> new CommandFailedException(
+						ctx.translate("strings_gd", "error_no_timely_set")));
 	}
 	
 	public static String toString(GDLevel level) {
@@ -269,8 +282,7 @@ public class GDLevels {
 			output.append(n);
 		} else {
 			if (n <= 0)
-				return "None";
-			
+				return "-";
 			for (int i = 1 ; i <= n && i <= 3 ; i++) {
 				output.append(emoji);
 				output.append(" ");
@@ -295,7 +307,7 @@ public class GDLevels {
 								difficulty.append("_epic");
 							else if (level.getFeaturedScore() > 0)
 								difficulty.append("_featured");
-							return formatSongPrimaryMetadata(level.getSong())
+							return formatSongPrimaryMetadata(ctx, level.getSong())
 									.map(songFormat -> Tuples.of(level, Tuples.of(difficulty.toString(), songFormat)));
 									
 						})
@@ -305,22 +317,24 @@ public class GDLevels {
 						.collectMap(Tuple2::getT1, Tuple2::getT2));
 	}
 	
-	private static Mono<String> formatSongPrimaryMetadata(Mono<GDSong> monoSong) {
+	private static Mono<String> formatSongPrimaryMetadata(Translator tr, Mono<GDSong> monoSong) {
 		return monoSong.map(song -> "__" + song.getSongTitle() + "__ by " + song.getSongAuthorName())
-				.onErrorReturn(SongNotAllowedForUseException.class, ":warning: Song is not allowed for use")
-				.onErrorReturn(":warning: Unknown song");
+				.onErrorReturn(SongNotAllowedForUseException.class, ":warning: " + tr.translate("strings_gd", "song_banned"))
+				.onErrorReturn(":warning: " + tr.translate("strings_gd", "song_unknown"));
 	}
 
 	private static Mono<String> formatSongSecondaryMetadata(Context ctx, Mono<GDSong> monoSong) {
-		return Mono.zip(ctx.bot().service(EmojiService.class).emoji("play"), ctx.bot().service(EmojiService.class).emoji("download_song"))
+		var emojiService = ctx.bot().service(EmojiService.class);
+		return Mono.zip(emojiService.emoji("play"), emojiService.emoji("download_song"))
 				.flatMap(emojis -> {
 					final var ePlay = emojis.getT1();
 					final var eDlSong = emojis.getT2();
 					return monoSong.map(song -> song.isCustom()
-							? "SongID: " + song.getId() + " - Size: " + song.getSongSize() + "MB\n" + ePlay
-									+ " [Play on Newgrounds](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
-									+ eDlSong + " [Download MP3](" + song.getDownloadURL() + ")"
-							: "Geometry Dash native audio track").onErrorReturn("Song info unavailable");
+							? ctx.translate("strings_gd", "label_song_id") + ' ' + song.getId() + " - " + ctx.translate("strings_gd", "label_song_size")
+									+ ' ' + song.getSongSize() + "MB\n" + ePlay
+									+ " [" + ctx.translate("strings_gd", "play_on_ng") + "](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
+									+ eDlSong + " [" + ctx.translate("strings_gd", "download_mp3") + "](" + song.getDownloadURL() + ")"
+							: ctx.translate("strings_gd", "song_native")).onErrorReturn(ctx.translate("strings_gd", "song_info_unavailable"));
 				});
 	}
 	

@@ -25,7 +25,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "checkmod",
-		shortDescription = "tr:cmddoc_gd_checkmod/short_description"
+		shortDescription = "tr:strings_gd/checkmod_desc"
 )
 public class CheckModCommand {
 
@@ -36,7 +36,7 @@ public class CheckModCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:cmddoc_gd_checkmod/run")
+	@CommandDoc("tr:strings_gd/checkmod_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
 				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
@@ -44,18 +44,18 @@ public class CheckModCommand {
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
 						.switchIfEmpty(Mono.error(new CommandFailedException(
-								ctx.translate("misc_gd_users", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
+								ctx.translate("strings_gd", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(
 								ctx.bot().service(EmojiService.class).emoji("success"),
 								ctx.bot().service(EmojiService.class).emoji("failed"),
 								ctx.bot().service(EmojiService.class).emoji("mod"))
-						.flatMap(emojis -> ctx.reply(ctx.translate("cmdtext_gd_checkmod", "checking_mod", user.getName()) + "\n||"
+						.flatMap(emojis -> ctx.reply(ctx.translate("strings_gd", "checking_mod", user.getName()) + "\n||"
 								+ (user.getRole() == Role.USER
-								? emojis.getT2() + ' ' + ctx.translate("cmdtext_gd_checkmod", "failed")
-								: emojis.getT1() + ' ' + ctx.translate("cmdtext_gd_checkmod", "success", user.getRole().toString()))+ "||"))
-						.then(GDUsers.makeIconSet(ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
+								? emojis.getT2() + ' ' + ctx.translate("strings_gd", "checkmod_failed")
+								: emojis.getT1() + ' ' + ctx.translate("strings_gd", "checkmod_success", user.getRole().toString()))+ "||"))
+						.then(GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
 						.flatMap(Mono::justOrEmpty)
@@ -91,7 +91,8 @@ public class CheckModCommand {
 									updatedGdMod.isElder(true);
 								}
 								updatedGdMod.name(user.getName());
-								return ctx.bot().service(DatabaseService.class).useExtension(GDModDao.class, dao -> dao.update(updatedGdMod.build()));
+								return ctx.bot().service(DatabaseService.class)
+										.useExtension(GDModDao.class, dao -> dao.update(updatedGdMod.build()));
 							}
 						}))
 				.then();

@@ -27,7 +27,7 @@ import reactor.util.function.Tuples;
 
 @CommandDescriptor(
 		aliases = "account",
-		shortDescription = "tr:cmddoc_gd_account/short_description"
+		shortDescription = "tr:strings_gd/account_desc"
 )
 public class AccountCommand {
 
@@ -39,33 +39,33 @@ public class AccountCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:cmddoc_gd_account/run")
+	@CommandDoc("tr:strings_gd/account_run")
 	public Mono<Void> run(Context ctx) {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 				.flatMap(Mono::justOrEmpty)
 				.filter(GDLinkedUserData::isLinkActivated)
 				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId()))
-				.map(user -> Tuples.of(true, ctx.translate("cmdtext_gd_account", "currently_linked", user.getName())))
-				.defaultIfEmpty(Tuples.of(false, ctx.translate("cmdtext_gd_account", "not_yet_linked")))
-				.flatMap(tuple -> ctx.reply(ctx.translate("cmdtext_gd_account", "link_intro") + "\n\n"
+				.map(user -> Tuples.of(true, ctx.translate("strings_gd", "currently_linked", user.getName())))
+				.defaultIfEmpty(Tuples.of(false, ctx.translate("strings_gd", "not_yet_linked")))
+				.flatMap(tuple -> ctx.reply(ctx.translate("strings_gd", "link_intro") + "\n\n"
 						+ tuple.getT2() + "\n"
-						+ (tuple.getT1() ? ctx.translate("cmdtext_gd_account", "how_to_unlink", ctx.prefixUsed())
-								: ctx.translate("cmdtext_gd_account", "how_to_link", ctx.prefixUsed()))))
+						+ (tuple.getT1() ? ctx.translate("strings_gd", "how_to_unlink", ctx.prefixUsed())
+								: ctx.translate("strings_gd", "how_to_link", ctx.prefixUsed()))))
 				.then();
 	}
 	
 	@CommandAction("link")
-	@CommandDoc("tr:cmddoc_gd_account/run_link")
+	@CommandDoc("tr:strings_gd/account_run_link")
 	public Mono<Void> runLink(Context ctx, GDUser gdUsername) {
 		final var authorId = ctx.author().getId().asLong();
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUsername.getAccountId()))
 				.filter(not(GDLinkedUserData::isLinkActivated))
-				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_already_linked"))))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_already_linked"))))
 				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(gdService.getGdClient().getAccountID())
 						.filter(gdUser -> gdUser.getAccountId() > 0)
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_unregistered_user"))))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_unregistered_user"))))
 						.flatMap(botUser -> {
 							var token = linkedUser.confirmationToken().orElse(GDUsers.generateAlphanumericToken(TOKEN_LENGTH));
 							var data = ImmutableGDLinkedUserData.builder()
@@ -78,16 +78,16 @@ public class AccountCommand {
 						})
 						.flatMap(TupleUtils.function((botUser, token) -> {
 							var menuEmbedContent = new StringBuilder();
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_1")).append('\n');
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_2", botUser.getName())).append('\n');
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_3")).append('\n');
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_4")).append('\n');
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_5", token)).append('\n');
-							menuEmbedContent.append(ctx.translate("cmdtext_gd_account", "link_step_6")).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_1")).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_2", botUser.getName())).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_3")).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_4")).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_5", token)).append('\n');
+							menuEmbedContent.append(ctx.translate("strings_gd", "link_step_6")).append('\n');
 							return ctx.bot().service(InteractiveMenuService.class).create(message -> {
-										message.setContent(ctx.translate("cmdtext_gd_account", "link_request", gdUsername.getName()) + '\n');
+										message.setContent(ctx.translate("strings_gd", "link_request", gdUsername.getName()) + '\n');
 										message.setEmbed(embed -> {
-											embed.setTitle(ctx.translate("cmdtext_gd_account", "link_steps"));
+											embed.setTitle(ctx.translate("strings_gd", "link_steps"));
 											embed.setDescription(menuEmbedContent.toString());
 										});
 									})
@@ -110,39 +110,39 @@ public class AccountCommand {
 	}
 	
 	@CommandAction("unlink")
-	@CommandDoc("tr:cmddoc_gd_account/run_unlink")
+	@CommandDoc("tr:strings_gd/account_run_unlink")
 	public Mono<Void> runUnlink(Context ctx) {
 		final var authorId = ctx.event().getMessage().getAuthor().get().getId().asLong();
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(authorId))
-				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_not_linked"))))
-				.flatMap(linkedUser -> ctx.bot().service(InteractiveMenuService.class).create(ctx.translate("cmdtext_gd_account", "unlink_confirm"))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_not_linked"))))
+				.flatMap(linkedUser -> ctx.bot().service(InteractiveMenuService.class).create(ctx.translate("strings_gd", "unlink_confirm"))
 						.deleteMenuOnClose(true)
 						.deleteMenuOnTimeout(true)
 						.closeAfterReaction(true)
 						.addReactionItem("success", interaction -> ctx.bot().service(DatabaseService.class)
 							.useExtension(GDLinkedUserDao.class, dao -> dao.delete(authorId))
 							.then(ctx.bot().service(EmojiService.class).emoji("success")
-									.flatMap(successEmoji -> ctx.reply(successEmoji + ' ' + ctx.translate("cmdtext_gd_account", "unlink_success"))))
+									.flatMap(successEmoji -> ctx.reply(successEmoji + ' ' + ctx.translate("strings_gd", "unlink_success"))))
 							.then())
 						.addReactionItem("cross", interaction -> Mono.empty())
 						.open(ctx));
 	}
 	
 	private Mono<Void> handleDone(Context ctx, String token, GDUser user, GDUser botUser) {
-		return ctx.reply(ctx.translate("cmdtext_gd_account", "checking_messages"))
+		return ctx.reply(ctx.translate("strings_gd", "checking_messages"))
 				.flatMap(waitMessage -> gdService.getGdClient().getPrivateMessages(0)
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_confirmation_not_found"))))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_confirmation_not_found"))))
 						.next()
 						.flatMap(GDMessage::getBody)
 						.filter(body -> body.equals(token))
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_confirmation_mismatch"))))
+						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_confirmation_mismatch"))))
 						.then(ctx.bot().service(DatabaseService.class).useExtension(GDLinkedUserDao.class, dao -> dao.confirmLink(ctx.author().getId().asLong())))
 						.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(successEmoji -> ctx.reply(successEmoji + ' '
-								+ ctx.translate("cmdtext_gd_account", "link_success", user.getName()))))
-						.onErrorMap(GDClientException.class, e -> new CommandFailedException(ctx.translate("cmdtext_gd_account", "error_pm_access")))
+								+ ctx.translate("strings_gd", "link_success", user.getName()))))
+						.onErrorMap(GDClientException.class, e -> new CommandFailedException(ctx.translate("strings_gd", "error_pm_access")))
 						.doFinally(signal -> waitMessage.delete().subscribe())
 						.then());
 	}

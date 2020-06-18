@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.Translator;
+import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
@@ -21,11 +23,13 @@ public interface GDEventBroadcastStrategy {
 	static final GDEventBroadcastStrategy EDITING = new UpdateMessageBroadcastStrategy();
 	
 	Mono<Integer> broadcast(Bot bot, GDEvent event, GDEventProperties<? extends GDEvent> eventProps, BroadcastResultCache resultCache);
-	
+
 	static class NewMessageBroadcastStrategy implements GDEventBroadcastStrategy {
 		@Override
 		public Mono<Integer> broadcast(Bot bot, GDEvent event, GDEventProperties<? extends GDEvent> eventProps, BroadcastResultCache resultCache) {
-			var guildBroadcast = bot.service(DatabaseService.class).withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(eventProps.databaseField()))
+			var tr = Translator.to(bot.service(CommandService.class).getDefaultLocale());
+			var guildBroadcast = bot.service(DatabaseService.class)
+					.withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(eventProps.databaseField()))
 					.flatMapMany(Flux::fromIterable)
 					.flatMap(gsg -> eventProps.createMessageTemplate(event, gsg, null)
 							.flatMap(msg -> bot.rest().getChannelById(eventProps.channelId(gsg))
@@ -36,7 +40,7 @@ public interface GDEventBroadcastStrategy {
 					.flatMapMany(accountId -> GDUsers.getDiscordAccountsForGDUser(bot, accountId))
 					.flatMap(User::getPrivateChannel)
 					.flatMap(channel -> eventProps.createMessageTemplate(event, null, null)
-							.map(msg -> new MessageSpecTemplate(eventProps.congratMessage(event), msg.getEmbed()))
+							.map(msg -> new MessageSpecTemplate(tr.translate("strings_gd", eventProps.congratMessage(event)), msg.getEmbed()))
 							.map(MessageSpecTemplate::toMessageCreateSpec)
 							.flatMap(channel::createMessage)
 							.onErrorResume(e -> Mono.empty()));

@@ -185,7 +185,7 @@ public class GDPlugin implements Plugin {
 		cmdProvider.addParamConverter(new ParamConverter<GDUser>() {
 			@Override
 			public Mono<GDUser> convert(Context ctx, String input) {
-				return GDUsers.stringToUser(bot, gdClient, input);
+				return GDUsers.stringToUser(ctx, bot, gdClient, input);
 			}
 			@Override
 			public Class<GDUser> type() {

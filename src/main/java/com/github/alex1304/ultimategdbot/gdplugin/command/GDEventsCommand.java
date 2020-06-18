@@ -39,7 +39,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "gdevents",
-		shortDescription = "tr:cmddoc_gd_gdevents/short_description"
+		shortDescription = "tr:strings_gd/gdevents_desc"
 )
 @CommandPermission(level = PermissionLevel.BOT_OWNER)
 public class GDEventsCommand {
@@ -51,7 +51,7 @@ public class GDEventsCommand {
 	}
 	
 	@CommandAction("dispatch")
-	@CommandDoc("tr:cmddoc_gd_gdevents/run_dispatch")
+	@CommandDoc("tr:strings_gd/gdevents_run_dispatch")
 	public Mono<Void> runDispatch(Context ctx, String eventName, @Nullable Long levelId) {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
@@ -63,7 +63,7 @@ public class GDEventsCommand {
 				break;
 			default:
 				if (levelId == null) {
-					return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_id_not_specified")));
+					return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_id_not_specified")));
 				}
 				switch (eventName) {
 					case "awarded_level_added":
@@ -77,38 +77,38 @@ public class GDEventsCommand {
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
-						return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_id_not_specified", ctx.prefixUsed())));
+						return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_id_not_specified", ctx.prefixUsed())));
 				}
 		}
 		
 		return eventToDispatch.doOnNext(gdService.getGdEventDispatcher()::dispatch)
 				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + ' '
-						+ ctx.translate("cmdtext_gd_gdevents", "dispatch_success"))))
+						+ ctx.translate("strings_gd", "dispatch_success"))))
 				.then();
 	}
 	
 	@CommandAction("loop")
-	@CommandDoc("tr:cmddoc_gd_gdevents/run_loop")
+	@CommandDoc("tr:strings_gd/gdevents_run_loop")
 	public Mono<Void> runLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":
 				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::start)
-						.then(ctx.reply(ctx.translate("cmdtext_gd_gdevents", "event_loop_started")))
+						.then(ctx.reply(ctx.translate("strings_gd", "event_loop_started")))
 						.then();
 			case "stop":
 				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::stop)
-						.then(ctx.reply(ctx.translate("cmdtext_gd_gdevents", "event_loop_stopped")))
+						.then(ctx.reply(ctx.translate("strings_gd", "event_loop_stopped")))
 						.then();
 			default:
 				return Mono.error(new CommandFailedException(
-						ctx.translate("cmdtext_gd_gdevents", "error_unknown_action", ctx.prefixUsed())));
+						ctx.translate("strings_gd", "error_unknown_action", ctx.prefixUsed())));
 		}
 	}
 	
 	@CommandAction("dispatch_all_awarded_resuming_from")
-	@CommandDoc("tr:cmddoc_gd_gdevents/run_dispatch_all_awarded_resuming_from")
+	@CommandDoc("tr:strings_gd/gdevents_run_dispatch_all_awarded_resuming_from")
 	@FlagDoc(
-			@FlagInfo(name = "max-page", valueFormat = "number", description = "tr:cmddoc_gd_gdevents/flag_max_page")
+			@FlagInfo(name = "max-page", valueFormat = "number", description = "tr:strings_gd/gdevents_flag_max_page")
 	)
 	public Mono<Void> runDispatchAllAwardedResumingFrom(Context ctx, long levelId) {
 		var maxPage = ctx.flags().get("max-page").map(v -> {
@@ -119,7 +119,7 @@ public class GDEventsCommand {
 			}
 		}).orElse(10);
 		if (maxPage < 1) {
-			return Mono.error(new CommandFailedException(ctx.translate("cmdtext_gd_gdevents", "error_invalid_max_page")));
+			return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_invalid_max_page")));
 		}
 		
 		var processor = EmitterProcessor.<GDLevel>create(false);
@@ -138,7 +138,7 @@ public class GDEventsCommand {
 									}
 								}))
 						.doOnComplete(() -> sink.error(new CommandFailedException(
-								ctx.translate("cmdtext_gd_gdevents", "error_max_page_reached", maxPage))))
+								ctx.translate("strings_gd", "error_max_page_reached", maxPage))))
 						.doOnError(sink::error)
 						.then())
 				.onErrorResume(e -> Mono.empty())
@@ -164,7 +164,7 @@ public class GDEventsCommand {
 								events.forEach(gdService.getGdEventDispatcher()::dispatch);
 								return ctx.bot().service(EmojiService.class).emoji("success")
 										.flatMap(success -> ctx.reply(success + ' '
-												+ ctx.translate("cmdtext_gd_gdevents", "dispatch_success_multi", events.size())))
+												+ ctx.translate("strings_gd", "dispatch_success_multi", events.size())))
 										.then(Mono.fromRunnable(interaction::closeMenu));
 							})
 							.open(ctx);
@@ -174,13 +174,13 @@ public class GDEventsCommand {
 	
 	private static MessageSpecTemplate paginateEvents(Translator tr, int page, int lastPage, List<AwardedLevelAddedEvent> events) {
 		PageNumberOutOfRangeException.check(page, 0, lastPage);
-		return new MessageSpecTemplate(tr.translate("cmdtext_gd_gdevents", "dispatch_list") + "\n\n"
-				+ tr.translate("generic", "pagination_page_count", page + 1, lastPage + 1) + '\n'
+		return new MessageSpecTemplate(tr.translate("strings_gd", "dispatch_list") + "\n\n"
+				+ tr.translate("strings_common", "pagination_page_count", page + 1, lastPage + 1) + '\n'
 				+ events.stream()
 						.skip(page * 10)
 						.limit(10)
 						.map(event -> Markdown.quote(GDLevels.toString(event.getAddedLevel())))
 						.collect(joining("\n"))
-				+ "\n\n" + tr.translate("cmdtext_gd_gdevents", "dispatch_confirm"));
+				+ "\n\n" + tr.translate("strings_gd", "dispatch_confirm"));
 	}
 }

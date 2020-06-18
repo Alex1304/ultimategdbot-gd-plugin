@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.util;
 
-import static com.github.alex1304.ultimategdbot.api.util.Markdown.bold;
 import static discord4j.core.retriever.EntityRetrievalStrategy.STORE_FALLBACK_REST;
 
 import java.time.Duration;
@@ -10,7 +9,9 @@ import java.util.Set;
 
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
+import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
@@ -24,6 +25,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmiss
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.event.domain.message.MessageDeleteEvent;
+import discord4j.core.object.Embed;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import reactor.core.publisher.Flux;
@@ -55,7 +57,7 @@ public class GDLevelRequests {
 						&& (lvlReqCfg.channelSubmissionQueueId().isEmpty()
 						|| lvlReqCfg.channelArchivedSubmissionsId().isEmpty()
 						|| lvlReqCfg.roleReviewerId().isEmpty())
-						? Mono.error(new CommandFailedException("Level requests are not configured."))
+						? Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_reqs_not_configured")))
 						: Mono.just(lvlReqCfg));
 	}
 	
@@ -82,14 +84,14 @@ public class GDLevelRequests {
 	 * @param reviews        the list of reviews
 	 * @return a Mono emitting the submission message
 	 */
-	public static Mono<MessageSpecTemplate> buildSubmissionMessage(Bot bot, User author, GDLevel level,
+	public static Mono<MessageSpecTemplate> buildSubmissionMessage(Translator tr, Bot bot, User author, GDLevel level,
 			GDLevelRequestConfigData lvlReqSettings, GDLevelRequestSubmissionData submission, List<GDLevelRequestReviewData> reviews) {
 		Objects.requireNonNull(bot, "bot was null");
 		Objects.requireNonNull(author, "author was null");
 		Objects.requireNonNull(level, "level was null");
 		Objects.requireNonNull(reviews, "reviews was null");
 		final var formatUser = author.getTag() + " (`" + author.getId().asLong() + "`)";
-		return Mono.zip(GDLevels.compactView(bot, level, "Level request", "https://i.imgur.com/yC9P4sT.png"),
+		return Mono.zip(GDLevels.compactView(tr, bot, level, tr.translate("strings_gd", "submission_title"), "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviewData::reviewerId)
 						.flatMap(id -> bot.gateway()
@@ -98,12 +100,14 @@ public class GDLevelRequests {
 								.onErrorResume(e -> Mono.empty()))
 						.collectList())
 				.map(TupleUtils.function((embedSpecConsumer, reviewers) -> {
-					var content = "**Submission ID:** `" + submission.submissionId() + "`\n"
-							+ "**Author:** " + formatUser + "\n"
-							+ "**Level ID:** `" + level.getId() + "`\n"
-							+ "**YouTube link:** " + submission.youtubeLink().orElse("*Not provided*");
+					var content = "**" + tr.translate("strings_gd", "label_submission_id") + "** `" + submission.submissionId() + "`\n"
+							+ "**" + tr.translate("strings_gd", "label_submission_author") + "** " + formatUser + "\n"
+							+ "**" + tr.translate("strings_gd", "label_submission_level_id") + "** `" + level.getId() + "`\n"
+							+ "**" + tr.translate("strings_gd", "label_submission_yt") + "** "
+							+ submission.youtubeLink().orElse('*' + tr.translate("strings_gd", "not_provided") + '*');
 					var embed = embedSpecConsumer.andThen(embedSpec -> {
-						embedSpec.addField("───────────", "**Reviews:** " + reviews.size() + "/" + lvlReqSettings.minReviewsRequired(), false);
+						embedSpec.addField("───────────", "**" + tr.translate("strings_gd", "label_reviews")
+								+ "** " + reviews.size() + "/" + lvlReqSettings.minReviewsRequired(), false);
 						for (var review : reviews) {
 							var reviewerName = reviewers.stream()
 									.filter(r -> r.getId().equals(review.reviewerId()))
@@ -143,7 +147,8 @@ public class GDLevelRequests {
 						.withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.deleteAllIn(submissionsToDelete)))
 				.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
 				.flatMap(count -> bot.service(EmojiService.class).emoji("info")
-						.flatMap(info -> bot.log(info + " Cleaned from database " + bold("" + count) + " orphan level request submissions.")))
+						.flatMap(info -> bot.log(info + ' ' + Translator.to(bot.service(CommandService.class).getDefaultLocale())
+								.translate("strings_gd", "orphan_submissions_log", count))))
 				.then();
 	}
 	
@@ -164,7 +169,10 @@ public class GDLevelRequests {
 				.thenMany(bot.gateway().on(MessageCreateEvent.class))
 				.filter(event -> cachedSubmissionChannelIds.contains(event.getMessage().getChannelId().asLong()))
 				.filter(event -> !event.getMessage().getAuthor().map(User::getId).map(event.getClient().getSelfId()::equals).orElse(false)
-						|| !event.getMessage().getContent().startsWith("**Submission ID:**"))
+						|| !event.getMessage().getEmbeds().stream().findFirst()
+								.flatMap(Embed::getAuthor)
+								.map(a -> a.getIconUrl().equals("https://i.imgur.com/yC9P4sT.png"))
+								.orElse(false))
 				.flatMap(event -> Mono.just(event)
 						.delayElement(Duration.ofSeconds(15))
 						.flatMap(__ -> event.getMessage().delete().onErrorResume(e -> Mono.empty())))
