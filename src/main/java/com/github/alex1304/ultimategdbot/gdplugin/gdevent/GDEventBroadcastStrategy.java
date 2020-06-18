@@ -36,8 +36,8 @@ public interface GDEventBroadcastStrategy {
 					.flatMap(channel -> eventProps.createMessageTemplate(event, null, null)
 							.map(msg -> new MessageSpecTemplate(eventProps.congratMessage(event), msg.getEmbed()))
 							.map(MessageSpecTemplate::toMessageCreateSpec)
-							.flatMap(channel::createMessage)
-							.onErrorResume(e -> Mono.empty()));
+							.flatMap(channel::createMessage))
+					.onErrorResume(e -> Mono.empty());
 			return Flux.merge(guildBroadcast, dmBroadcast)
 					.collectList()
 					.doOnNext(results -> eventProps.levelId(event).ifPresent(id -> resultCache.put(id, results)))
