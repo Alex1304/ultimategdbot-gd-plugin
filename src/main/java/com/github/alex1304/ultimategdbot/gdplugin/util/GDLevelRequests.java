@@ -11,7 +11,6 @@ import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
@@ -147,7 +146,7 @@ public class GDLevelRequests {
 						.withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.deleteAllIn(submissionsToDelete)))
 				.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
 				.flatMap(count -> bot.service(EmojiService.class).emoji("info")
-						.flatMap(info -> bot.log(info + ' ' + Translator.to(bot.service(CommandService.class).getDefaultLocale())
+						.flatMap(info -> bot.log(info + ' ' + bot
 								.translate("strings_gd", "orphan_submissions_log", count))))
 				.then();
 	}
