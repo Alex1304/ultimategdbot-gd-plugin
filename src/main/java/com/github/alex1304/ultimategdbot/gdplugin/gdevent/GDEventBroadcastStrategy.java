@@ -4,8 +4,6 @@ import java.util.List;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
-import com.github.alex1304.ultimategdbot.api.Translator;
-import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
@@ -27,7 +25,7 @@ public interface GDEventBroadcastStrategy {
 	static class NewMessageBroadcastStrategy implements GDEventBroadcastStrategy {
 		@Override
 		public Mono<Integer> broadcast(Bot bot, GDEvent event, GDEventProperties<? extends GDEvent> eventProps, BroadcastResultCache resultCache) {
-			var tr = Translator.to(bot.service(CommandService.class).getDefaultLocale());
+			var tr = bot;
 			var guildBroadcast = bot.service(DatabaseService.class)
 					.withExtension(GDEventConfigDao.class, dao -> dao.getAllWithChannel(eventProps.databaseField()))
 					.flatMapMany(Flux::fromIterable)

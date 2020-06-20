@@ -22,9 +22,9 @@ import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.jdashevents.event.TimelyLevelChangedEvent;
 import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Translator;
-import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.localization.LocalizationService;
 import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
@@ -60,7 +60,7 @@ public class GDEventProcessor {
 			LOGGER.warn("Unrecognized event type: {}", event.getClass().getName());
 			return Mono.empty();
 		}
-		var defaultTr = Translator.to(bot.service(CommandService.class).getDefaultLocale());
+		var defaultTr = bot;
 		var logText = eventProps.logText(defaultTr, event);
 		var emojiService = bot.service(EmojiService.class);
 		return Mono.zip(emojiService.emoji("info"), emojiService.emoji("success"), emojiService.emoji("failed"))
@@ -269,11 +269,10 @@ public class GDEventProcessor {
 	}
 	
 	static Translator adaptTranslator(Bot bot, GDEventConfigData data) {
-		var commandService = bot.service(CommandService.class);
-		if (data == null) {
-			return Translator.to(commandService.getDefaultLocale());
+		if (data == null || !bot.hasService(LocalizationService.class)) {
+			return bot;
 		}
-		return Translator.to(commandService.getLocaleForGuild(data.guildId().asLong()));
+		return Translator.to(bot.service(LocalizationService.class).getLocaleForGuild(data.guildId().asLong()));
 	}
 	
 	private static String mentionRoleIfSet(GDEventConfigData eventCfg, Function<GDEventConfigData, Optional<Snowflake>> getter) {

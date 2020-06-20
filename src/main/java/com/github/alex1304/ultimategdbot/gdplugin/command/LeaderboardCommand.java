@@ -24,7 +24,6 @@ import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.exception.GDClientException;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.command.CommandService;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.Scope;
@@ -237,7 +236,7 @@ public class LeaderboardCommand {
 				.collectList()
 				.flatMap(list -> ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' '
-								+ Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+								+ ctx.bot()
 										.translate("strings_gd", "refresh_log", ctx.author().getTag())))
 						.then(ctx.reply(ctx.translate("strings_gd", "refreshing")))
 						.flatMapMany(message -> {
@@ -304,7 +303,7 @@ public class LeaderboardCommand {
 								.build())))
 				.then(ctx.reply(ctx.translate("strings_gd", "ban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
 								.translate("strings_gd", "ban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 	
@@ -320,7 +319,7 @@ public class LeaderboardCommand {
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
 				.then(ctx.reply(ctx.translate("strings_gd", "unban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + ' ' + Translator.to(ctx.bot().service(CommandService.class).getDefaultLocale())
+						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
 								.translate("strings_gd", "unban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 
