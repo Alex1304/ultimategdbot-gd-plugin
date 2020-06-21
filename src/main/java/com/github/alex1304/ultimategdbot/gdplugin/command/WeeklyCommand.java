@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 
 @CommandDescriptor(
 		aliases = { "weekly", "weeklydemon" },
-		shortDescription = "tr:strings_gd/weekly_desc"
+		shortDescription = "tr:strings.gd/weekly_desc"
 )
 public class WeeklyCommand {
 
@@ -22,7 +22,7 @@ public class WeeklyCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:strings_gd/weekly_run")
+	@CommandDoc("tr:strings.gd/weekly_run")
 	public Mono<Void> run(Context ctx) {
 		return GDLevels.sendTimelyInfo(ctx, gdService.getGdClient(), true).then();
 	}
