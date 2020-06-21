@@ -64,7 +64,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = { "leaderboard", "leaderboards" },
-		shortDescription = "tr:strings_gd/leaderboard_desc",
+		shortDescription = "tr:strings.gd/leaderboard_desc",
 		scope = Scope.GUILD_ONLY
 )
 public class LeaderboardCommand {
@@ -80,10 +80,10 @@ public class LeaderboardCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:strings_gd/leaderboard_run")
+	@CommandDoc("tr:strings.gd/leaderboard_run")
 	public Mono<Void> run(Context ctx, @Nullable String statName) {
 		if (isLocked) {
-			return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_lb_locked")));
+			return Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_lb_locked")));
 		}
 		var emojiService = ctx.bot().service(EmojiService.class);
 		var starEmoji = emojiService.emoji("star");
@@ -94,14 +94,14 @@ public class LeaderboardCommand {
 		var cpEmoji = emojiService.emoji("creator_points");
 		if (statName == null) {
 			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
-					.flatMap(tuple -> ctx.reply("**" + ctx.translate("strings_gd", "lb_intro") + "**\n"
-							+ "__" + ctx.translate("strings_gd", "select_lb") + "__\n"
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT1() + " Stars", ctx.prefixUsed(), "stars") + '\n'
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT2() + " Diamonds", ctx.prefixUsed(), "diamonds") + '\n'
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT3() + " User Coins", ctx.prefixUsed(), "ucoins") + '\n'
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT4() + " Secret Coins", ctx.prefixUsed(), "scoins") + '\n'
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT5() + " Demons", ctx.prefixUsed(), "demons") + '\n'
-							+ ctx.translate("strings_gd", "select_lb_item", tuple.getT6() + " Creator Points", ctx.prefixUsed(), "cp")))
+					.flatMap(tuple -> ctx.reply("**" + ctx.translate("strings.gd", "lb_intro") + "**\n"
+							+ "__" + ctx.translate("strings.gd", "select_lb") + "__\n"
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT1() + " Stars", ctx.prefixUsed(), "stars") + '\n'
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT2() + " Diamonds", ctx.prefixUsed(), "diamonds") + '\n'
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT3() + " User Coins", ctx.prefixUsed(), "ucoins") + '\n'
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT4() + " Secret Coins", ctx.prefixUsed(), "scoins") + '\n'
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT5() + " Demons", ctx.prefixUsed(), "demons") + '\n'
+							+ ctx.translate("strings.gd", "select_lb_item", tuple.getT6() + " Creator Points", ctx.prefixUsed(), "cp")))
 					.then();
 		}
 		ToIntFunction<GDLeaderboardData> stat;
@@ -139,7 +139,7 @@ public class LeaderboardCommand {
 				noBanList = true;
 				break;
 			default:
-				return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_unknown_lb_type")));
+				return Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_unknown_lb_type")));
 		}
 		var now = Instant.now();
 		var lastRefreshed = new AtomicReference<Instant>(now);
@@ -187,16 +187,16 @@ public class LeaderboardCommand {
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException(
-													ctx.translate("strings_gd", "error_username_not_specified"))))
+													ctx.translate("strings.gd", "error_username_not_specified"))))
 											.flatMap(userName -> GDUsers.stringToUser(ctx, ctx.bot(), gdService.getGdClient(), userName))
 											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException(
-													ctx.translate("strings_gd", "error_user_fetch")))
+													ctx.translate("strings.gd", "error_user_fetch")))
 											.flatMap(gdUser -> {
 												final var ids = list.stream().map(entry -> entry.getStats().accountId()).collect(Collectors.toList());
 												final var rank = ids.indexOf(gdUser.getAccountId());
 												if (rank == -1) {
 													return Mono.error(new UnexpectedReplyException(
-															ctx.translate("strings_gd", "error_user_not_on_lb")));
+															ctx.translate("strings.gd", "error_user_not_on_lb")));
 												}
 												final var jumpTo = rank / ENTRIES_PER_PAGE;
 												interaction.set("currentPage", jumpTo);
@@ -210,11 +210,11 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("refresh")
-	@CommandDoc("tr:strings_gd/leaderboard_run_refresh")
+	@CommandDoc("tr:strings.gd/leaderboard_run_refresh")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runRefresh(Context ctx) {
 		if (isLocked) {
-			return Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_refresh_in_progress")));
+			return Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_refresh_in_progress")));
 		}
 		isLocked = true;
 		LOGGER.debug("Locked leaderboards");
@@ -227,7 +227,7 @@ public class LeaderboardCommand {
 				.map(lastRefreshed -> Duration.ofHours(6).minus(Duration.between(lastRefreshed, Instant.now())))
 				.flatMap(cooldown -> !cooldown.isNegative()
 						? Mono.error(new CommandFailedException(
-								ctx.translate("strings_gd", "error_already_refreshed",
+								ctx.translate("strings.gd", "error_already_refreshed",
 										DurationUtils.format(cooldown.withNanos(0)))))
 						: Mono.empty())
 				.then(ctx.bot().service(DatabaseService.class).withExtension(GDLinkedUserDao.class, GDLinkedUserDao::getAll))
@@ -237,8 +237,8 @@ public class LeaderboardCommand {
 				.flatMap(list -> ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' '
 								+ ctx.bot()
-										.translate("strings_gd", "refresh_log", ctx.author().getTag())))
-						.then(ctx.reply(ctx.translate("strings_gd", "refreshing")))
+										.translate("strings.gd", "refresh_log", ctx.author().getTag())))
+						.then(ctx.reply(ctx.translate("strings.gd", "refreshing")))
 						.flatMapMany(message -> {
 							var processor = EmitterProcessor.<Long>create();
 							var sink = processor.sink(FluxSink.OverflowStrategy.BUFFER);
@@ -247,7 +247,7 @@ public class LeaderboardCommand {
 									.takeLast(1)
 									.flatMap(i -> message
 											.edit(spec -> spec.setContent(
-													ctx.translate("strings_gd", "refreshing_progress", i, list.size())))
+													ctx.translate("strings.gd", "refreshing_progress", i, list.size())))
 											.onErrorResume(e -> Mono.empty()))
 									.repeat(() -> !done.get())
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
@@ -274,13 +274,13 @@ public class LeaderboardCommand {
 									.doFinally(__ -> done.set(true));
 						})
 						.collectList())
-				.flatMap(stats -> ctx.reply(ctx.translate("strings_gd", "saving_to_db"))
+				.flatMap(stats -> ctx.reply(ctx.translate("strings.gd", "saving_to_db"))
 						.onErrorResume(e -> Mono.empty())
 						.flatMap(message -> ctx.bot().service(DatabaseService.class)
 								.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats))
 								.then(message.delete())
 								.then(ctx.bot().service(EmojiService.class).emoji("success")
-										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("strings_gd", "refresh_success")))
+										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("strings.gd", "refresh_success")))
 										.then())))
 				.doFinally(signal -> {
 					isLocked = false;
@@ -289,38 +289,38 @@ public class LeaderboardCommand {
 	}
 	
 	@CommandAction("ban")
-	@CommandDoc("tr:strings_gd/leaderboard_run_ban")
+	@CommandDoc("tr:strings.gd/leaderboard_run_ban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
-				.flatMap(__ -> Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_user_already_banned"))))
+				.flatMap(__ -> Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_user_already_banned"))))
 				.then(ctx.bot().service(DatabaseService.class)
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.insert(ImmutableGDLeaderboardBanData.builder()
 								.accountId(gdUser.getAccountId())
 								.bannedBy(ctx.author().getId())
 								.build())))
-				.then(ctx.reply(ctx.translate("strings_gd", "ban_success", gdUser.getName())))
+				.then(ctx.reply(ctx.translate("strings.gd", "ban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
-								.translate("strings_gd", "ban_log", gdUser.getName(), ctx.author().getTag()))));
+								.translate("strings.gd", "ban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 	
 	@CommandAction("unban")
-	@CommandDoc("tr:strings_gd/leaderboard_run_unban")
+	@CommandDoc("tr:strings.gd/leaderboard_run_unban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
 		return ctx.bot().service(DatabaseService.class)
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
-				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings_gd", "error_user_already_unbanned"))))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_user_already_unbanned"))))
 				.flatMap(banData -> ctx.bot().service(DatabaseService.class)
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
-				.then(ctx.reply(ctx.translate("strings_gd", "unban_success", gdUser.getName())))
+				.then(ctx.reply(ctx.translate("strings.gd", "unban_success", gdUser.getName())))
 				.and(ctx.bot().service(EmojiService.class).emoji("info")
 						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
-								.translate("strings_gd", "unban_log", gdUser.getName(), ctx.author().getTag()))));
+								.translate("strings.gd", "unban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 
 	private static Consumer<EmbedCreateSpec> leaderboardView(Translator tr, String prefix, Guild guild,
@@ -331,9 +331,9 @@ public class LeaderboardCommand {
 		final var subList = entryList.subList(offset, Math.min(offset + ENTRIES_PER_PAGE, size));
 		final var refreshed = Duration.between(lastRefreshed, Instant.now()).withNanos(0);
 		return embed -> {
-			embed.setTitle(tr.translate("strings_gd", "lb_title", guild.getName()));
+			embed.setTitle(tr.translate("strings.gd", "lb_title", guild.getName()));
 			if (size == 0 || subList.isEmpty()) {
-				embed.setDescription(tr.translate("strings_gd", "lb_no_entries"));
+				embed.setDescription(tr.translate("strings.gd", "lb_no_entries"));
 				return;
 			}
 			var sb = new StringBuilder();
@@ -361,13 +361,13 @@ public class LeaderboardCommand {
 					sb.append("**");
 				}
 			}
-			embed.setDescription("**" + tr.translate("strings_gd", "lb_total_players", size, emoji) + "**\n\n" + sb.toString());
-			embed.addField(tr.translate("strings_gd", "lb_last_refreshed", DurationUtils.format(refreshed)),
-					tr.translate("strings_gd", "lb_account_notice", prefix), false);
+			embed.setDescription("**" + tr.translate("strings.gd", "lb_total_players", size, emoji) + "**\n\n" + sb.toString());
+			embed.addField(tr.translate("strings.gd", "lb_last_refreshed", DurationUtils.format(refreshed)),
+					tr.translate("strings.gd", "lb_account_notice", prefix), false);
 			if (maxPage > 0) {
-				embed.addField(tr.translate("strings_common", "pagination_page_counter", page + 1, maxPage + 1),
-						tr.translate("strings_common", "pagination_page_go_to") + '\n'
-						+ tr.translate("strings_gd", "lb_jump_to_user"), false);
+				embed.addField(tr.translate("strings.common", "pagination_page_counter", page + 1, maxPage + 1),
+						tr.translate("strings.common", "pagination_page_go_to") + '\n'
+						+ tr.translate("strings.gd", "lb_jump_to_user"), false);
 			}
 		};
 	}

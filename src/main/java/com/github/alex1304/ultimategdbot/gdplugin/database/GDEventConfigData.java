@@ -41,10 +41,10 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 	
 	@Override
 	default GuildConfigurator<GDEventConfigData> configurator(Translator tr, Bot bot) {
-		return GuildConfigurator.builder(tr.translate("strings_gd", "gdevents_guildconfig_title"), this, GDEventConfigDao.class)
-				.setDescription(tr.translate("strings_gd", "gdevents_guildconfig_desc"))
+		return GuildConfigurator.builder(tr.translate("strings.gd", "gdevents_guildconfig_title"), this, GDEventConfigDao.class)
+				.setDescription(tr.translate("strings.gd", "gdevents_guildconfig_desc"))
 				.addEntry(GuildChannelConfigEntry.<GDEventConfigData>builder("channel_awarded_levels")
-						.setDisplayName(tr.translate("strings_gd", "display_channel_awarded_levels"))
+						.setDisplayName(tr.translate("strings.gd", "display_channel_awarded_levels"))
 						.setValueGetter(forOptionalGuildChannel(bot, GDEventConfigData::channelAwardedLevelsId))
 						.setValueSetter((data, channel) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -52,7 +52,7 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 								.build())
 						.setValidator(channelValidatorHasEnoughMembers(tr, bot)))
 				.addEntry(GuildChannelConfigEntry.<GDEventConfigData>builder("channel_timely_levels")
-						.setDisplayName(tr.translate("strings_gd", "display_channel_timely_levels"))
+						.setDisplayName(tr.translate("strings.gd", "display_channel_timely_levels"))
 						.setValueGetter(forOptionalGuildChannel(bot, GDEventConfigData::channelTimelyLevelsId))
 						.setValueSetter((data, channel) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -60,7 +60,7 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 								.build())
 						.setValidator(channelValidatorHasEnoughMembers(tr, bot)))
 				.addEntry(GuildChannelConfigEntry.<GDEventConfigData>builder("channel_gd_moderators")
-						.setDisplayName(tr.translate("strings_gd", "display_channel_gd_moderators"))
+						.setDisplayName(tr.translate("strings.gd", "display_channel_gd_moderators"))
 						.setValueGetter(forOptionalGuildChannel(bot, GDEventConfigData::channelGdModeratorsId))
 						.setValueSetter((data, channel) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -68,7 +68,7 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 								.build())
 						.setValidator(channelValidatorHasEnoughMembers(tr, bot)))
 				.addEntry(GuildRoleConfigEntry.<GDEventConfigData>builder("role_awarded_levels")
-						.setDisplayName(tr.translate("strings_gd", "display_role_awarded_levels"))
+						.setDisplayName(tr.translate("strings.gd", "display_role_awarded_levels"))
 						.setValueGetter(forOptionalGuildRole(bot, GDEventConfigData::roleAwardedLevelsId))
 						.setValueSetter((data, role) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -76,7 +76,7 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 								.build())
 						.setValidator(roleValidatorHasEnoughMembers(tr, bot)))
 				.addEntry(GuildRoleConfigEntry.<GDEventConfigData>builder("role_timely_levels")
-						.setDisplayName(tr.translate("strings_gd", "display_role_timely_levels"))
+						.setDisplayName(tr.translate("strings.gd", "display_role_timely_levels"))
 						.setValueGetter(forOptionalGuildRole(bot, GDEventConfigData::roleTimelyLevelsId))
 						.setValueSetter((data, role) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -84,7 +84,7 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 								.build())
 						.setValidator(roleValidatorHasEnoughMembers(tr, bot)))
 				.addEntry(GuildRoleConfigEntry.<GDEventConfigData>builder("role_gd_moderators")
-						.setDisplayName(tr.translate("strings_gd", "display_role_gd_moderators"))
+						.setDisplayName(tr.translate("strings.gd", "display_role_gd_moderators"))
 						.setValueGetter(forOptionalGuildRole(bot, GDEventConfigData::roleGdModeratorsId))
 						.setValueSetter((data, role) -> ImmutableGDEventConfigData.builder()
 								.from(data)
@@ -97,12 +97,12 @@ public interface GDEventConfigData extends GuildConfigData<GDEventConfigData> {
 	static Validator<GuildChannel> channelValidatorHasEnoughMembers(Translator tr, Bot bot) {
 		return Validator.allowingWhen(channel -> channel.getGuild()
 				.filter(guild -> guild.getMemberCount() >= MIN_MEMBERS_REQUIRED)
-				.hasElement(), tr.translate("strings_gd", "validate_enough_members", MIN_MEMBERS_REQUIRED));
+				.hasElement(), tr.translate("strings.gd", "validate_enough_members", MIN_MEMBERS_REQUIRED));
 	}
 	
 	static Validator<Role> roleValidatorHasEnoughMembers(Translator tr, Bot bot) {
 		return Validator.allowingWhen(role -> role.getGuild()
 				.filter(guild -> guild.getMemberCount() >= MIN_MEMBERS_REQUIRED)
-				.hasElement(), tr.translate("strings_gd", "validate_enough_members", MIN_MEMBERS_REQUIRED));
+				.hasElement(), tr.translate("strings.gd", "validate_enough_members", MIN_MEMBERS_REQUIRED));
 	}
 }

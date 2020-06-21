@@ -64,15 +64,15 @@ public class GDEventProcessor {
 		var logText = eventProps.logText(defaultTr, event);
 		var emojiService = bot.service(EmojiService.class);
 		return Mono.zip(emojiService.emoji("info"), emojiService.emoji("success"), emojiService.emoji("failed"))
-				.flatMap(function((info, success, failed) -> log(bot, info + ' ' + defaultTr.translate("strings_gd", "gdevproc_event_fired") + ' ' + logText)
+				.flatMap(function((info, success, failed) -> log(bot, info + ' ' + defaultTr.translate("strings.gd", "gdevproc_event_fired") + ' ' + logText)
 						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdService.getBroadcastResultCache())
 								.elapsed()
-								.flatMap(function((time, count) -> log(bot, success + ' ' + defaultTr.translate("strings_gd", "gdevproc_success") + ' ' + logText + "\n"
-										+ defaultTr.translate("strings_gd", (eventProps.broadcastStrategy() == CREATING
+								.flatMap(function((time, count) -> log(bot, success + ' ' + defaultTr.translate("strings.gd", "gdevproc_success") + ' ' + logText + "\n"
+										+ defaultTr.translate("strings.gd", (eventProps.broadcastStrategy() == CREATING
 												? "gdevproc_messages_sent"
 												: "gdevproc_messages_edited")) + ' ' + bold("" + count) + "\n"
-										+ defaultTr.translate("strings_gd", "gdevproc_exec_time") + ' ' + bold(DurationUtils.format(Duration.ofMillis(time))))))
-								.onErrorResume(e -> bot.log(failed + ' ' + defaultTr.translate("strings_gd", "gdevproc_error")
+										+ defaultTr.translate("strings.gd", "gdevproc_exec_time") + ' ' + bold(DurationUtils.format(Duration.ofMillis(time))))))
+								.onErrorResume(e -> bot.log(failed + ' ' + defaultTr.translate("strings.gd", "gdevproc_error")
 												+ ' ' + logText + ": " + Markdown.code(e.getClass().getName()))
 										.and(Mono.fromRunnable(() -> LOGGER.error("An error occured while dispatching GD event", e)))))));
 	}
@@ -84,7 +84,7 @@ public class GDEventProcessor {
 	private Map<Class<? extends GDEvent>, GDEventProperties<? extends GDEvent>> initEventProps() {
 		return Map.ofEntries(
 				Map.entry(AwardedLevelAddedEvent.class, new GDEventProperties<AwardedLevelAddedEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_awarded_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_awarded_event_log",
 								bold(event.getClass().getSimpleName()), GDLevels.toString(event.getAddedLevel())),
 						"awarded_levels",
 						GDEventConfigData::channelAwardedLevelsId,
@@ -101,18 +101,18 @@ public class GDEventProcessor {
 								.then(gdService.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId)),
 						(event, eventCfg, old) -> GDLevels
 								.compactView(adaptTranslator(bot, eventCfg), bot, event.getAddedLevel(),
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_rate"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_rate"),
 										"https://i.imgur.com/asoMj1W.png")
 								.map(embed -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleAwardedLevelsId)
 												+ randomString(adaptTranslator(bot, eventCfg)
-														.translate("strings_gd", "gdevproc_public_rate")),
+														.translate("strings.gd", "gdevproc_public_rate")),
 										embed)),
 						event -> "gdevproc_dm_rate",
 						CREATING
 				)),
 				Map.entry(AwardedLevelRemovedEvent.class, new GDEventProperties<AwardedLevelRemovedEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_awarded_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_awarded_event_log",
 								bold(event.getClass().getSimpleName()), GDLevels.toString(event.getRemovedLevel())),
 						"awarded_levels",
 						GDEventConfigData::channelAwardedLevelsId,
@@ -121,18 +121,18 @@ public class GDEventProcessor {
 						event -> gdService.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, eventCfg, old) -> GDLevels
 								.compactView(adaptTranslator(bot, eventCfg), bot, event.getRemovedLevel(), 
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_unrate"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_unrate"),
 										"https://i.imgur.com/fPECXUz.png")
 								.map(embed -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleAwardedLevelsId)
 										+ randomString(adaptTranslator(bot, eventCfg)
-												.translate("strings_gd", "gdevproc_public_unrate")),
+												.translate("strings.gd", "gdevproc_public_unrate")),
 										embed)),
 						event -> "gdevproc_dm_unrate",
 						CREATING
 				)),
 				Map.entry(AwardedLevelUpdatedEvent.class, new GDEventProperties<AwardedLevelUpdatedEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_awarded_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_awarded_event_log",
 								bold(event.getClass().getSimpleName()), GDLevels.toString(event.getNewLevel())),
 						"awarded_levels",
 						GDEventConfigData::channelAwardedLevelsId,
@@ -148,7 +148,7 @@ public class GDEventProcessor {
 						EDITING
 				)),
 				Map.entry(TimelyLevelChangedEvent.class, new GDEventProperties<TimelyLevelChangedEvent>(
-						(tr, event) -> tr.translate("strings_gd", event.getTimelyLevel().getType() == TimelyType.DAILY
+						(tr, event) -> tr.translate("strings.gd", event.getTimelyLevel().getType() == TimelyType.DAILY
 										? "gdevproc_daily_event_log" : "gdevproc_weekly_event_log",
 								bold(event.getClass().getSimpleName()), event.getTimelyLevel().getId()),
 						"timely_levels",
@@ -169,7 +169,7 @@ public class GDEventProcessor {
 									.map(embed -> new MessageSpecTemplate(
 											mentionRoleIfSet(eventCfg, GDEventConfigData::roleTimelyLevelsId)
 											+ randomString(adaptTranslator(bot, eventCfg)
-													.translate("strings_gd", isWeekly ? "gdevproc_public_weekly"
+													.translate("strings.gd", isWeekly ? "gdevproc_public_weekly"
 															: "gdevproc_public_daily")),
 											embed));
 						},
@@ -178,7 +178,7 @@ public class GDEventProcessor {
 						CREATING
 				)),
 				Map.entry(UserPromotedToModEvent.class, new GDEventProperties<UserPromotedToModEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_mod_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
 						GDEventConfigData::channelGdModeratorsId,
@@ -189,18 +189,18 @@ public class GDEventProcessor {
 								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
 										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_promoted"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_promoted"),
 										"https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleGdModeratorsId)
 										+ randomString(adaptTranslator(bot, eventCfg)
-												.translate("strings_gd", "gdevproc_public_mod")),
+												.translate("strings.gd", "gdevproc_public_mod")),
 										msg.getEmbed())),
 						event -> "gdevproc_dm_mod",
 						CREATING
 				)),
 				Map.entry(UserPromotedToElderEvent.class, new GDEventProperties<UserPromotedToElderEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_mod_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
 						GDEventConfigData::channelGdModeratorsId,
@@ -211,18 +211,18 @@ public class GDEventProcessor {
 								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
 										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_promoted"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_promoted"),
 										"https://i.imgur.com/zY61GDD.png", icons))
 								.map(msg -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleGdModeratorsId)
 										+ randomString(adaptTranslator(bot, eventCfg)
-												.translate("strings_gd", "gdevproc_public_elder")),
+												.translate("strings.gd", "gdevproc_public_elder")),
 										msg.getEmbed())),
 						event -> "gdevproc_dm_elder",
 						CREATING
 				)),
 				Map.entry(UserDemotedFromModEvent.class, new GDEventProperties<UserDemotedFromModEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_mod_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
 						GDEventConfigData::channelGdModeratorsId,
@@ -233,18 +233,18 @@ public class GDEventProcessor {
 								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
 										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_demoted"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_demoted"),
 										"https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleGdModeratorsId)
 										+ randomString(adaptTranslator(bot, eventCfg)
-												.translate("strings_gd", "gdevproc_public_unmod")),
+												.translate("strings.gd", "gdevproc_public_unmod")),
 										msg.getEmbed())),
 						event -> "gdevproc_dm_unmod",
 						CREATING
 				)),
 				Map.entry(UserDemotedFromElderEvent.class, new GDEventProperties<UserDemotedFromElderEvent>(
-						(tr, event) -> tr.translate("strings_gd", "gdevproc_mod_event_log",
+						(tr, event) -> tr.translate("strings.gd", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
 						GDEventConfigData::channelGdModeratorsId,
@@ -255,12 +255,12 @@ public class GDEventProcessor {
 								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
 										gdService.getIconsCache(), gdService.getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
-										adaptTranslator(bot, eventCfg).translate("strings_gd", "gdevproc_title_demoted"),
+										adaptTranslator(bot, eventCfg).translate("strings.gd", "gdevproc_title_demoted"),
 										"https://i.imgur.com/X53HV7d.png", icons))
 								.map(msg -> new MessageSpecTemplate(
 										mentionRoleIfSet(eventCfg, GDEventConfigData::roleGdModeratorsId)
 										+ randomString(adaptTranslator(bot, eventCfg)
-												.translate("strings_gd", "gdevproc_public_unelder")),
+												.translate("strings.gd", "gdevproc_public_unelder")),
 										msg.getEmbed())),
 						event -> "gdevproc_dm_unelder",
 						CREATING
