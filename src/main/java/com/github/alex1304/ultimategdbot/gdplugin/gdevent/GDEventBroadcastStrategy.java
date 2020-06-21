@@ -38,7 +38,7 @@ public interface GDEventBroadcastStrategy {
 					.flatMapMany(accountId -> GDUsers.getDiscordAccountsForGDUser(bot, accountId))
 					.flatMap(User::getPrivateChannel)
 					.flatMap(channel -> eventProps.createMessageTemplate(event, null, null)
-							.map(msg -> new MessageSpecTemplate(tr.translate("strings.gd", eventProps.congratMessage(event)), msg.getEmbed()))
+							.map(msg -> new MessageSpecTemplate(tr.translate("GDStrings", eventProps.congratMessage(event)), msg.getEmbed()))
 							.map(MessageSpecTemplate::toMessageCreateSpec)
 							.flatMap(channel::createMessage))
 					.onErrorResume(e -> Mono.empty());

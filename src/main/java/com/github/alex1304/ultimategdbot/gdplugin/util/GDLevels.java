@@ -83,11 +83,11 @@ public class GDLevels {
 							i++;
 						}
 						if (i == 1) {
-							embed.setDescription('*' + ctx.translate("strings.gd", "no_results") + '*');
+							embed.setDescription('*' + ctx.translate("GDStrings", "no_results") + '*');
 						}
-						embed.addField(ctx.translate("strings.common", "pagination_page_counter", page + 1, totalPages),
-								ctx.translate("strings.common", "pagination_go_to")+ '\n'
-								+ ctx.translate("strings.gd", "select_result"), false);
+						embed.addField(ctx.translate("CommonStrings", "pagination_page_counter", page + 1, totalPages),
+								ctx.translate("CommonStrings", "pagination_go_to")+ '\n'
+								+ ctx.translate("GDStrings", "select_result"), false);
 					};
 				});
 	}
@@ -110,45 +110,45 @@ public class GDLevels {
 						embed.setAuthor(authorName, null, authorIconUrl);
 						embed.setThumbnail(getDifficultyImageForLevel(level));
 						var title = emojis[0] + "  __" + level.getName() + "__ by " + level.getCreatorName() + "";
-						var description = "**" + ctx.translate("strings.gd", "label_description") + "** "
+						var description = "**" + ctx.translate("GDStrings", "label_description") + "** "
 								+ (level.getDescription().isEmpty()
-										? "*(" + ctx.translate("strings.gd", "no_description") + ")*"
+										? "*(" + ctx.translate("GDStrings", "no_description") + ")*"
 										: Markdown.escape(level.getDescription()));
-						var coins = ctx.translate("strings.gd", "label_coins") + ' '
+						var coins = ctx.translate("GDStrings", "label_coins") + ' '
 								+ coinsToEmoji("" + emojis[level.hasCoinsVerified() ? 8 : 9], level.getCoinCount(), false);
 						var downloadLikesLength = emojis[1] + " " + formatCode(level.getDownloads(), dlWidth) + "\n"
 								+ (level.getLikes() < 0 ? emojis[2] + " " : emojis[3] + " ") + formatCode(level.getLikes(), dlWidth) + "\n"
 								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
-						var objCount = "**" + ctx.translate("strings.gd", "label_object_count") + "** ";
+						var objCount = "**" + ctx.translate("GDStrings", "label_object_count") + "** ";
 						if (level.getObjectCount() > 0 || level.getLevelVersion() >= 21) {
 							if (level.getObjectCount() == 65535) {
 								objCount += ">";
 							}
 							objCount += level.getObjectCount();
 						} else
-							objCount += '_' + ctx.translate("strings.gd", "unknown") + '_';
+							objCount += '_' + ctx.translate("GDStrings", "unknown") + '_';
 						objCount += "\n";
 						var extraInfo = new StringBuilder();
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_level_id") + "** " + level.getId() + "\n");
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_level_version") + "** " + level.getLevelVersion() + "\n");
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_game_version") + "** " + formatGameVersion(level.getGameVersion()) + "\n");
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_level_id") + "** " + level.getId() + "\n");
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_level_version") + "** " + level.getLevelVersion() + "\n");
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_game_version") + "** " + formatGameVersion(level.getGameVersion()) + "\n");
 						extraInfo.append(objCount);
 						var pass = "";
 						if (data.getPass() == -2)
-							pass = ctx.translate("strings.gd", "free_to_copy");
+							pass = ctx.translate("GDStrings", "free_to_copy");
 						else if (data.getPass() == -1)
-							pass = ctx.translate("strings.common", "no");
+							pass = ctx.translate("CommonStrings", "no");
 						else
-							pass = ctx.translate("strings.gd", "protected_copyable", emojis[5], data.getPass());
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_copyable") + "** " + pass + "\n");
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_uploaded") + "** "
-								+ ctx.translate("strings.gd", "time_ago", data.getUploadTimestamp()) + '\n');
-						extraInfo.append("**" + ctx.translate("strings.gd", "label_last_updated") + "** "
-								+ ctx.translate("strings.gd", "time_ago", data.getLastUpdatedTimestamp()) + '\n');
+							pass = ctx.translate("GDStrings", "protected_copyable", emojis[5], data.getPass());
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_copyable") + "** " + pass + "\n");
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_uploaded") + "** "
+								+ ctx.translate("GDStrings", "time_ago", data.getUploadTimestamp()) + '\n');
+						extraInfo.append("**" + ctx.translate("GDStrings", "label_last_updated") + "** "
+								+ ctx.translate("GDStrings", "time_ago", data.getLastUpdatedTimestamp()) + '\n');
 						if (level.getOriginalLevelID() > 0)
-							extraInfo.append(emojis[6] + " **" + ctx.translate("strings.gd", "label_original") + "** " + level.getOriginalLevelID() + "\n");
+							extraInfo.append(emojis[6] + " **" + ctx.translate("GDStrings", "label_original") + "** " + level.getOriginalLevelID() + "\n");
 						if (level.getObjectCount() > 40000)
-							extraInfo.append(emojis[7] + " **" + ctx.translate("strings.gd", "lag_notice") + "**\n");
+							extraInfo.append(emojis[7] + " **" + ctx.translate("GDStrings", "lag_notice") + "**\n");
 						embed.addField(title, description, false);
 						embed.addField(coins, downloadLikesLength + "\n_ _", false);
 						embed.addField(songInfo, songInfo2 + "\n_ _\n" + extraInfo, false);
@@ -179,7 +179,7 @@ public class GDLevels {
 								+ emojis[4] + " " + formatCode(level.getLength(), dlWidth);
 						embed.addField(title, downloadLikesLength, false);
 						embed.addField(coins, songInfo, false);
-						embed.setFooter(tr.translate("strings.gd", "label_level_id") + ' ' + level.getId(), null);
+						embed.setFooter(tr.translate("GDStrings", "label_level_id") + ' ' + level.getId(), null);
 					};
 				});
 	}
@@ -202,16 +202,16 @@ public class GDLevels {
 								.fromCallable(() -> resultsOfCurrentPage.get().get(Integer.parseInt(interaction.getArgs().get(1)) - 1))
 								.onErrorMap(IndexOutOfBoundsException.class, e -> new UnexpectedReplyException(
 										interaction.getArgs().tokenCount() == 1
-												? ctx.translate("strings.gd", "error_select_not_specified")
-												: ctx.translate("strings.gd", "error_select_not_existing")))
+												? ctx.translate("GDStrings", "error_select_not_specified")
+												: ctx.translate("GDStrings", "error_select_not_existing")))
 								.onErrorMap(NumberFormatException.class, e -> new UnexpectedReplyException(
-										ctx.translate("strings.gd", "error_invalid_input")))
+										ctx.translate("GDStrings", "error_invalid_input")))
 								.flatMap(level -> sendSelectedSearchResult(ctx, level, true)))
 						.open(ctx));
 	}
 	
 	private static Mono<Void> sendSelectedSearchResult(Context ctx, GDLevel level, boolean withCloseOption) {
-		return detailedView(ctx, level, ctx.translate("strings.gd", "search_result"), "https://i.imgur.com/a9B6LyS.png")
+		return detailedView(ctx, level, ctx.translate("GDStrings", "search_result"), "https://i.imgur.com/a9B6LyS.png")
 				.<Consumer<MessageCreateSpec>>map(embed -> m -> m.setEmbed(embed))
 				.flatMap(m -> !withCloseOption ? ctx.reply(m).then() : ctx.bot().service(InteractiveMenuService.class).create(m)
 						.addReactionItem("cross", interaction -> Mono.empty())
@@ -221,7 +221,7 @@ public class GDLevels {
 	
 	public static Mono<Message> sendTimelyInfo(Context ctx, AuthenticatedGDClient gdClient, boolean isWeekly) {
 		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
-		var headerTitle = isWeekly ? ctx.translate("strings.gd", "daily") : ctx.translate("strings.gd", "weekly");
+		var headerTitle = isWeekly ? ctx.translate("GDStrings", "daily") : ctx.translate("GDStrings", "weekly");
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return timelyMono
 				.flatMap(timely -> timely.getLevel()
@@ -230,13 +230,13 @@ public class GDLevels {
 									var cooldown = Duration.ofSeconds(timely.getCooldown());
 									var formattedCooldown = DurationUtils.format(cooldown);
 									return ctx.reply(message -> {
-										message.setContent(ctx.translate("strings.gd", "timely_of_today",
+										message.setContent(ctx.translate("GDStrings", "timely_of_today",
 												ctx.author().getMention(), headerTitle, formattedCooldown));
 										message.setEmbed(embed);
 									});
 								})))
 				.onErrorMap(NoTimelyAvailableException.class, e -> new CommandFailedException(
-						ctx.translate("strings.gd", "error_no_timely_set")));
+						ctx.translate("GDStrings", "error_no_timely_set")));
 	}
 	
 	public static String toString(GDLevel level) {
@@ -319,8 +319,8 @@ public class GDLevels {
 	
 	private static Mono<String> formatSongPrimaryMetadata(Translator tr, Mono<GDSong> monoSong) {
 		return monoSong.map(song -> "__" + song.getSongTitle() + "__ by " + song.getSongAuthorName())
-				.onErrorReturn(SongNotAllowedForUseException.class, ":warning: " + tr.translate("strings.gd", "song_banned"))
-				.onErrorReturn(":warning: " + tr.translate("strings.gd", "song_unknown"));
+				.onErrorReturn(SongNotAllowedForUseException.class, ":warning: " + tr.translate("GDStrings", "song_banned"))
+				.onErrorReturn(":warning: " + tr.translate("GDStrings", "song_unknown"));
 	}
 
 	private static Mono<String> formatSongSecondaryMetadata(Context ctx, Mono<GDSong> monoSong) {
@@ -330,11 +330,11 @@ public class GDLevels {
 					final var ePlay = emojis.getT1();
 					final var eDlSong = emojis.getT2();
 					return monoSong.map(song -> song.isCustom()
-							? ctx.translate("strings.gd", "label_song_id") + ' ' + song.getId() + " - " + ctx.translate("strings.gd", "label_song_size")
+							? ctx.translate("GDStrings", "label_song_id") + ' ' + song.getId() + " - " + ctx.translate("GDStrings", "label_song_size")
 									+ ' ' + song.getSongSize() + "MB\n" + ePlay
-									+ " [" + ctx.translate("strings.gd", "play_on_ng") + "](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
-									+ eDlSong + " [" + ctx.translate("strings.gd", "download_mp3") + "](" + song.getDownloadURL() + ")"
-							: ctx.translate("strings.gd", "song_native")).onErrorReturn(ctx.translate("strings.gd", "song_info_unavailable"));
+									+ " [" + ctx.translate("GDStrings", "play_on_ng") + "](https://www.newgrounds.com/audio/listen/" + song.getId() + ")  "
+									+ eDlSong + " [" + ctx.translate("GDStrings", "download_mp3") + "](" + song.getDownloadURL() + ")"
+							: ctx.translate("GDStrings", "song_native")).onErrorReturn(ctx.translate("GDStrings", "song_info_unavailable"));
 				});
 	}
 	

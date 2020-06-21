@@ -22,7 +22,7 @@ import reactor.util.function.Tuples;
 
 @CommandDescriptor(
 		aliases = "featuredinfo",
-		shortDescription = "tr:strings.gd/featuredinfo_desc"
+		shortDescription = "tr:GDStrings/featuredinfo_desc"
 )
 public class FeaturedInfoCommand {
 
@@ -33,11 +33,11 @@ public class FeaturedInfoCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:strings.gd/featuredinfo_run")
+	@CommandDoc("tr:GDStrings/featuredinfo_run")
 	public Mono<Void> run(Context ctx, GDLevel level) {
 		final var score = level.getFeaturedScore();
 		if (score == 0) {
-			return Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_not_featured")));
+			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_not_featured")));
 		}
 		final var initialMax = 3000;
 		final var min = new AtomicInteger();
@@ -47,7 +47,7 @@ public class FeaturedInfoCommand {
 		final var continueAlgo = new AtomicBoolean(true);
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
-		return ctx.reply(ctx.translate("strings.gd", "searching"))
+		return ctx.reply(ctx.translate("GDStrings", "searching"))
 				.flatMap(waitMessage -> Mono.defer(() -> gdService.getGdClient().browseFeaturedLevels(currentPage.get())
 						.flatMap(paginator -> {
 							alreadyVisitedPages.add(currentPage.get());
@@ -100,7 +100,7 @@ public class FeaturedInfoCommand {
 						.repeat(continueAlgo::get)
 						.then(Mono.defer(() -> result.get() == null
 								? Mono.error(new CommandFailedException(
-										ctx.translate("strings.gd", "error_not_found", GDLevels.toString(level))))
+										ctx.translate("GDStrings", "error_not_found", GDLevels.toString(level))))
 								: sendResult(waitMessage, ctx, level, result.get().getT1(), result.get().getT2())))
 						.doOnTerminate(() -> waitMessage.delete().onErrorResume(e -> Mono.empty()).subscribe())
 						.then());
@@ -109,6 +109,6 @@ public class FeaturedInfoCommand {
 	private static Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
 		return waitMessage.delete()
 				.then(ctx.reply(ctx.author().getMention() + ", "
-						+ ctx.translate("strings.gd", "featuredinfo_success", GDLevels.toString(level), page + 1, position)));
+						+ ctx.translate("GDStrings", "featuredinfo_success", GDLevels.toString(level), page + 1, position)));
 	}
 }
