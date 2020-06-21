@@ -56,7 +56,7 @@ public class GDLevelRequests {
 						&& (lvlReqCfg.channelSubmissionQueueId().isEmpty()
 						|| lvlReqCfg.channelArchivedSubmissionsId().isEmpty()
 						|| lvlReqCfg.roleReviewerId().isEmpty())
-						? Mono.error(new CommandFailedException(ctx.translate("strings.gd", "error_reqs_not_configured")))
+						? Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_reqs_not_configured")))
 						: Mono.just(lvlReqCfg));
 	}
 	
@@ -90,7 +90,7 @@ public class GDLevelRequests {
 		Objects.requireNonNull(level, "level was null");
 		Objects.requireNonNull(reviews, "reviews was null");
 		final var formatUser = author.getTag() + " (`" + author.getId().asLong() + "`)";
-		return Mono.zip(GDLevels.compactView(tr, bot, level, tr.translate("strings.gd", "submission_title"), "https://i.imgur.com/yC9P4sT.png"),
+		return Mono.zip(GDLevels.compactView(tr, bot, level, tr.translate("GDStrings", "submission_title"), "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviewData::reviewerId)
 						.flatMap(id -> bot.gateway()
@@ -99,13 +99,13 @@ public class GDLevelRequests {
 								.onErrorResume(e -> Mono.empty()))
 						.collectList())
 				.map(TupleUtils.function((embedSpecConsumer, reviewers) -> {
-					var content = "**" + tr.translate("strings.gd", "label_submission_id") + "** `" + submission.submissionId() + "`\n"
-							+ "**" + tr.translate("strings.gd", "label_submission_author") + "** " + formatUser + "\n"
-							+ "**" + tr.translate("strings.gd", "label_submission_level_id") + "** `" + level.getId() + "`\n"
-							+ "**" + tr.translate("strings.gd", "label_submission_yt") + "** "
-							+ submission.youtubeLink().orElse('*' + tr.translate("strings.gd", "not_provided") + '*');
+					var content = "**" + tr.translate("GDStrings", "label_submission_id") + "** `" + submission.submissionId() + "`\n"
+							+ "**" + tr.translate("GDStrings", "label_submission_author") + "** " + formatUser + "\n"
+							+ "**" + tr.translate("GDStrings", "label_submission_level_id") + "** `" + level.getId() + "`\n"
+							+ "**" + tr.translate("GDStrings", "label_submission_yt") + "** "
+							+ submission.youtubeLink().orElse('*' + tr.translate("GDStrings", "not_provided") + '*');
 					var embed = embedSpecConsumer.andThen(embedSpec -> {
-						embedSpec.addField("───────────", "**" + tr.translate("strings.gd", "label_reviews")
+						embedSpec.addField("───────────", "**" + tr.translate("GDStrings", "label_reviews")
 								+ "** " + reviews.size() + "/" + lvlReqSettings.minReviewsRequired(), false);
 						for (var review : reviews) {
 							var reviewerName = reviewers.stream()
@@ -147,7 +147,7 @@ public class GDLevelRequests {
 				.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
 				.flatMap(count -> bot.service(EmojiService.class).emoji("info")
 						.flatMap(info -> bot.log(info + ' ' + bot
-								.translate("strings.gd", "orphan_submissions_log", count))))
+								.translate("GDStrings", "orphan_submissions_log", count))))
 				.then();
 	}
 	

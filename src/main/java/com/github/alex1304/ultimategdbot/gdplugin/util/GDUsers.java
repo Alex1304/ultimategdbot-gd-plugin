@@ -62,10 +62,10 @@ public final class GDUsers {
 					var emojis = tuple.getT1();
 					var linkedAccounts = tuple.getT2();
 					final var statWidth = 9;
-					final var content = author == null ? "" : tr.translate("strings.gd", "profile_intro", author.getMention(), user.getName());
+					final var content = author == null ? "" : tr.translate("GDStrings", "profile_intro", author.getMention(), user.getName());
 					Consumer<EmbedCreateSpec> embedSpec = embed -> {
 						embed.setAuthor(authorName, null, authorIconUrl);
-						embed.addField(":chart_with_upwards_trend:  " + tr.translate("strings.gd", "player_stats", user.getName()),
+						embed.addField(":chart_with_upwards_trend:  " + tr.translate("GDStrings", "player_stats", user.getName()),
 								emojis[0] + "  " + formatCode(user.getStars(), statWidth) + "\n"
 								+ emojis[1] + "  " + formatCode(user.getDiamonds(), statWidth) + "\n"
 								+ emojis[2] + "  " + formatCode(user.getUserCoins(), statWidth) + "\n"
@@ -75,31 +75,31 @@ public final class GDUsers {
 						final var badge = user.getRole() == Role.ELDER_MODERATOR ? emojis[7] : emojis[6];
 						final var mod = badge + "  **" + user.getRole().toString().replaceAll("_", " ") + "**\n";
 						embed.addField("───────────", (user.getRole() != Role.USER ? mod : "")
-								+ emojis[8] + "  **" + tr.translate("strings.gd", "label_global_rank") + "** "
-								+ (user.getGlobalRank() == 0 ? '*' + tr.translate("strings.gd", "unranked") + '*' : user.getGlobalRank()) + "\n"
+								+ emojis[8] + "  **" + tr.translate("GDStrings", "label_global_rank") + "** "
+								+ (user.getGlobalRank() == 0 ? '*' + tr.translate("GDStrings", "unranked") + '*' : user.getGlobalRank()) + "\n"
 								+ emojis[9] + "  **YouTube:** "
 									+ (user.getYoutube().isEmpty()
-											? '*' + tr.translate("strings.gd", "not_provided") + '*'
-											: '[' + tr.translate("strings.gd", "open_link") + "](https://www.youtube.com/channel/" + Utils.urlEncode(user.getYoutube()) + ")") + "\n"
+											? '*' + tr.translate("GDStrings", "not_provided") + '*'
+											: '[' + tr.translate("GDStrings", "open_link") + "](https://www.youtube.com/channel/" + Utils.urlEncode(user.getYoutube()) + ")") + "\n"
 								+ emojis[11] + "  **Twitch:** "
-									+ (user.getTwitch().isEmpty() ? '*' + tr.translate("strings.gd", "not_provided") + '*' : "["  + user.getTwitch()
+									+ (user.getTwitch().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*' : "["  + user.getTwitch()
 									+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
 								+ emojis[10] + "  **Twitter:** "
-									+ (user.getTwitter().isEmpty() ? '*' + tr.translate("strings.gd", "not_provided") + '*' : "[@" + user.getTwitter() + "]"
+									+ (user.getTwitter().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*' : "[@" + user.getTwitter() + "]"
 									+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
-								+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? '*' + tr.translate("strings.gd", "unknown") + '*' : linkedAccounts.stream()
+								+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? '*' + tr.translate("GDStrings", "unknown") + '*' : linkedAccounts.stream()
 										.reduce(new StringJoiner(", "), (sj, l) -> sj.add(l.getTag()), (a, b) -> a).toString())
 								+ "\n───────────\n"
-								+ emojis[13] + "  **" + tr.translate("strings.gd", "label_friend_requests") + "** " + (user.hasFriendRequestsEnabled() 
-										? tr.translate("strings.gd", "enabled") : tr.translate("strings.gd", "disabled")) + "\n"
-								+ emojis[14] + "  **" + tr.translate("strings.gd", "label_private_messages") + "** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
-								+ emojis[15] + "  **" + tr.translate("strings.gd", "label_comment_history") + "** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
-						embed.setFooter(tr.translate("strings.gd", "label_player_id") + ' ' + user.getId() + " | "
-								+ tr.translate("strings.gd", "label_account_id") + ' ' + user.getAccountId(), null);
+								+ emojis[13] + "  **" + tr.translate("GDStrings", "label_friend_requests") + "** " + (user.hasFriendRequestsEnabled() 
+										? tr.translate("GDStrings", "enabled") : tr.translate("GDStrings", "disabled")) + "\n"
+								+ emojis[14] + "  **" + tr.translate("GDStrings", "label_private_messages") + "** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
+								+ emojis[15] + "  **" + tr.translate("GDStrings", "label_comment_history") + "** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
+						embed.setFooter(tr.translate("GDStrings", "label_player_id") + ' ' + user.getId() + " | "
+								+ tr.translate("GDStrings", "label_account_id") + ' ' + user.getAccountId(), null);
 						if (iconSetUrl.startsWith("http")) {
 							embed.setImage(iconSetUrl);
 						} else {
-							embed.addField(":warning: " + tr.translate("strings.gd", "icon_set_fail"), iconSetUrl, false);
+							embed.addField(":warning: " + tr.translate("GDStrings", "icon_set_fail"), iconSetUrl, false);
 						}
 					};
 					if (content == null) {
@@ -141,7 +141,7 @@ public final class GDUsers {
 						.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
 						.filter(att -> att.getSize() > 0)
 						.timeout(Duration.ofSeconds(30), Mono.empty())
-						.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("strings.gd", "error_icon_set_upload_failed"))))
+						.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_icon_set_upload_failed"))))
 						.map(Attachment::getUrl)
 						.doOnNext(url -> iconsCache.put(iconSet, url));
 			} catch (IOException e) {
@@ -161,17 +161,17 @@ public final class GDUsers {
 			var id = str.substring(str.startsWith("<@!") ? 3 : 2, str.length() - 1);
 			return Mono.just(id)
 					.map(Snowflake::of)
-					.onErrorMap(e -> new CommandFailedException(tr.translate("strings.gd", "error_invalid_mention")))
+					.onErrorMap(e -> new CommandFailedException(tr.translate("GDStrings", "error_invalid_mention")))
 					.flatMap(snowflake -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST).getUserById(snowflake))
-					.onErrorMap(e -> new CommandFailedException(tr.translate("strings.gd", "error_mention_resolve")))
+					.onErrorMap(e -> new CommandFailedException(tr.translate("GDStrings", "error_mention_resolve")))
 					.flatMap(user -> bot.service(DatabaseService.class).withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
 					.flatMap(Mono::justOrEmpty)
 					.filter(GDLinkedUserData::isLinkActivated)
 					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()))
-					.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("strings.gd", "error_no_gd_account"))));
+					.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_no_gd_account"))));
 		}
 		if (!str.matches("[a-zA-Z0-9 _-]+")) {
-			return Mono.error(new CommandFailedException(tr.translate("strings.gd", "error_invalid_characters")));
+			return Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_invalid_characters")));
 		}
 		return gdClient.searchUser(str);
 	}

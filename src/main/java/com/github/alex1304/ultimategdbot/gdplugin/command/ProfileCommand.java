@@ -18,7 +18,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "profile",
-		shortDescription = "tr:strings.gd/profile_desc"
+		shortDescription = "tr:GDStrings/profile_desc"
 )
 public class ProfileCommand {
 
@@ -29,7 +29,7 @@ public class ProfileCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:strings.gd/profile_run")
+	@CommandDoc("tr:GDStrings/profile_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
 				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
@@ -46,7 +46,7 @@ public class ProfileCommand {
 				.flatMap(user -> GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))
 						.flatMap(icons -> GDUsers.userProfileView(ctx, ctx.bot(), ctx.author(), user,
-										ctx.translate("strings.gd", "user_profile"), "https://i.imgur.com/ppg4HqJ.png", icons)
+										ctx.translate("GDStrings", "user_profile"), "https://i.imgur.com/ppg4HqJ.png", icons)
 								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(ctx::reply)))
 				.then();

@@ -25,7 +25,7 @@ import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
 		aliases = "checkmod",
-		shortDescription = "tr:strings.gd/checkmod_desc"
+		shortDescription = "tr:GDStrings/checkmod_desc"
 )
 public class CheckModCommand {
 
@@ -36,7 +36,7 @@ public class CheckModCommand {
 	}
 
 	@CommandAction
-	@CommandDoc("tr:strings.gd/checkmod_run")
+	@CommandDoc("tr:GDStrings/checkmod_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
 		return Mono.justOrEmpty(gdUser)
 				.switchIfEmpty(ctx.bot().service(DatabaseService.class)
@@ -44,17 +44,17 @@ public class CheckModCommand {
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
 						.switchIfEmpty(Mono.error(new CommandFailedException(
-								ctx.translate("strings.gd", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
+								ctx.translate("GDStrings", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gdService.getGdClient()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(
 								ctx.bot().service(EmojiService.class).emoji("success"),
 								ctx.bot().service(EmojiService.class).emoji("failed"),
 								ctx.bot().service(EmojiService.class).emoji("mod"))
-						.flatMap(emojis -> ctx.reply(ctx.translate("strings.gd", "checking_mod", user.getName()) + "\n||"
+						.flatMap(emojis -> ctx.reply(ctx.translate("GDStrings", "checking_mod", user.getName()) + "\n||"
 								+ (user.getRole() == Role.USER
-								? emojis.getT2() + ' ' + ctx.translate("strings.gd", "checkmod_failed")
-								: emojis.getT1() + ' ' + ctx.translate("strings.gd", "checkmod_success", user.getRole().toString()))+ "||"))
+								? emojis.getT2() + ' ' + ctx.translate("GDStrings", "checkmod_failed")
+								: emojis.getT1() + ' ' + ctx.translate("GDStrings", "checkmod_success", user.getRole().toString()))+ "||"))
 						.then(GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
