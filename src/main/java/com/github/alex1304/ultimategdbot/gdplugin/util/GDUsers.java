@@ -92,8 +92,8 @@ public final class GDUsers {
 								+ "\n───────────\n"
 								+ emojis[13] + "  **" + tr.translate("GDStrings", "label_friend_requests") + "** " + (user.hasFriendRequestsEnabled() 
 										? tr.translate("GDStrings", "enabled") : tr.translate("GDStrings", "disabled")) + "\n"
-								+ emojis[14] + "  **" + tr.translate("GDStrings", "label_private_messages") + "** " + formatPrivacy(user.getPrivateMessagePolicy()) + "\n"
-								+ emojis[15] + "  **" + tr.translate("GDStrings", "label_comment_history") + "** " + formatPrivacy(user.getCommmentHistoryPolicy()) + "\n", false);
+								+ emojis[14] + "  **" + tr.translate("GDStrings", "label_private_messages") + "** " + formatPrivacy(tr, user.getPrivateMessagePolicy()) + "\n"
+								+ emojis[15] + "  **" + tr.translate("GDStrings", "label_comment_history") + "** " + formatPrivacy(tr, user.getCommmentHistoryPolicy()) + "\n", false);
 						embed.setFooter(tr.translate("GDStrings", "label_player_id") + ' ' + user.getId() + " | "
 								+ tr.translate("GDStrings", "label_account_id") + ' ' + user.getAccountId(), null);
 						if (iconSetUrl.startsWith("http")) {

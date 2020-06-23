@@ -1,14 +1,15 @@
 package com.github.alex1304.ultimategdbot.gdplugin.util;
 
 import com.github.alex1304.jdash.entity.PrivacySetting;
+import com.github.alex1304.ultimategdbot.api.Translator;
 
 public class GDFormatter {
 
 	private GDFormatter() {
 	}
 	
-	public static String formatPrivacy(PrivacySetting privacy) {
-		return  privacy.name().charAt(0) + privacy.name().substring(1).replaceAll("_", " ").toLowerCase();
+	public static String formatPrivacy(Translator tr, PrivacySetting privacy) {
+		return tr.translate("GDStrings", "privacy_" + privacy.name().toLowerCase());
 	}
 	
 	public static String formatCode(Object val, int n) {
