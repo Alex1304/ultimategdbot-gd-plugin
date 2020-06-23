@@ -221,7 +221,7 @@ public class GDLevels {
 	
 	public static Mono<Message> sendTimelyInfo(Context ctx, AuthenticatedGDClient gdClient, boolean isWeekly) {
 		var timelyMono = isWeekly ? gdClient.getWeeklyDemon() : gdClient.getDailyLevel();
-		var headerTitle = isWeekly ? ctx.translate("GDStrings", "daily") : ctx.translate("GDStrings", "weekly");
+		var headerTitle = isWeekly ? ctx.translate("GDStrings", "weekly") : ctx.translate("GDStrings", "daily");
 		var headerLink = isWeekly ? "https://i.imgur.com/kcsP5SN.png" : "https://i.imgur.com/enpYuB8.png";
 		return timelyMono
 				.flatMap(timely -> timely.getLevel()
