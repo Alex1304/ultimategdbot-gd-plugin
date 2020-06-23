@@ -157,7 +157,7 @@ public class GDPlugin implements Plugin {
 						.setDescription("Commands and useful features dedicated to the platformer game Geometry Dash.")
 						.setVersion(version.orElse(null))
 						.setDevelopers(List.of("Alex1304"))
-						.setUrl("https://github.com/ultimategdbot/ultimategdbot-core-plugin")
+						.setUrl("https://github.com/ultimategdbot/ultimategdbot-gd-plugin")
 						.build());
 	}
 
