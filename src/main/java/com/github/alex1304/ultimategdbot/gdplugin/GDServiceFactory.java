@@ -49,6 +49,9 @@ public class GDServiceFactory implements ServiceFactory<GDService> {
 		var iconsCacheMaxSize = gdConfig.readOptional("gdplugin.icons_cache_max_size")
 				.map(Integer::parseInt)
 				.orElse(2048);
+		var gdEventsMinMembers = gdConfig.readOptional("gdplugin.gd_events_min_members")
+				.map(Integer::parseInt)
+				.orElse(200);
 		// Resources
 		var buildingGDClient = GDClientBuilder.create()
 				.withHost(host)
@@ -65,7 +68,7 @@ public class GDServiceFactory implements ServiceFactory<GDService> {
 					var eventLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(),
 							eventLoopInterval);
 					return new GDService(gdClient, spriteFactory, iconsCacheMaxSize, gdEventDispatcher,
-							eventLoop, maxConnections, iconChannelId, autostartEventLoop);
+							eventLoop, maxConnections, iconChannelId, autostartEventLoop, gdEventsMinMembers);
 				}));
 	}
 

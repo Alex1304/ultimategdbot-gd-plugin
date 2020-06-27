@@ -35,10 +35,11 @@ public class GDService implements Service {
 	private final int leaderboardRefreshParallelism;
 	private final Snowflake iconChannelId;
 	private final boolean autostartEventLoop;
+	private final int gdEventsMinMembers;
 
 	GDService(AuthenticatedGDClient gdClient, SpriteFactory spriteFactory, int iconsCacheMaxSize,
-			GDEventDispatcher gdEventDispatcher, GDEventScannerLoop gdEventLoop,
-			int leaderboardRefreshParallelism, Snowflake iconChannelId, boolean autostartEventLoop) {
+			GDEventDispatcher gdEventDispatcher, GDEventScannerLoop gdEventLoop, int leaderboardRefreshParallelism,
+			Snowflake iconChannelId, boolean autostartEventLoop, int gdEventsMinMembers) {
 		this.gdClient = gdClient;
 		this.spriteFactory = spriteFactory;
 		this.iconsCache = Caffeine.newBuilder().maximumSize(iconsCacheMaxSize).build();
@@ -50,6 +51,7 @@ public class GDService implements Service {
 		this.leaderboardRefreshParallelism = leaderboardRefreshParallelism;
 		this.iconChannelId = iconChannelId;
 		this.autostartEventLoop = autostartEventLoop;
+		this.gdEventsMinMembers = gdEventsMinMembers;
 	}
 
 	public AuthenticatedGDClient getGdClient() {
@@ -94,5 +96,9 @@ public class GDService implements Service {
 	
 	public boolean isAutostartEventLoop() {
 		return autostartEventLoop;
+	}
+
+	public int getGdEventsMinMembers() {
+		return gdEventsMinMembers;
 	}
 }
