@@ -29,12 +29,6 @@ import reactor.util.annotation.Nullable;
 )
 public class CheckModCommand {
 
-	private final GDService gdService;
-	
-	public CheckModCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
-
 	@CommandAction
 	@CommandDoc("tr:GDStrings/checkmod_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
@@ -46,7 +40,7 @@ public class CheckModCommand {
 						.switchIfEmpty(Mono.error(new CommandFailedException(
 								ctx.translate("GDStrings", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
-						.flatMap(gdService.getGdClient()::getUserByAccountId))
+						.flatMap(ctx.bot().service(GDService.class).getGdClient()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(
 								ctx.bot().service(EmojiService.class).emoji("success"),
 								ctx.bot().service(EmojiService.class).emoji("failed"),
@@ -55,7 +49,7 @@ public class CheckModCommand {
 								+ (user.getRole() == Role.USER
 								? emojis.getT2() + ' ' + ctx.translate("GDStrings", "checkmod_failed")
 								: emojis.getT1() + ' ' + ctx.translate("GDStrings", "checkmod_success", user.getRole().toString()))+ "||"))
-						.then(GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
+						.then(GDUsers.makeIconSet(ctx, ctx.bot(), user, ctx.bot().service(GDService.class).getSpriteFactory(), ctx.bot().service(GDService.class).getIconsCache(), ctx.bot().service(GDService.class).getIconChannelId())
 								.onErrorResume(e -> Mono.empty()))
 						.then(ctx.bot().service(DatabaseService.class).withExtension(GDModDao.class, dao -> dao.get(user.getAccountId())))
 						.flatMap(Mono::justOrEmpty)
@@ -64,7 +58,7 @@ public class CheckModCommand {
 								return Mono.empty();
 							}
 							var isElder = user.getRole() == Role.ELDER_MODERATOR;
-							gdService.getGdEventDispatcher().dispatch(isElder ? new UserPromotedToElderEvent(user)
+							ctx.bot().service(GDService.class).getGdEventDispatcher().dispatch(isElder ? new UserPromotedToElderEvent(user)
 									: new UserPromotedToModEvent(user));
 							var gdMod = ImmutableGDModData.builder()
 									.accountId(user.getAccountId())
@@ -77,17 +71,17 @@ public class CheckModCommand {
 						}))
 						.flatMap(gdMod -> {
 							if (user.getRole() == Role.USER) {
-								gdService.getGdEventDispatcher().dispatch(gdMod.isElder() 
+								ctx.bot().service(GDService.class).getGdEventDispatcher().dispatch(gdMod.isElder() 
 										? new UserDemotedFromElderEvent(user) : new UserDemotedFromModEvent(user));
 								return ctx.bot().service(DatabaseService.class)
 										.useExtension(GDModDao.class, dao -> dao.delete(gdMod.accountId()));
 							} else {
 								var updatedGdMod = ImmutableGDModData.builder().from(gdMod);
 								if (user.getRole() == Role.MODERATOR && gdMod.isElder()) {
-									gdService.getGdEventDispatcher().dispatch(new UserDemotedFromElderEvent(user));
+									ctx.bot().service(GDService.class).getGdEventDispatcher().dispatch(new UserDemotedFromElderEvent(user));
 									updatedGdMod.isElder(false);
 								} else if (user.getRole() == Role.ELDER_MODERATOR && !gdMod.isElder()) {
-									gdService.getGdEventDispatcher().dispatch(new UserPromotedToElderEvent(user));
+									ctx.bot().service(GDService.class).getGdEventDispatcher().dispatch(new UserPromotedToElderEvent(user));
 									updatedGdMod.isElder(true);
 								}
 								updatedGdMod.name(user.getName());

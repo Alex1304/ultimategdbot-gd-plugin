@@ -15,16 +15,10 @@ import reactor.core.publisher.Mono;
 )
 @CommandPermission(level = PermissionLevel.BOT_ADMIN)
 public class ClearGdCacheCommand {
-	
-	private final GDService gdService;
-	
-	public ClearGdCacheCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
-		return Mono.fromRunnable(gdService.getGdClient()::clearCache)
+		return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdClient()::clearCache)
 				.then(ctx.reply(ctx.translate("GDStrings", "cache_clear_success")))
 				.then();
 	}

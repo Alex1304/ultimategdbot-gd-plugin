@@ -15,6 +15,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
@@ -157,7 +158,8 @@ public class GDLevelRequests {
 	 * 
 	 * @param bot the bot
 	 */
-	public static void listenAndCleanSubmissionQueueChannels(Bot bot, Set<Long> cachedSubmissionChannelIds) {
+	public static void listenAndCleanSubmissionQueueChannels(Bot bot) {
+		var cachedSubmissionChannelIds = bot.service(GDService.class).getCachedSubmissionChannelIds();
 		bot.service(DatabaseService.class).withExtension(GDLevelRequestConfigDao.class, GDLevelRequestConfigDao::getAll)
 				.flatMapMany(Flux::fromIterable)
 				.map(GDLevelRequestConfigData::channelSubmissionQueueId)

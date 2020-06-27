@@ -45,12 +45,10 @@ public class GDEventProcessor {
 	private static final Logger LOGGER = Loggers.getLogger(GDEventProcessor.class);
 	
 	private final Bot bot;
-	private final GDService gdService;
 	private final Map<Class<? extends GDEvent>, GDEventProperties<? extends GDEvent>> eventProperties;
 	
-	public GDEventProcessor(Bot bot, GDService gdService) {
+	public GDEventProcessor(Bot bot) {
 		this.bot = bot;
-		this.gdService = gdService;
 		this.eventProperties = initEventProps();
 	}
 
@@ -65,7 +63,7 @@ public class GDEventProcessor {
 		var emojiService = bot.service(EmojiService.class);
 		return Mono.zip(emojiService.emoji("info"), emojiService.emoji("success"), emojiService.emoji("failed"))
 				.flatMap(function((info, success, failed) -> log(bot, info + ' ' + defaultTr.translate("GDStrings", "gdevproc_event_fired") + ' ' + logText)
-						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, gdService.getBroadcastResultCache())
+						.then(eventProps.broadcastStrategy().broadcast(bot, event, eventProps, bot.service(GDService.class).getBroadcastResultCache())
 								.elapsed()
 								.flatMap(function((time, count) -> log(bot, success + ' ' + defaultTr.translate("GDStrings", "gdevproc_success") + ' ' + logText + "\n"
 										+ defaultTr.translate("GDStrings", (eventProps.broadcastStrategy() == CREATING
@@ -98,7 +96,7 @@ public class GDEventProcessor {
 												.likes(event.getAddedLevel().getLikes())
 												.build()))
 								.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.error("Error when saving new awarded level", e)))
-								.then(gdService.getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId)),
+								.then(bot.service(GDService.class).getGdClient().searchUser("" + event.getAddedLevel().getCreatorID()).map(GDUser::getAccountId)),
 						(event, eventCfg, old) -> GDLevels
 								.compactView(adaptTranslator(bot, eventCfg), bot, event.getAddedLevel(),
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_rate"),
@@ -118,7 +116,7 @@ public class GDEventProcessor {
 						GDEventConfigData::channelAwardedLevelsId,
 						GDEventConfigData::roleAwardedLevelsId,
 						event -> Optional.empty(),
-						event -> gdService.getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
+						event -> bot.service(GDService.class).getGdClient().searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, eventCfg, old) -> GDLevels
 								.compactView(adaptTranslator(bot, eventCfg), bot, event.getRemovedLevel(), 
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_unrate"),
@@ -138,7 +136,7 @@ public class GDEventProcessor {
 						GDEventConfigData::channelAwardedLevelsId,
 						GDEventConfigData::roleAwardedLevelsId,
 						event -> Optional.of(event.getNewLevel().getId()),
-						event -> gdService.getGdClient().searchUser("" + event.getNewLevel().getCreatorID()).map(GDUser::getAccountId),
+						event -> bot.service(GDService.class).getGdClient().searchUser("" + event.getNewLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, eventCfg, old) -> GDLevels
 								.compactView(adaptTranslator(bot, eventCfg), bot, event.getNewLevel(),
 										old.getEmbeds().get(0).getAuthor().get().getName(),
@@ -156,7 +154,7 @@ public class GDEventProcessor {
 						GDEventConfigData::roleTimelyLevelsId,
 						event -> Optional.empty(),
 						event -> event.getTimelyLevel().getLevel()
-								.flatMap(level -> gdService.getGdClient().searchUser("" + level.getCreatorID()))
+								.flatMap(level -> bot.service(GDService.class).getGdClient().searchUser("" + level.getCreatorID()))
 								.map(GDUser::getAccountId),
 						(event, eventCfg, old) -> {
 							var isWeekly = event.getTimelyLevel().getType() == TimelyType.WEEKLY;
@@ -186,8 +184,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, eventCfg, old) -> GDUsers
-								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
-										gdService.getIconsCache(), gdService.getIconChannelId())
+								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), bot.service(GDService.class).getSpriteFactory(),
+										bot.service(GDService.class).getIconsCache(), bot.service(GDService.class).getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_promoted"),
 										"https://i.imgur.com/zY61GDD.png", icons))
@@ -208,8 +206,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, eventCfg, old) -> GDUsers
-								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
-										gdService.getIconsCache(), gdService.getIconChannelId())
+								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), bot.service(GDService.class).getSpriteFactory(),
+										bot.service(GDService.class).getIconsCache(), bot.service(GDService.class).getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_promoted"),
 										"https://i.imgur.com/zY61GDD.png", icons))
@@ -230,8 +228,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, eventCfg, old) -> GDUsers
-								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
-										gdService.getIconsCache(), gdService.getIconChannelId())
+								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), bot.service(GDService.class).getSpriteFactory(),
+										bot.service(GDService.class).getIconsCache(), bot.service(GDService.class).getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_demoted"),
 										"https://i.imgur.com/X53HV7d.png", icons))
@@ -252,8 +250,8 @@ public class GDEventProcessor {
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, eventCfg, old) -> GDUsers
-								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), gdService.getSpriteFactory(),
-										gdService.getIconsCache(), gdService.getIconChannelId())
+								.makeIconSet(adaptTranslator(bot, eventCfg), bot, event.getUser(), bot.service(GDService.class).getSpriteFactory(),
+										bot.service(GDService.class).getIconsCache(), bot.service(GDService.class).getIconChannelId())
 								.flatMap(icons -> GDUsers.userProfileView(adaptTranslator(bot, eventCfg), bot, null, event.getUser(),
 										adaptTranslator(bot, eventCfg).translate("GDStrings", "gdevproc_title_demoted"),
 										"https://i.imgur.com/X53HV7d.png", icons))

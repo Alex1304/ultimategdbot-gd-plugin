@@ -26,12 +26,6 @@ import reactor.util.function.Tuples;
 )
 public class FeaturedInfoCommand {
 
-	private final GDService gdService;
-	
-	public FeaturedInfoCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
-
 	@CommandAction
 	@CommandDoc("tr:GDStrings/featuredinfo_run")
 	public Mono<Void> run(Context ctx, GDLevel level) {
@@ -48,7 +42,7 @@ public class FeaturedInfoCommand {
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
 		return ctx.reply(ctx.translate("GDStrings", "searching"))
-				.flatMap(waitMessage -> Mono.defer(() -> gdService.getGdClient().browseFeaturedLevels(currentPage.get())
+				.flatMap(waitMessage -> Mono.defer(() -> ctx.bot().service(GDService.class).getGdClient().browseFeaturedLevels(currentPage.get())
 						.flatMap(paginator -> {
 							alreadyVisitedPages.add(currentPage.get());
 							final var scoreOfFirst = paginator.asList().get(0).getFeaturedScore();

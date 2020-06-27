@@ -16,12 +16,6 @@ import reactor.core.publisher.Mono;
 		shortDescription = "tr:GDStrings/level_desc"
 )
 public class LevelCommand {
-
-	private final GDService gdService;
-	
-	public LevelCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/level_run")
@@ -30,6 +24,6 @@ public class LevelCommand {
 			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_invalid_characters")));
 		}
 		return GDLevels.searchAndSend(ctx, ctx.translate("GDStrings", "search_results", query),
-				() -> gdService.getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
+				() -> ctx.bot().service(GDService.class).getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

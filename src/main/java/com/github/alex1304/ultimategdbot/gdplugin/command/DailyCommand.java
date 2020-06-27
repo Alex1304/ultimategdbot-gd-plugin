@@ -15,15 +15,9 @@ import reactor.core.publisher.Mono;
 )
 public class DailyCommand {
 
-	private final GDService gdService;
-	
-	public DailyCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
-
 	@CommandAction
 	@CommandDoc("tr:GDStrings/daily_run")
 	public Mono<Void> run(Context ctx) {
-		return GDLevels.sendTimelyInfo(ctx, gdService.getGdClient(), false).then();
+		return GDLevels.sendTimelyInfo(ctx, ctx.bot().service(GDService.class).getGdClient(), false).then();
 	}
 }

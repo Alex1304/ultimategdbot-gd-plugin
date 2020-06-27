@@ -2,6 +2,7 @@ import com.github.alex1304.ultimategdbot.api.Plugin;
 import com.github.alex1304.ultimategdbot.gdplugin.GDPlugin;
 
 module ultimategdbot.gd {
+	opens com.github.alex1304.ultimategdbot.gdplugin;
 	opens com.github.alex1304.ultimategdbot.gdplugin.command;
 	opens com.github.alex1304.ultimategdbot.gdplugin.database;
 	

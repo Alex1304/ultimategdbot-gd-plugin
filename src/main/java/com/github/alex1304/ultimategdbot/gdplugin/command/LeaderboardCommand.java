@@ -73,11 +73,6 @@ public class LeaderboardCommand {
 	private static final int ENTRIES_PER_PAGE = 20;
 	
 	private volatile boolean isLocked;
-	private final GDService gdService;
-	
-	public LeaderboardCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 
 	@CommandAction
 	@CommandDoc("tr:GDStrings/leaderboard_run")
@@ -188,7 +183,7 @@ public class LeaderboardCommand {
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException(
 													ctx.translate("GDStrings", "error_username_not_specified"))))
-											.flatMap(userName -> GDUsers.stringToUser(ctx, ctx.bot(), gdService.getGdClient(), userName))
+											.flatMap(userName -> GDUsers.stringToUser(ctx, ctx.bot(), userName))
 											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException(
 													ctx.translate("GDStrings", "error_user_fetch")))
 											.flatMap(gdUser -> {
@@ -253,9 +248,9 @@ public class LeaderboardCommand {
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
 									.subscribe();
 							return Flux.fromIterable(list)
-									.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId())
+									.flatMap(linkedUser -> ctx.bot().service(GDService.class).getGdClient().getUserByAccountId(linkedUser.gdUserId())
 											.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
-													+ linkedUser.gdUserId(), e))), gdService.getLeaderboardRefreshParallelism())
+													+ linkedUser.gdUserId(), e))), ctx.bot().service(GDService.class).getLeaderboardRefreshParallelism())
 									.index()
 									.map(function((i, gdUser) -> {
 										sink.next(i);

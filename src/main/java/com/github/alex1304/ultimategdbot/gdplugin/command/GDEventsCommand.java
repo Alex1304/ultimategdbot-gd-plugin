@@ -43,12 +43,6 @@ import reactor.util.annotation.Nullable;
 )
 @CommandPermission(level = PermissionLevel.BOT_OWNER)
 public class GDEventsCommand {
-
-	private final GDService gdService;
-	
-	public GDEventsCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 	
 	@CommandAction("dispatch")
 	@CommandDoc("tr:GDStrings/gdevents_run_dispatch")
@@ -56,10 +50,10 @@ public class GDEventsCommand {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
 			case "daily_level_changed":
-				eventToDispatch = gdService.getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
 				break;
 			case "weekly_demon_changed":
-				eventToDispatch = gdService.getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
 				break;
 			default:
 				if (levelId == null) {
@@ -67,13 +61,13 @@ public class GDEventsCommand {
 				}
 				switch (eventName) {
 					case "awarded_level_added":
-						eventToDispatch = gdService.getGdClient().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
+						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
 						break;
 					case "awarded_level_removed":
-						eventToDispatch = gdService.getGdClient().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
+						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
 						break;
 					case "awarded_level_updated":
-						eventToDispatch = gdService.getGdClient().getLevelById(levelId)
+						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId)
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
@@ -81,7 +75,7 @@ public class GDEventsCommand {
 				}
 		}
 		
-		return eventToDispatch.doOnNext(gdService.getGdEventDispatcher()::dispatch)
+		return eventToDispatch.doOnNext(ctx.bot().service(GDService.class).getGdEventDispatcher()::dispatch)
 				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + ' '
 						+ ctx.translate("GDStrings", "dispatch_success"))))
 				.then();
@@ -92,11 +86,11 @@ public class GDEventsCommand {
 	public Mono<Void> runLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":
-				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::start)
+				return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdEventLoop()::start)
 						.then(ctx.reply(ctx.translate("GDStrings", "event_loop_started")))
 						.then();
 			case "stop":
-				return Mono.fromRunnable(gdService.getGdEventscannerLoop()::stop)
+				return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdEventLoop()::stop)
 						.then(ctx.reply(ctx.translate("GDStrings", "event_loop_stopped")))
 						.then();
 			default:
@@ -128,7 +122,7 @@ public class GDEventsCommand {
 		Mono.zip(
 				processor.then(),
 				Flux.range(0, maxPage)
-						.concatMap(n -> gdService.getGdClient().browseAwardedLevels(LevelSearchFilters.create(), n)
+						.concatMap(n -> ctx.bot().service(GDService.class).getGdClient().browseAwardedLevels(LevelSearchFilters.create(), n)
 								.flatMapMany(Flux::fromIterable)
 								.doOnNext(level -> {
 									if (level.getId() == levelId) {
@@ -161,7 +155,7 @@ public class GDEventsCommand {
 					}
 					return menu.deleteMenuOnClose(true)
 							.addReactionItem("success", interaction -> {
-								events.forEach(gdService.getGdEventDispatcher()::dispatch);
+								events.forEach(ctx.bot().service(GDService.class).getGdEventDispatcher()::dispatch);
 								return ctx.bot().service(EmojiService.class).emoji("success")
 										.flatMap(success -> ctx.reply(success + ' '
 												+ ctx.translate("GDStrings", "dispatch_success_multi", events.size())))

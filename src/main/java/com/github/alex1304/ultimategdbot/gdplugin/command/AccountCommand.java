@@ -32,11 +32,6 @@ import reactor.util.function.Tuples;
 public class AccountCommand {
 
 	private static final int TOKEN_LENGTH = 6;
-	private final GDService gdService;
-	
-	public AccountCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 
 	@CommandAction
 	@CommandDoc("tr:GDStrings/account_run")
@@ -45,7 +40,7 @@ public class AccountCommand {
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 				.flatMap(Mono::justOrEmpty)
 				.filter(GDLinkedUserData::isLinkActivated)
-				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(linkedUser.gdUserId()))
+				.flatMap(linkedUser -> ctx.bot().service(GDService.class).getGdClient().getUserByAccountId(linkedUser.gdUserId()))
 				.map(user -> Tuples.of(true, ctx.translate("GDStrings", "currently_linked", user.getName())))
 				.defaultIfEmpty(Tuples.of(false, ctx.translate("GDStrings", "not_yet_linked")))
 				.flatMap(tuple -> ctx.reply(ctx.translate("GDStrings", "link_intro") + "\n\n"
@@ -63,7 +58,7 @@ public class AccountCommand {
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUsername.getAccountId()))
 				.filter(not(GDLinkedUserData::isLinkActivated))
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_already_linked"))))
-				.flatMap(linkedUser -> gdService.getGdClient().getUserByAccountId(gdService.getGdClient().getAccountID())
+				.flatMap(linkedUser -> ctx.bot().service(GDService.class).getGdClient().getUserByAccountId(ctx.bot().service(GDService.class).getGdClient().getAccountID())
 						.filter(gdUser -> gdUser.getAccountId() > 0)
 						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_unregistered_user"))))
 						.flatMap(botUser -> {
@@ -129,9 +124,9 @@ public class AccountCommand {
 						.open(ctx));
 	}
 	
-	private Mono<Void> handleDone(Context ctx, String token, GDUser user, GDUser botUser) {
+	private static Mono<Void> handleDone(Context ctx, String token, GDUser user, GDUser botUser) {
 		return ctx.reply(ctx.translate("GDStrings", "checking_messages"))
-				.flatMap(waitMessage -> gdService.getGdClient().getPrivateMessages(0)
+				.flatMap(waitMessage -> ctx.bot().service(GDService.class).getGdClient().getPrivateMessages(0)
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
 						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_confirmation_not_found"))))

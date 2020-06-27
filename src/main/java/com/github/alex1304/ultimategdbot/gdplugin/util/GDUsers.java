@@ -17,7 +17,6 @@ import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 
-import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
 import com.github.alex1304.jdash.entity.Role;
@@ -30,6 +29,7 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
 import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -156,7 +156,8 @@ public final class GDUsers {
 		return new ByteArrayInputStream(os.toByteArray());
 	}
 	
-	public static Mono<GDUser> stringToUser(Translator tr, Bot bot, AuthenticatedGDClient gdClient, String str) {
+	public static Mono<GDUser> stringToUser(Translator tr, Bot bot, String str) {
+		var gdClient = bot.service(GDService.class).getGdClient();
 		if (str.matches("<@!?[0-9]{1,19}>")) {
 			var id = str.substring(str.startsWith("<@!") ? 3 : 2, str.length() - 1);
 			return Mono.just(id)

@@ -15,17 +15,11 @@ import reactor.core.publisher.Mono;
 		shortDescription = "tr:GDStrings/levelsby_desc"
 )
 public class LevelsbyCommand {
-
-	private final GDService gdService;
-	
-	public LevelsbyCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
 	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/levelsby_run")
 	public Mono<Void> run(Context ctx, GDUser user) {
 		return GDLevels.searchAndSend(ctx, ctx.translate("GDStrings", "player_levels", user.getName()),
-				() -> gdService.getGdClient().getLevelsByUser(user, 0));
+				() -> ctx.bot().service(GDService.class).getGdClient().getLevelsByUser(user, 0));
 	}
 }

@@ -54,12 +54,6 @@ import reactor.util.annotation.Nullable;
 )
 public class LevelRequestCommand {
 
-	private final GDService gdService;
-	
-	public LevelRequestCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
-
 	@CommandAction
 	@CommandDoc("tr:GDStrings/lvlreq_run")
 	public Mono<Void> run(Context ctx) {
@@ -143,7 +137,7 @@ public class LevelRequestCommand {
 						.map(n -> n < lrs.maxQueuedSubmissionsPerUser()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("cmdtext_gd_lvlreq",
 						"error_max_submissions_reached", lvlReqCfg.get().maxQueuedSubmissionsPerUser()))))
-				.then(gdService.getGdClient()
+				.then(ctx.bot().service(GDService.class).getGdClient()
 						.getLevelById(levelId)
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(
 								ctx.translate("GDStrings", "error_level_not_found")))
@@ -199,7 +193,7 @@ public class LevelRequestCommand {
 		var guildId = ctx.event().getGuildId().orElseThrow();
 		return GDLevelRequests.retrieveConfig(ctx)
 				.flatMap(lvlReqCfg -> GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId.asLong())
-						.flatMap(submission -> gdService.getGdClient().getLevelById(submission.levelId())
+						.flatMap(submission -> ctx.bot().service(GDService.class).getGdClient().getLevelById(submission.levelId())
 								.filter(level -> level.getStars() > 0)
 								.flatMap(level -> doReview(ctx, submission.submissionId(), ctx.translate("GDStrings", "rated_after_submission"),
 										guildId.asLong(), lvlReqCfg, submission, true).thenReturn(1))
@@ -216,7 +210,7 @@ public class LevelRequestCommand {
 				.then();
 	}
 	
-	private Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
+	private static Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
 			GDLevelRequestConfigData lvlReqCfg, @Nullable GDLevelRequestSubmissionData submissionObj, boolean forceMove) {
 		final var userId = ctx.author().getId();
 		final var submission = new AtomicReference<GDLevelRequestSubmissionData>(submissionObj);
@@ -270,7 +264,7 @@ public class LevelRequestCommand {
 								.collect(toUnmodifiableList()))
 						.build()))
 				.flatMap(r -> ctx.bot().service(DatabaseService.class).useExtension(GDLevelRequestReviewDao.class, dao -> dao.insert(r)))
-				.then(Mono.defer(() -> gdService.getGdClient().getLevelById(submission.get().levelId())
+				.then(Mono.defer(() -> ctx.bot().service(GDService.class).getGdClient().getLevelById(submission.get().levelId())
 						.doOnNext(level::set)
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(ctx.translate("GDStrings", "error_level_deleted")))))
 				.thenMany(Flux.defer(() -> Flux.fromIterable(submission.get().reviews())))

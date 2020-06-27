@@ -22,12 +22,6 @@ import reactor.util.annotation.Nullable;
 )
 public class ProfileCommand {
 
-	private final GDService gdService;
-	
-	public ProfileCommand(GDService gdService) {
-		this.gdService = gdService;
-	}
-
 	@CommandAction
 	@CommandDoc("tr:GDStrings/profile_run")
 	public Mono<Void> run(Context ctx, @Nullable GDUser gdUser) {
@@ -42,8 +36,8 @@ public class ProfileCommand {
 								+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(Mono::justOrEmpty)
-						.flatMap(gdService.getGdClient()::getUserByAccountId))
-				.flatMap(user -> GDUsers.makeIconSet(ctx, ctx.bot(), user, gdService.getSpriteFactory(), gdService.getIconsCache(), gdService.getIconChannelId())
+						.flatMap(ctx.bot().service(GDService.class).getGdClient()::getUserByAccountId))
+				.flatMap(user -> GDUsers.makeIconSet(ctx, ctx.bot(), user, ctx.bot().service(GDService.class).getSpriteFactory(), ctx.bot().service(GDService.class).getIconsCache(), ctx.bot().service(GDService.class).getIconChannelId())
 						.onErrorResume(e -> Mono.just(e.getMessage()))
 						.flatMap(icons -> GDUsers.userProfileView(ctx, ctx.bot(), ctx.author(), user,
 										ctx.translate("GDStrings", "user_profile"), "https://i.imgur.com/ppg4HqJ.png", icons)
