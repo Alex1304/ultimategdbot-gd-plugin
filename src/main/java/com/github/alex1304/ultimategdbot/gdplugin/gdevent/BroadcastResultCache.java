@@ -11,7 +11,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 
 import discord4j.core.object.entity.Message;
 
-public class BroadcastResultCache {
+public final class BroadcastResultCache {
 	
 	private Cache<Long, List<Message>> results = Caffeine.newBuilder()
 			.maximumSize(50)

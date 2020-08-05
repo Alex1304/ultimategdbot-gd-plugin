@@ -1,4 +1,4 @@
-package com.github.alex1304.ultimategdbot.gdplugin.util;
+package com.github.alex1304.ultimategdbot.gdplugin.user;
 
 import static com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter.formatCode;
 import static com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter.formatPrivacy;
@@ -12,27 +12,27 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Random;
-import java.util.StringJoiner;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
+import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
 import com.github.alex1304.jdash.entity.Role;
 import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.GDUserIconSet;
 import com.github.alex1304.jdash.util.Utils;
-import com.github.alex1304.ultimategdbot.api.Bot;
+import com.github.alex1304.ultimategdbot.api.BotConfig;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
-import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Attachment;
@@ -43,21 +43,40 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-public final class GDUsers {
-
-	private GDUsers() {
-	}
+public final class GDUserService {
 	
-	public static Mono<MessageSpecTemplate> userProfileView(Translator tr, Bot bot, User author, GDUser user, 
+	private final BotService bot;
+	private final AuthenticatedGDClient gdClient;
+	private final SpriteFactory spriteFactory;
+	
+	private final Cache<GDUserIconSet, String> iconsCache;
+	private final Snowflake iconChannelId;
+
+	public GDUserService(
+			BotConfig botConfig,
+			BotService bot,
+			AuthenticatedGDClient gdClient,
+			SpriteFactory spriteFactory) {
+		this.bot = bot;
+		this.gdClient = gdClient;
+		this.spriteFactory = spriteFactory;
+		var gdConfig = botConfig.resource("gd");
+		var iconsCacheMaxSize = gdConfig.readOptional("gdplugin.icons_cache_max_size")
+				.map(Integer::parseInt)
+				.orElse(2048);
+		this.iconsCache = Caffeine.newBuilder().maximumSize(iconsCacheMaxSize).build();
+		this.iconChannelId = gdConfig.readAs("gdplugin.icon_channel_id", Snowflake::of);
+	}
+
+	public Mono<MessageSpecTemplate> userProfileView(Translator tr, User author, GDUser user, 
 			String authorName, String authorIconUrl, String iconSetUrl) {
-		var emojiService = bot.service(EmojiService.class);
-		return Mono.zip(o -> o, emojiService.emoji("star"), emojiService.emoji("diamond"),
-						emojiService.emoji("user_coin"), emojiService.emoji("secret_coin"), emojiService.emoji("demon"),
-						emojiService.emoji("creator_points"), emojiService.emoji("mod"), emojiService.emoji("elder_mod"),
-						emojiService.emoji("global_rank"), emojiService.emoji("youtube"), emojiService.emoji("twitter"),
-						emojiService.emoji("twitch"), emojiService.emoji("discord"), emojiService.emoji("friends"),
-						emojiService.emoji("messages"), emojiService.emoji("comment_history"))
-				.zipWith(getDiscordAccountsForGDUser(bot, user.getAccountId()).collectList())
+		return Mono.zip(o -> o, bot.emoji().get("star"), bot.emoji().get("diamond"),
+						bot.emoji().get("user_coin"), bot.emoji().get("secret_coin"), bot.emoji().get("demon"),
+						bot.emoji().get("creator_points"), bot.emoji().get("mod"), bot.emoji().get("elder_mod"),
+						bot.emoji().get("global_rank"), bot.emoji().get("youtube"), bot.emoji().get("twitter"),
+						bot.emoji().get("twitch"), bot.emoji().get("discord"), bot.emoji().get("friends"),
+						bot.emoji().get("messages"), bot.emoji().get("comment_history"))
+				.zipWith(getDiscordAccountsForGDUser(user.getAccountId()).collectList())
 				.map(tuple -> {
 					var emojis = tuple.getT1();
 					var linkedAccounts = tuple.getT2();
@@ -80,20 +99,25 @@ public final class GDUsers {
 								+ emojis[9] + "  **YouTube:** "
 									+ (user.getYoutube().isEmpty()
 											? '*' + tr.translate("GDStrings", "not_provided") + '*'
-											: '[' + tr.translate("GDStrings", "open_link") + "](https://www.youtube.com/channel/" + Utils.urlEncode(user.getYoutube()) + ")") + "\n"
+											: '[' + tr.translate("GDStrings", "open_link") + "](https://www.youtube.com/channel/"
+													+ Utils.urlEncode(user.getYoutube()) + ")") + "\n"
 								+ emojis[11] + "  **Twitch:** "
-									+ (user.getTwitch().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*' : "["  + user.getTwitch()
+									+ (user.getTwitch().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*'
+											: "["  + user.getTwitch()
 									+ "](http://www.twitch.tv/" + Utils.urlEncode(user.getTwitch()) + ")") + "\n"
 								+ emojis[10] + "  **Twitter:** "
-									+ (user.getTwitter().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*' : "[@" + user.getTwitter() + "]"
+									+ (user.getTwitter().isEmpty() ? '*' + tr.translate("GDStrings", "not_provided") + '*'
+											: "[@" + user.getTwitter() + "]"
 									+ "(http://www.twitter.com/" + Utils.urlEncode(user.getTwitter()) + ")") + "\n"
-								+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? '*' + tr.translate("GDStrings", "unknown") + '*' : linkedAccounts.stream()
-										.reduce(new StringJoiner(", "), (sj, l) -> sj.add(l.getTag()), (a, b) -> a).toString())
+								+ emojis[12] + "  **Discord:** " + (linkedAccounts.isEmpty() ? '*' + tr.translate("GDStrings", "unknown")
+										+ '*' : linkedAccounts.stream().map(User::getTag).collect(Collectors.joining(", ")))
 								+ "\n───────────\n"
 								+ emojis[13] + "  **" + tr.translate("GDStrings", "label_friend_requests") + "** " + (user.hasFriendRequestsEnabled() 
 										? tr.translate("GDStrings", "enabled") : tr.translate("GDStrings", "disabled")) + "\n"
-								+ emojis[14] + "  **" + tr.translate("GDStrings", "label_private_messages") + "** " + formatPrivacy(tr, user.getPrivateMessagePolicy()) + "\n"
-								+ emojis[15] + "  **" + tr.translate("GDStrings", "label_comment_history") + "** " + formatPrivacy(tr, user.getCommmentHistoryPolicy()) + "\n", false);
+								+ emojis[14] + "  **" + tr.translate("GDStrings", "label_private_messages") + "** "
+										+ formatPrivacy(tr, user.getPrivateMessagePolicy()) + "\n"
+								+ emojis[15] + "  **" + tr.translate("GDStrings", "label_comment_history") + "** "
+										+ formatPrivacy(tr, user.getCommmentHistoryPolicy()) + "\n", false);
 						embed.setFooter(tr.translate("GDStrings", "label_player_id") + ' ' + user.getId() + " | "
 								+ tr.translate("GDStrings", "label_account_id") + ' ' + user.getAccountId(), null);
 						if (iconSetUrl.startsWith("http")) {
@@ -109,9 +133,9 @@ public final class GDUsers {
 				});
 	}
 	
-	public static Mono<String> makeIconSet(Translator tr, Bot bot, GDUser user, SpriteFactory sf, Cache<GDUserIconSet, String> iconsCache, Snowflake iconChannelId) {
+	public Mono<String> makeIconSet(Translator tr, GDUser user) {
 		return Mono.defer(() -> {
-			final var iconSet = new GDUserIconSet(user, sf);
+			final var iconSet = new GDUserIconSet(user, spriteFactory);
 			final var cached = iconsCache.getIfPresent(iconSet);
 			if (cached != null) {
 				return Mono.just(cached);
@@ -124,7 +148,8 @@ public final class GDUsers {
 			} catch (IllegalArgumentException e) {
 				return Mono.error(e);
 			}
-			final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(), icons.get(0).getHeight(), icons.get(0).getType());
+			final var iconSetImg = new BufferedImage(icons.stream().mapToInt(BufferedImage::getWidth).sum(),
+					icons.get(0).getHeight(), icons.get(0).getType());
 			final var g = iconSetImg.createGraphics();
 			var offset = 0;
 			for (var icon : icons) {
@@ -132,7 +157,6 @@ public final class GDUsers {
 				offset += icon.getWidth();
 			}
 			g.dispose();
-			
 			try {
 				final var istreamIconSet = imageToInputStream(iconSetImg);
 				return bot.gateway().getChannelById(iconChannelId)
@@ -141,7 +165,8 @@ public final class GDUsers {
 						.flatMap(msg -> Flux.fromIterable(msg.getAttachments()).next())
 						.filter(att -> att.getSize() > 0)
 						.timeout(Duration.ofSeconds(30), Mono.empty())
-						.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_icon_set_upload_failed"))))
+						.switchIfEmpty(Mono.error(new CommandFailedException(tr
+								.translate("GDStrings", "error_icon_set_upload_failed"))))
 						.map(Attachment::getUrl)
 						.doOnNext(url -> iconsCache.put(iconSet, url));
 			} catch (IOException e) {
@@ -156,8 +181,7 @@ public final class GDUsers {
 		return new ByteArrayInputStream(os.toByteArray());
 	}
 	
-	public static Mono<GDUser> stringToUser(Translator tr, Bot bot, String str) {
-		var gdClient = bot.service(GDService.class).getGdClient();
+	public Mono<GDUser> stringToUser(Translator tr, String str) {
 		if (str.matches("<@!?[0-9]{1,19}>")) {
 			var id = str.substring(str.startsWith("<@!") ? 3 : 2, str.length() - 1);
 			return Mono.just(id)
@@ -165,7 +189,8 @@ public final class GDUsers {
 					.onErrorMap(e -> new CommandFailedException(tr.translate("GDStrings", "error_invalid_mention")))
 					.flatMap(snowflake -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST).getUserById(snowflake))
 					.onErrorMap(e -> new CommandFailedException(tr.translate("GDStrings", "error_mention_resolve")))
-					.flatMap(user -> bot.service(DatabaseService.class).withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(user.getId().asLong())))
+					.flatMap(user -> bot.database().withExtension(GDLinkedUserDao.class, dao -> dao
+							.getByDiscordUserId(user.getId().asLong())))
 					.flatMap(Mono::justOrEmpty)
 					.filter(GDLinkedUserData::isLinkActivated)
 					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()))
@@ -192,17 +217,19 @@ public final class GDUsers {
 			throw new IllegalArgumentException("n is negative");
 		}
 		
-		final String alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-		char[] result = new char[n];
+		var rand = new Random();
+		var alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+		var result = new char[n];
 		
-		for (int i = 0 ; i < result.length ; i++)
-			result[i] = alphabet.charAt(new Random().nextInt(alphabet.length()));
+		for (int i = 0 ; i < result.length ; i++) {
+			result[i] = alphabet.charAt(rand.nextInt(alphabet.length()));
+		}
 		
 		return new String(result);
 	}
 	
-	public static Flux<User> getDiscordAccountsForGDUser(Bot bot, long gdUserId) {
-		return bot.service(DatabaseService.class)
+	public Flux<User> getDiscordAccountsForGDUser(long gdUserId) {
+		return bot.database()
 				.withExtension(GDLinkedUserDao.class, dao -> dao.getLinkedAccountsForGdUser(gdUserId))
 				.flatMapMany(Flux::fromIterable)
 				.flatMap(linkedUser -> bot.gateway().withRetrievalStrategy(STORE_FALLBACK_REST)

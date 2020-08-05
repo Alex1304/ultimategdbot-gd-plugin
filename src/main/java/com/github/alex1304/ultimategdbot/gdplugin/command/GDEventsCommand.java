@@ -23,13 +23,12 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission
 import com.github.alex1304.ultimategdbot.api.command.annotated.FlagDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.FlagInfo;
 import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenu;
-import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
 import com.github.alex1304.ultimategdbot.api.command.menu.PageNumberOutOfRangeException;
-import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
+import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Flux;
@@ -42,7 +41,10 @@ import reactor.util.annotation.Nullable;
 		shortDescription = "tr:GDStrings/gdevents_desc"
 )
 @CommandPermission(level = PermissionLevel.BOT_OWNER)
-public class GDEventsCommand {
+public final class GDEventsCommand {
+
+	@Root
+	private GDService gd;
 	
 	@CommandAction("dispatch")
 	@CommandDoc("tr:GDStrings/gdevents_run_dispatch")
@@ -50,10 +52,10 @@ public class GDEventsCommand {
 		Mono<GDEvent> eventToDispatch;
 		switch (eventName) {
 			case "daily_level_changed":
-				eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getDailyLevel().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = gd.client().getDailyLevel().map(TimelyLevelChangedEvent::new);
 				break;
 			case "weekly_demon_changed":
-				eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
+				eventToDispatch = gd.client().getWeeklyDemon().map(TimelyLevelChangedEvent::new);
 				break;
 			default:
 				if (levelId == null) {
@@ -61,13 +63,13 @@ public class GDEventsCommand {
 				}
 				switch (eventName) {
 					case "awarded_level_added":
-						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
+						eventToDispatch = gd.client().getLevelById(levelId).map(AwardedLevelAddedEvent::new);
 						break;
 					case "awarded_level_removed":
-						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
+						eventToDispatch = gd.client().getLevelById(levelId).map(AwardedLevelRemovedEvent::new);
 						break;
 					case "awarded_level_updated":
-						eventToDispatch = ctx.bot().service(GDService.class).getGdClient().getLevelById(levelId)
+						eventToDispatch = gd.client().getLevelById(levelId)
 								.map(level -> new AwardedLevelUpdatedEvent(level, level));
 						break;
 					default:
@@ -75,8 +77,8 @@ public class GDEventsCommand {
 				}
 		}
 		
-		return eventToDispatch.doOnNext(ctx.bot().service(GDService.class).getGdEventDispatcher()::dispatch)
-				.then(ctx.bot().service(EmojiService.class).emoji("success").flatMap(emoji -> ctx.reply(emoji + ' '
+		return eventToDispatch.doOnNext(gd.event().dispatcher()::dispatch)
+				.then(gd.bot().emoji().get("success").flatMap(emoji -> ctx.reply(emoji + ' '
 						+ ctx.translate("GDStrings", "dispatch_success"))))
 				.then();
 	}
@@ -86,11 +88,11 @@ public class GDEventsCommand {
 	public Mono<Void> runLoop(Context ctx, String action) {
 		switch (action) {
 			case "start":
-				return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdEventLoop()::start)
+				return Mono.fromRunnable(gd.event().loop()::start)
 						.then(ctx.reply(ctx.translate("GDStrings", "event_loop_started")))
 						.then();
 			case "stop":
-				return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdEventLoop()::stop)
+				return Mono.fromRunnable(gd.event().loop()::stop)
 						.then(ctx.reply(ctx.translate("GDStrings", "event_loop_stopped")))
 						.then();
 			default:
@@ -122,7 +124,7 @@ public class GDEventsCommand {
 		Mono.zip(
 				processor.then(),
 				Flux.range(0, maxPage)
-						.concatMap(n -> ctx.bot().service(GDService.class).getGdClient().browseAwardedLevels(LevelSearchFilters.create(), n)
+						.concatMap(n -> gd.client().browseAwardedLevels(LevelSearchFilters.create(), n)
 								.flatMapMany(Flux::fromIterable)
 								.doOnNext(level -> {
 									if (level.getId() == levelId) {
@@ -145,18 +147,18 @@ public class GDEventsCommand {
 					var lastPage = (events.size() - 1) / 10;
 					InteractiveMenu menu;
 					if (lastPage == 0) {
-						menu = ctx.bot().service(InteractiveMenuService.class)
+						menu = gd.bot().interactiveMenu()
 								.create(paginateEvents(ctx, 0, 0, events).getContent())
 								.closeAfterReaction(false)
 								.addReactionItem("cross", interaction -> Mono.fromRunnable(interaction::closeMenu));
 					} else {
-						menu = ctx.bot().service(InteractiveMenuService.class)
+						menu = gd.bot().interactiveMenu()
 								.createPaginated((tr, page) -> paginateEvents(tr, page, lastPage, events));
 					}
 					return menu.deleteMenuOnClose(true)
 							.addReactionItem("success", interaction -> {
-								events.forEach(ctx.bot().service(GDService.class).getGdEventDispatcher()::dispatch);
-								return ctx.bot().service(EmojiService.class).emoji("success")
+								events.forEach(gd.event().dispatcher()::dispatch);
+								return gd.bot().emoji().get("success")
 										.flatMap(success -> ctx.reply(success + ' '
 												+ ctx.translate("GDStrings", "dispatch_success_multi", events.size())))
 										.then(Mono.fromRunnable(interaction::closeMenu));
@@ -173,7 +175,7 @@ public class GDEventsCommand {
 				+ events.stream()
 						.skip(page * 10)
 						.limit(10)
-						.map(event -> Markdown.quote(GDLevels.toString(event.getAddedLevel())))
+						.map(event -> Markdown.quote(GDLevelService.toString(event.getAddedLevel())))
 						.collect(joining("\n"))
 				+ "\n\n" + tr.translate("GDStrings", "dispatch_confirm"));
 	}

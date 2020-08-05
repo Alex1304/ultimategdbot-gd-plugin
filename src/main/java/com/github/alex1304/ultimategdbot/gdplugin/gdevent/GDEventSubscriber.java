@@ -3,19 +3,18 @@ package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 import org.reactivestreams.Subscription;
 
 import com.github.alex1304.jdashevents.event.GDEvent;
-import com.github.alex1304.ultimategdbot.api.Bot;
 
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.scheduler.Scheduler;
 
-public class GDEventSubscriber extends BaseSubscriber<GDEvent> {
+public final class GDEventSubscriber extends BaseSubscriber<GDEvent> {
 	
 	private volatile Subscription subscription;
-	private final GDEventProcessor processor;
+	private final GDEventService gdEventService;
 	private final Scheduler scheduler;
 	
-	public GDEventSubscriber(Bot bot, Scheduler scheduler) {
-		this.processor = new GDEventProcessor(bot);
+	public GDEventSubscriber(GDEventService gdEventService, Scheduler scheduler) {
+		this.gdEventService = gdEventService;
 		this.scheduler = scheduler;
 	}
 
@@ -27,7 +26,7 @@ public class GDEventSubscriber extends BaseSubscriber<GDEvent> {
 
 	@Override
 	public void hookOnNext(GDEvent t) {
-		processor.process(t)
+		gdEventService.process(t)
 				.subscribeOn(scheduler)
 				.doFinally(__ -> subscription.request(1))
 				.subscribe();

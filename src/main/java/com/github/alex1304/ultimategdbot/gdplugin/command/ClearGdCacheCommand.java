@@ -5,6 +5,7 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 
 import reactor.core.publisher.Mono;
@@ -14,11 +15,14 @@ import reactor.core.publisher.Mono;
 		shortDescription = "tr:GDStrings/cleargdcache_desc"
 )
 @CommandPermission(level = PermissionLevel.BOT_ADMIN)
-public class ClearGdCacheCommand {
+public final class ClearGdCacheCommand {
 
+	@Root
+	private GDService gd;
+	
 	@CommandAction
 	public Mono<Void> run(Context ctx) {
-		return Mono.fromRunnable(ctx.bot().service(GDService.class).getGdClient()::clearCache)
+		return Mono.fromRunnable(gd.client()::clearCache)
 				.then(ctx.reply(ctx.translate("GDStrings", "cache_clear_success")))
 				.then();
 	}

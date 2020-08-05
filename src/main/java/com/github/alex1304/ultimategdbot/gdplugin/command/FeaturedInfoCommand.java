@@ -10,10 +10,11 @@ import com.github.alex1304.jdash.exception.MissingAccessException;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
+import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 
 import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
@@ -24,8 +25,11 @@ import reactor.util.function.Tuples;
 		aliases = "featuredinfo",
 		shortDescription = "tr:GDStrings/featuredinfo_desc"
 )
-public class FeaturedInfoCommand {
+public final class FeaturedInfoCommand {
 
+	@Root
+	private GDService gd;
+	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/featuredinfo_run")
 	public Mono<Void> run(Context ctx, GDLevel level) {
@@ -42,7 +46,7 @@ public class FeaturedInfoCommand {
 		final var result = new AtomicReference<Tuple2<Integer, Integer>>();
 		final var alreadyVisitedPages = new HashSet<Integer>();
 		return ctx.reply(ctx.translate("GDStrings", "searching"))
-				.flatMap(waitMessage -> Mono.defer(() -> ctx.bot().service(GDService.class).getGdClient().browseFeaturedLevels(currentPage.get())
+				.flatMap(waitMessage -> Mono.defer(() -> gd.client().browseFeaturedLevels(currentPage.get())
 						.flatMap(paginator -> {
 							alreadyVisitedPages.add(currentPage.get());
 							final var scoreOfFirst = paginator.asList().get(0).getFeaturedScore();
@@ -94,7 +98,7 @@ public class FeaturedInfoCommand {
 						.repeat(continueAlgo::get)
 						.then(Mono.defer(() -> result.get() == null
 								? Mono.error(new CommandFailedException(
-										ctx.translate("GDStrings", "error_not_found", GDLevels.toString(level))))
+										ctx.translate("GDStrings", "error_not_found", GDLevelService.toString(level))))
 								: sendResult(waitMessage, ctx, level, result.get().getT1(), result.get().getT2())))
 						.doOnTerminate(() -> waitMessage.delete().onErrorResume(e -> Mono.empty()).subscribe())
 						.then());
@@ -103,6 +107,6 @@ public class FeaturedInfoCommand {
 	private static Mono<Message> sendResult(Message waitMessage, Context ctx, GDLevel level, int page, int position) {
 		return waitMessage.delete()
 				.then(ctx.reply(ctx.author().getMention() + ", "
-						+ ctx.translate("GDStrings", "featuredinfo_success", GDLevels.toString(level), page + 1, position)));
+						+ ctx.translate("GDStrings", "featuredinfo_success", GDLevelService.toString(level), page + 1, position)));
 	}
 }

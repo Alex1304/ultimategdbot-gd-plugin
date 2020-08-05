@@ -21,8 +21,7 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
-import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
-import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.api.util.DiscordFormatter;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
@@ -34,7 +33,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmiss
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLevelRequestReviewData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLevelRequestSubmissionData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevelRequests;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Guild;
@@ -52,21 +50,24 @@ import reactor.util.annotation.Nullable;
 		shortDescription = "tr:GDStrings/lvlreq_desc",
 		scope = Scope.GUILD_ONLY
 )
-public class LevelRequestCommand {
+public final class LevelRequestCommand {
 
+	@Root
+	private GDService gd;
+	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/lvlreq_run")
 	public Mono<Void> run(Context ctx) {
 		var guildId = ctx.event().getGuildId().orElseThrow();
-		return Mono.zip(ctx.bot().service(EmojiService.class).emoji("success"), ctx.bot().service(EmojiService.class).emoji("failed"))
-				.flatMap(TupleUtils.function((success, failed) -> ctx.bot().service(DatabaseService.class)
+		return Mono.zip(gd.bot().emoji().get("success"), gd.bot().emoji().get("failed"))
+				.flatMap(TupleUtils.function((success, failed) -> gd.bot().database()
 						.withExtension(GDLevelRequestConfigDao.class, dao -> dao.getOrCreate(guildId.asLong()))
 						.flatMap(lvlReqCfg -> ctx.args().tokenCount() > 1
 								? Mono.error(new CommandFailedException(ctx.translate("GDStrings", 
 										"error_submit_missing", ctx.prefixUsed(), ctx.args().getAllAfter(1))))
 								: Mono.just(lvlReqCfg))
 						.zipWhen(lvlReqCfg -> Mono.justOrEmpty(lvlReqCfg.roleReviewerId())
-								.flatMap(roleId -> ctx.bot().gateway().getRoleById(guildId, roleId))
+								.flatMap(roleId -> gd.bot().gateway().getRoleById(guildId, roleId))
 								.map(DiscordFormatter::formatRole)
 								.defaultIfEmpty('*' + ctx.translate("GDStrings", "not_configured") + '*'))
 						.flatMap(TupleUtils.function((lvlReqCfg, reviewerRole) -> ctx.reply(
@@ -87,8 +88,8 @@ public class LevelRequestCommand {
 	@CommandDoc("tr:GDStrings/lvlreq_run_clean_orphan_submissions")
 	@CommandPermission(level = PermissionLevel.BOT_OWNER)
 	public Mono<Void> runCleanOrphanSubmissions(Context ctx) {
-		return GDLevelRequests.cleanOrphanSubmissions(ctx.bot())
-				.then(ctx.bot().service(EmojiService.class).emoji("success")
+		return gd.levelRequest().cleanOrphanSubmissions()
+				.then(gd.bot().emoji().get("success")
 						.flatMap(success -> ctx.reply(success + ' '
 								+ ctx.translate("GDStrings", "orphan_submissions_cleaned"))))
 				.then();
@@ -99,9 +100,9 @@ public class LevelRequestCommand {
 	@CommandPermission(name = "LEVEL_REQUEST_REVIEWER")
 	public Mono<Void> runReview(Context ctx, long submissionId, String reviewContent) {
 		final var guildId = ctx.event().getGuildId().orElseThrow();
-		return ctx.channel().typeUntil(GDLevelRequests.retrieveConfig(ctx)
+		return ctx.channel().typeUntil(gd.levelRequest().retrieveConfig(ctx)
 				.flatMap(lvlReqCfg -> doReview(ctx, submissionId, reviewContent, guildId.asLong(), lvlReqCfg, null, false)))
-				.then(ctx.bot().service(EmojiService.class).emoji("success")
+				.then(gd.bot().emoji().get("success")
 						.flatMap(emoji -> ctx.reply(emoji + ' ' + ctx.translate("GDStrings", "submission_updated"))))
 				.then();
 	}
@@ -115,7 +116,7 @@ public class LevelRequestCommand {
 		final var lvlReqCfg = new AtomicReference<GDLevelRequestConfigData>();
 		final var level = new AtomicReference<GDLevel>();
 		final var guildSubmissions = new AtomicReference<Flux<GDLevelRequestSubmissionData>>();
-		return ctx.channel().typeUntil(GDLevelRequests.retrieveConfig(ctx)
+		return ctx.channel().typeUntil(gd.levelRequest().retrieveConfig(ctx)
 				.doOnNext(lvlReqCfg::set)
 				.doOnNext(System.err::println)
 				.filter(lrs -> ctx.event().getMessage().getChannelId().equals(lrs.channelSubmissionQueueId().orElseThrow()))
@@ -123,12 +124,12 @@ public class LevelRequestCommand {
 						"<#" + lvlReqCfg.get().channelSubmissionQueueId().orElseThrow().asString() + ">"))))
 				.filter(GDLevelRequestConfigData::isOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_reqs_closed"))))
-				.doOnNext(__ -> guildSubmissions.set(GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId.asLong()).cache()))
+				.doOnNext(__ -> guildSubmissions.set(gd.levelRequest().retrieveSubmissionsForGuild(guildId.asLong()).cache()))
 				.filterWhen(lrs -> guildSubmissions.get().all(s -> s.levelId() != levelId))
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_already_in_queue"))))
 				.filterWhen(lrs -> guildSubmissions.get()
 						.filter(s -> !s.isReviewed() && s.submitterId().equals(user.getId()))
-						.filterWhen(s -> ctx.bot().rest()
+						.filterWhen(s -> gd.bot().gateway().rest()
 								.getMessageById(s.messageChannelId().orElseThrow(), s.messageId().orElseThrow())
 								.getData()
 								.hasElement()
@@ -137,7 +138,7 @@ public class LevelRequestCommand {
 						.map(n -> n < lrs.maxQueuedSubmissionsPerUser()))
 				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("cmdtext_gd_lvlreq",
 						"error_max_submissions_reached", lvlReqCfg.get().maxQueuedSubmissionsPerUser()))))
-				.then(ctx.bot().service(GDService.class).getGdClient()
+				.then(gd.client()
 						.getLevelById(levelId)
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(
 								ctx.translate("GDStrings", "error_level_not_found")))
@@ -151,24 +152,24 @@ public class LevelRequestCommand {
 								.youtubeLink(Optional.ofNullable(youtubeLink))
 								.isReviewed(false)
 								.build())
-						.flatMap(s -> ctx.bot().service(DatabaseService.class)
+						.flatMap(s -> gd.bot().database()
 								.withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.insert(s))
 								.map(id -> ImmutableGDLevelRequestSubmissionData.builder()
 										.from(s)
 										.submissionId(id)
 										.build()))
-						.flatMap(s -> GDLevelRequests.buildSubmissionMessage(ctx, ctx.bot(), user, level.get(), lvlReqCfg.get(), s, List.of())
+						.flatMap(s -> gd.levelRequest().buildSubmissionMessage(ctx, user, level.get(), lvlReqCfg.get(), s, List.of())
 								.map(MessageSpecTemplate::toMessageCreateSpec)
 								.flatMap(ctx::reply)
-								.flatMap(message -> ctx.bot().service(DatabaseService.class)
+								.flatMap(message -> gd.bot().database()
 										.useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.setMessageAndChannel(
 												s.submissionId(), 
 												message.getChannelId().asLong(), 
 												message.getId().asLong())))
 								.doOnError(Throwable::printStackTrace)
-								.onErrorResume(e -> ctx.bot().service(DatabaseService.class)
+								.onErrorResume(e -> gd.bot().database()
 										.useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.delete(s.submissionId()))))))
-				.then(ctx.bot().service(EmojiService.class).emoji("success")
+				.then(gd.bot().emoji().get("success")
 						.flatMap(emoji -> ctx.reply(emoji + ' ' + ctx.translate("GDStrings", "submit_success"))))
 				.then();
 	}
@@ -178,9 +179,9 @@ public class LevelRequestCommand {
 	@CommandPermission(level = PermissionLevel.GUILD_ADMIN)
 	public Mono<Void> runToggle(Context ctx) {
 		var isOpening = new AtomicBoolean();
-		return GDLevelRequests.retrieveConfig(ctx)
+		return gd.levelRequest().retrieveConfig(ctx)
 				.doOnNext(lvlReqCfg -> isOpening.set(!lvlReqCfg.isOpen()))
-				.flatMap(lvlReqCfg -> ctx.bot().service(DatabaseService.class)
+				.flatMap(lvlReqCfg -> gd.bot().database()
 						.useExtension(GDLevelRequestConfigDao.class, dao -> dao.toggleOpenState(lvlReqCfg.guildId().asLong(), isOpening.get())))
 				.then(Mono.defer(() -> ctx.reply(ctx.translate("GDStrings", isOpening.get() ? "toggle_opened" : "toggle_closed"))))
 				.then();
@@ -191,26 +192,26 @@ public class LevelRequestCommand {
 	@CommandPermission(name = "LEVEL_REQUEST_REVIEWER")
 	public Mono<Void> runPurgeInvalidSubmissions(Context ctx) {
 		var guildId = ctx.event().getGuildId().orElseThrow();
-		return GDLevelRequests.retrieveConfig(ctx)
-				.flatMap(lvlReqCfg -> GDLevelRequests.retrieveSubmissionsForGuild(ctx.bot(), guildId.asLong())
-						.flatMap(submission -> ctx.bot().service(GDService.class).getGdClient().getLevelById(submission.levelId())
+		return gd.levelRequest().retrieveConfig(ctx)
+				.flatMap(lvlReqCfg -> gd.levelRequest().retrieveSubmissionsForGuild(guildId.asLong())
+						.flatMap(submission -> gd.client().getLevelById(submission.levelId())
 								.filter(level -> level.getStars() > 0)
 								.flatMap(level -> doReview(ctx, submission.submissionId(), ctx.translate("GDStrings", "rated_after_submission"),
 										guildId.asLong(), lvlReqCfg, submission, true).thenReturn(1))
-								.onErrorResume(MissingAccessException.class, e -> ctx.bot().rest()
+								.onErrorResume(MissingAccessException.class, e -> gd.bot().gateway().rest()
 										.getMessageById(submission.messageChannelId().orElseThrow(), submission.messageId().orElseThrow())
 										.delete(null)
 										.onErrorResume(e0 -> Mono.empty())
 										.thenReturn(1)))
 						.reduce(Integer::sum)
-						.flatMap(count -> ctx.bot().service(EmojiService.class).emoji("success")
+						.flatMap(count -> gd.bot().emoji().get("success")
 								.flatMap(emoji -> ctx.reply(emoji + ' ' + ctx.translate("GDStrings", "purge_success"))))
-						.switchIfEmpty(ctx.bot().service(EmojiService.class).emoji("cross").flatMap(emoji -> ctx.reply(emoji + ' '
+						.switchIfEmpty(gd.bot().emoji().get("cross").flatMap(emoji -> ctx.reply(emoji + ' '
 								+ ctx.translate("GDStrings", "nothing_to_purge")))))
 				.then();
 	}
 	
-	private static Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
+	private Mono<Void> doReview(Context ctx, long submissionId, String reviewContent, long guildId, 
 			GDLevelRequestConfigData lvlReqCfg, @Nullable GDLevelRequestSubmissionData submissionObj, boolean forceMove) {
 		final var userId = ctx.author().getId();
 		final var submission = new AtomicReference<GDLevelRequestSubmissionData>(submissionObj);
@@ -223,7 +224,7 @@ public class LevelRequestCommand {
 			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_review_overflow")));
 		}
 		return Mono.justOrEmpty(submissionObj)
-				.switchIfEmpty(ctx.bot().service(DatabaseService.class).withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.get(submissionId))
+				.switchIfEmpty(gd.bot().database().withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.get(submissionId))
 						.<GDLevelRequestSubmissionData>flatMap(Mono::justOrEmpty)
 						.doOnNext(submission::set)
 						.filter(s -> s.guildId().asLong() == guildId)
@@ -231,10 +232,10 @@ public class LevelRequestCommand {
 						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_submission_already_moved"))))
 						.filter(s -> !s.submitterId().equals(userId))
 						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_review_own_submission")))))
-				.filterWhen(s -> Mono.just(ctx.bot().rest()
+				.filterWhen(s -> Mono.just(gd.bot().gateway().rest()
 						.getMessageById(s.messageChannelId().orElseThrow(), s.messageId().orElseThrow()))
 						.doOnNext(submissionMsg::set)
-						.flatMap(__ -> ctx.bot().gateway()
+						.flatMap(__ -> gd.bot().gateway()
 								.withRetrievalStrategy(STORE_FALLBACK_REST)
 								.getUserById(s.submitterId())
 								.doOnNext(submitter::set))
@@ -245,7 +246,7 @@ public class LevelRequestCommand {
 				.thenMany(Flux.defer(() -> Flux.fromIterable(submission.get().reviews())))
 				.filter(r -> r.reviewerId().equals(userId))
 				.next()
-				.flatMap(r -> isRevoke ? ctx.bot().service(DatabaseService.class)
+				.flatMap(r -> isRevoke ? gd.bot().database()
 						.useExtension(GDLevelRequestReviewDao.class, dao -> dao.delete(r.reviewId()))
 						.then(Mono.empty()) : Mono.just(r))
 				.map(r -> ImmutableGDLevelRequestReviewData.builder()
@@ -263,24 +264,24 @@ public class LevelRequestCommand {
 								.filter(rv -> rv.reviewId() != r.reviewId()), Stream.of(r))
 								.collect(toUnmodifiableList()))
 						.build()))
-				.flatMap(r -> ctx.bot().service(DatabaseService.class).useExtension(GDLevelRequestReviewDao.class, dao -> dao.insert(r)))
-				.then(Mono.defer(() -> ctx.bot().service(GDService.class).getGdClient().getLevelById(submission.get().levelId())
+				.flatMap(r -> gd.bot().database().useExtension(GDLevelRequestReviewDao.class, dao -> dao.insert(r)))
+				.then(Mono.defer(() -> gd.client().getLevelById(submission.get().levelId())
 						.doOnNext(level::set)
 						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(ctx.translate("GDStrings", "error_level_deleted")))))
 				.thenMany(Flux.defer(() -> Flux.fromIterable(submission.get().reviews())))
 				.collectList()
 				.flatMap(reviewList -> {
-					var updatedMessage = GDLevelRequests.buildSubmissionMessage(ctx, ctx.bot(), submitter.get(),
+					var updatedMessage = gd.levelRequest().buildSubmissionMessage(ctx, submitter.get(),
 							level.get(), lvlReqCfg, submission.get(), reviewList).cache();
 					if (forceMove || reviewList.size() >= lvlReqCfg.minReviewsRequired()) {
 						return submissionMsg.get().delete(null)
 								.then(updatedMessage)
 								.map(MessageSpecTemplate::toMessageCreateSpec)
-								.flatMap(spec -> ctx.bot().gateway()
+								.flatMap(spec -> gd.bot().gateway()
 										.getChannelById(lvlReqCfg.channelArchivedSubmissionsId().orElseThrow())
 										.ofType(TextChannel.class)
 										.flatMap(channel -> channel.createMessage(spec))
-										.flatMap(message -> ctx.bot().service(DatabaseService.class)
+										.flatMap(message -> gd.bot().database()
 												.useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.archive(
 														submission.get().submissionId(),
 														message.getChannelId().asLong(),

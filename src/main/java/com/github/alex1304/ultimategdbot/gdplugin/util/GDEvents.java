@@ -7,7 +7,7 @@ import discord4j.core.spec.MessageEditSpec;
 import discord4j.discordjson.json.MessageEditRequest;
 import discord4j.rest.util.MultipartRequest;
 
-public class GDEvents {
+public final class GDEvents {
 	
 	private GDEvents() {
 	}

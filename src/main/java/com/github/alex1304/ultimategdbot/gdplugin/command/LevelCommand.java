@@ -4,10 +4,10 @@ import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
-import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
+import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDLevels;
 
 import reactor.core.publisher.Mono;
 
@@ -15,7 +15,10 @@ import reactor.core.publisher.Mono;
 		aliases = "level",
 		shortDescription = "tr:GDStrings/level_desc"
 )
-public class LevelCommand {
+public final class LevelCommand {
+
+	@Root
+	private GDService gd;
 	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/level_run")
@@ -23,7 +26,7 @@ public class LevelCommand {
 		if (!query.matches("[a-zA-Z0-9 _-]+")) {
 			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_invalid_characters")));
 		}
-		return GDLevels.searchAndSend(ctx, ctx.translate("GDStrings", "search_results", query),
-				() -> ctx.bot().service(GDService.class).getGdClient().searchLevels(query, LevelSearchFilters.create(), 0));
+		return gd.level().searchAndSend(ctx, ctx.translate("GDStrings", "search_results", query),
+				() -> gd.client().searchLevels(query, LevelSearchFilters.create(), 0));
 	}
 }

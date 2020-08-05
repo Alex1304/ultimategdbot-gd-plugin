@@ -31,11 +31,9 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission;
-import com.github.alex1304.ultimategdbot.api.command.menu.InteractiveMenuService;
 import com.github.alex1304.ultimategdbot.api.command.menu.PageNumberOutOfRangeException;
 import com.github.alex1304.ultimategdbot.api.command.menu.UnexpectedReplyException;
-import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
-import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
@@ -48,7 +46,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLeaderboardBanData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter;
-import com.github.alex1304.ultimategdbot.gdplugin.util.GDUsers;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Guild;
@@ -67,26 +64,29 @@ import reactor.util.annotation.Nullable;
 		shortDescription = "tr:GDStrings/leaderboard_desc",
 		scope = Scope.GUILD_ONLY
 )
-public class LeaderboardCommand {
+public final class LeaderboardCommand {
 
 	private static final Logger LOGGER = Loggers.getLogger(LeaderboardCommand.class);
 	private static final int ENTRIES_PER_PAGE = 20;
 	
 	private volatile boolean isLocked;
 
+	@Root
+	private GDService gd;
+	
 	@CommandAction
 	@CommandDoc("tr:GDStrings/leaderboard_run")
 	public Mono<Void> run(Context ctx, @Nullable String statName) {
 		if (isLocked) {
 			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_lb_locked")));
 		}
-		var emojiService = ctx.bot().service(EmojiService.class);
-		var starEmoji = emojiService.emoji("star");
-		var diamondEmoji = emojiService.emoji("diamond");
-		var userCoinEmoji = emojiService.emoji("user_coin");
-		var secretCoinEmoji = emojiService.emoji("secret_coin");
-		var demonEmoji = emojiService.emoji("demon");
-		var cpEmoji = emojiService.emoji("creator_points");
+		var emojiService = gd.bot().emoji();
+		var starEmoji = emojiService.get("star");
+		var diamondEmoji = emojiService.get("diamond");
+		var userCoinEmoji = emojiService.get("user_coin");
+		var secretCoinEmoji = emojiService.get("secret_coin");
+		var demonEmoji = emojiService.get("demon");
+		var cpEmoji = emojiService.get("creator_points");
 		if (statName == null) {
 			return Mono.zip(starEmoji, diamondEmoji, userCoinEmoji, secretCoinEmoji, demonEmoji, cpEmoji)
 					.flatMap(tuple -> ctx.reply("**" + ctx.translate("GDStrings", "lb_intro") + "**\n"
@@ -143,14 +143,14 @@ public class LeaderboardCommand {
 				.flatMap(guild -> guild.getMembers()
 						.collect(toMap(m -> m.getId().asLong(), User::getTag, (a, b) -> a))
 						.filter(not(Map::isEmpty))
-						.flatMap(members -> ctx.bot().service(DatabaseService.class)
+						.flatMap(members -> gd.bot().database()
 								.withExtension(GDLinkedUserDao.class, dao -> dao.getAllIn(List.copyOf(members.keySet())))
 								.filter(not(List::isEmpty))
 								.flatMap(linkedUsers -> Mono.zip(
 												emojiMono.doOnNext(emojiRef::set),
-												ctx.bot().service(DatabaseService.class)
+												gd.bot().database()
 														.withExtension(GDLeaderboardDao.class, dao -> dao.getAllIn(gdAccIds(linkedUsers))),
-												ctx.bot().service(DatabaseService.class)
+												gd.bot().database()
 														.withExtension(GDLeaderboardBanDao.class, dao -> dao.getAllIn(gdAccIds(linkedUsers)))
 														.flatMapMany(Flux::fromIterable)
 														.map(GDLeaderboardBanData::accountId)
@@ -178,12 +178,12 @@ public class LeaderboardCommand {
 								return new MessageSpecTemplate(leaderboardView(ctx, ctx.prefixUsed(), guild, list, page,
 										lastRefreshed.get(), highlighted.get(), emojiRef.get()));
 							};
-							return ctx.bot().service(InteractiveMenuService.class).createPaginated(paginator)
+							return gd.bot().interactiveMenu().createPaginated(paginator)
 									.addMessageItem("finduser", interaction -> Mono.just(interaction.getArgs().getAllAfter(1))
 											.filter(userName -> !userName.isEmpty())
 											.switchIfEmpty(Mono.error(new UnexpectedReplyException(
 													ctx.translate("GDStrings", "error_username_not_specified"))))
-											.flatMap(userName -> GDUsers.stringToUser(ctx, ctx.bot(), userName))
+											.flatMap(userName -> gd.user().stringToUser(ctx, userName))
 											.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException(
 													ctx.translate("GDStrings", "error_user_fetch")))
 											.flatMap(gdUser -> {
@@ -214,7 +214,7 @@ public class LeaderboardCommand {
 		isLocked = true;
 		LOGGER.debug("Locked leaderboards");
 		var now = Instant.now();
-		return ctx.bot().service(DatabaseService.class)
+		return gd.bot().database()
 				.withExtension(GDLeaderboardDao.class, GDLeaderboardDao::getLastRefreshed)
 				.flatMap(Mono::justOrEmpty)
 				.map(Timestamp::toInstant)
@@ -225,14 +225,13 @@ public class LeaderboardCommand {
 								ctx.translate("GDStrings", "error_already_refreshed",
 										DurationUtils.format(cooldown.withNanos(0)))))
 						: Mono.empty())
-				.then(ctx.bot().service(DatabaseService.class).withExtension(GDLinkedUserDao.class, GDLinkedUserDao::getAll))
+				.then(gd.bot().database().withExtension(GDLinkedUserDao.class, GDLinkedUserDao::getAll))
 				.flatMapMany(Flux::fromIterable)
 				.distinct(GDLinkedUserData::gdUserId)
 				.collectList()
-				.flatMap(list -> ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + ' '
-								+ ctx.bot()
-										.translate("GDStrings", "refresh_log", ctx.author().getTag())))
+				.flatMap(list -> gd.bot().emoji().get("info")
+						.flatMap(info -> gd.bot().logging().log(info + ' '
+								+ gd.bot().localization().translate("GDStrings", "refresh_log", ctx.author().getTag())))
 						.then(ctx.reply(ctx.translate("GDStrings", "refreshing")))
 						.flatMapMany(message -> {
 							var processor = EmitterProcessor.<Long>create();
@@ -248,9 +247,9 @@ public class LeaderboardCommand {
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
 									.subscribe();
 							return Flux.fromIterable(list)
-									.flatMap(linkedUser -> ctx.bot().service(GDService.class).getGdClient().getUserByAccountId(linkedUser.gdUserId())
+									.flatMap(linkedUser -> gd.client().getUserByAccountId(linkedUser.gdUserId())
 											.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Failed to refresh user "
-													+ linkedUser.gdUserId(), e))), ctx.bot().service(GDService.class).getLeaderboardRefreshParallelism())
+													+ linkedUser.gdUserId(), e))), gd.getLeaderboardRefreshParallelism())
 									.index()
 									.map(function((i, gdUser) -> {
 										sink.next(i);
@@ -271,10 +270,10 @@ public class LeaderboardCommand {
 						.collectList())
 				.flatMap(stats -> ctx.reply(ctx.translate("GDStrings", "saving_to_db"))
 						.onErrorResume(e -> Mono.empty())
-						.flatMap(message -> ctx.bot().service(DatabaseService.class)
+						.flatMap(message -> gd.bot().database()
 								.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats))
 								.then(message.delete())
-								.then(ctx.bot().service(EmojiService.class).emoji("success")
+								.then(gd.bot().emoji().get("success")
 										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("GDStrings", "refresh_success")))
 										.then())))
 				.doFinally(signal -> {
@@ -287,18 +286,18 @@ public class LeaderboardCommand {
 	@CommandDoc("tr:GDStrings/leaderboard_run_ban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runBan(Context ctx, GDUser gdUser) {
-		return ctx.bot().service(DatabaseService.class)
+		return gd.bot().database()
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
 				.flatMap(__ -> Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_user_already_banned"))))
-				.then(ctx.bot().service(DatabaseService.class)
+				.then(gd.bot().database()
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.insert(ImmutableGDLeaderboardBanData.builder()
 								.accountId(gdUser.getAccountId())
 								.bannedBy(ctx.author().getId())
 								.build())))
 				.then(ctx.reply(ctx.translate("GDStrings", "ban_success", gdUser.getName())))
-				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
+				.and(gd.bot().emoji().get("info")
+						.flatMap(info -> gd.bot().logging().log(info + ' ' + gd.bot().localization()
 								.translate("GDStrings", "ban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 	
@@ -306,15 +305,15 @@ public class LeaderboardCommand {
 	@CommandDoc("tr:GDStrings/leaderboard_run_unban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
 	public Mono<Void> runUnban(Context ctx, GDUser gdUser) {
-		return ctx.bot().service(DatabaseService.class)
+		return gd.bot().database()
 				.withExtension(GDLeaderboardBanDao.class, dao -> dao.get(gdUser.getAccountId()))
 				.flatMap(Mono::justOrEmpty)
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_user_already_unbanned"))))
-				.flatMap(banData -> ctx.bot().service(DatabaseService.class)
+				.flatMap(banData -> gd.bot().database()
 						.useExtension(GDLeaderboardBanDao.class, dao -> dao.delete(banData.accountId())))
 				.then(ctx.reply(ctx.translate("GDStrings", "unban_success", gdUser.getName())))
-				.and(ctx.bot().service(EmojiService.class).emoji("info")
-						.flatMap(info -> ctx.bot().log(info + ' ' + ctx.bot()
+				.and(gd.bot().emoji().get("info")
+						.flatMap(info -> gd.bot().logging().log(info + ' ' + gd.bot().localization()
 								.translate("GDStrings", "unban_log", gdUser.getName(), ctx.author().getTag()))));
 	}
 

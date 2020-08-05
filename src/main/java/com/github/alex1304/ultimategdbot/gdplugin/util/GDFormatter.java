@@ -3,7 +3,7 @@ package com.github.alex1304.ultimategdbot.gdplugin.util;
 import com.github.alex1304.jdash.entity.PrivacySetting;
 import com.github.alex1304.ultimategdbot.api.Translator;
 
-public class GDFormatter {
+public final class GDFormatter {
 
 	private GDFormatter() {
 	}

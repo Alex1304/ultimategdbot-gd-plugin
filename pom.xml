@@ -116,7 +116,7 @@
 		            <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
 		            <injectAllReactorProjects>true</injectAllReactorProjects>
 		            <generateGitPropertiesFile>true</generateGitPropertiesFile>
-		            <generateGitPropertiesFilename>${project.build.outputDirectory}/META-INF/git/geometry_dash.git.properties</generateGitPropertiesFilename>
+		            <generateGitPropertiesFilename>${project.build.outputDirectory}/META-INF/git/gd.git.properties</generateGitPropertiesFilename>
 		        </configuration>
 		    </plugin>
 			<plugin>

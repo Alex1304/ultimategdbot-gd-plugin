@@ -14,7 +14,7 @@ import discord4j.core.object.entity.Message;
 import reactor.core.publisher.Mono;
 import reactor.function.Function3;
 
-public class GDEventProperties<E extends GDEvent> {
+public final class GDEventProperties<E extends GDEvent> {
 	
 	private final BiFunction<Translator, E, String> logText;
 	private final String databaseField;
@@ -24,13 +24,13 @@ public class GDEventProperties<E extends GDEvent> {
 	private final Function<E, Mono<Long>> recipientAccountId;
 	private final Function3<E, GDEventConfigData, Message, Mono<MessageSpecTemplate>> messageTemplateFactory;
 	private final Function<E, String> congratMessage;
-	private final GDEventBroadcastStrategy broadcastStrategy;
+	private final boolean isUpdate;
 
 	GDEventProperties(BiFunction<Translator, E, String> logText, String databaseField, Function<GDEventConfigData, Optional<Snowflake>> channelId,
 			Function<GDEventConfigData, Optional<Snowflake>> roleId, Function<E, Optional<Long>> levelIdGetter,
 			Function<E, Mono<Long>> recipientAccountId,
 			Function3<E, GDEventConfigData, Message, Mono<MessageSpecTemplate>> messageTemplateFactory,
-			Function<E, String> congratMessage, GDEventBroadcastStrategy broadcastStrategy) {
+			Function<E, String> congratMessage, boolean isUpdate) {
 		this.logText = logText;
 		this.databaseField = databaseField;
 		this.channelId = channelId;
@@ -39,7 +39,7 @@ public class GDEventProperties<E extends GDEvent> {
 		this.recipientAccountId = recipientAccountId;
 		this.messageTemplateFactory = messageTemplateFactory;
 		this.congratMessage = congratMessage;
-		this.broadcastStrategy = broadcastStrategy;
+		this.isUpdate = isUpdate;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -79,7 +79,7 @@ public class GDEventProperties<E extends GDEvent> {
 		return roleId.apply(gsg).orElseThrow();
 	}
 
-	public GDEventBroadcastStrategy broadcastStrategy() {
-		return broadcastStrategy;
+	public boolean isUpdate() {
+		return isUpdate;
 	}
 }

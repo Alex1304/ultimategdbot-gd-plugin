@@ -1,26 +1,27 @@
-package com.github.alex1304.ultimategdbot.gdplugin.util;
+package com.github.alex1304.ultimategdbot.gdplugin.levelrequest;
 
 import static discord4j.core.retriever.EntityRetrievalStrategy.STORE_FALLBACK_REST;
+import static java.util.Collections.synchronizedSet;
+import static reactor.function.TupleUtils.function;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 import com.github.alex1304.jdash.entity.GDLevel;
-import com.github.alex1304.ultimategdbot.api.Bot;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.database.DatabaseService;
-import com.github.alex1304.ultimategdbot.api.emoji.EmojiService;
+import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
-import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
+import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.message.MessageCreateEvent;
@@ -30,28 +31,38 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.function.TupleUtils;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 import reactor.util.retry.Retry;
 
-public class GDLevelRequests {
+public final class GDLevelRequestService {
 	
-	private static final Logger LOGGER = Loggers.getLogger(GDLevelRequests.class);
+	private static final Logger LOGGER = Loggers.getLogger(GDLevelRequestService.class);
 	
-	private GDLevelRequests() {}
+	private final BotService bot;
+	private final GDLevelService gdLevelService;
 	
+	private final Set<Long> cachedSubmissionChannelIds = synchronizedSet(new HashSet<Long>());
+	
+	public GDLevelRequestService(
+			BotService bot,
+			GDLevelService gdLevelService) {
+		this.bot = bot;
+		this.gdLevelService = gdLevelService;
+		listenAndCleanSubmissionQueueChannels();
+	}
+
 	/**
-	 * Retrieves the level requests config for the guild of the specified context. This
-	 * method checks and throws errors if level requests are not configured.
+	 * Retrieves the level requests config for the guild of the specified context.
+	 * This method checks and throws errors if level requests are not configured.
 	 * 
 	 * @param ctx the context
 	 * @return the level requests config, or an error if not configured
 	 */
-	public static Mono<GDLevelRequestConfigData> retrieveConfig(Context ctx) {
+	public Mono<GDLevelRequestConfigData> retrieveConfig(Context ctx) {
 		Objects.requireNonNull(ctx, "ctx was null");
 		var guildId = ctx.event().getGuildId().orElseThrow();
-		return ctx.bot().service(DatabaseService.class)
+		return bot.database()
 				.withExtension(GDLevelRequestConfigDao.class, dao -> dao.getOrCreate(guildId.asLong()))
 				.flatMap(lvlReqCfg -> !lvlReqCfg.isOpen()
 						&& (lvlReqCfg.channelSubmissionQueueId().isEmpty()
@@ -64,11 +75,11 @@ public class GDLevelRequests {
 	/**
 	 * Retrieves all submissions for the user in the guild of the specified context.
 	 * 
-	 * @param ctx the context
+	 * @param guildId the ID of the guild
 	 * @return a Flux emitting all submissions before completing.
 	 */
-	public static Flux<GDLevelRequestSubmissionData> retrieveSubmissionsForGuild(Bot bot, long guildId) {
-		return bot.service(DatabaseService.class)
+	public Flux<GDLevelRequestSubmissionData> retrieveSubmissionsForGuild(long guildId) {
+		return bot.database()
 				.withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.getQueuedSubmissionsInGuild(guildId))
 				.flatMapMany(Flux::fromIterable);
 	}
@@ -76,7 +87,7 @@ public class GDLevelRequests {
 	/**
 	 * Builds the submission message from the given data.
 	 * 
-	 * @param bot            the bot instance
+	 * @param tr             the translator to translate the strings
 	 * @param author         the submission author
 	 * @param level          the level
 	 * @param lvlReqSettings the settings for level requests in the current server
@@ -84,14 +95,16 @@ public class GDLevelRequests {
 	 * @param reviews        the list of reviews
 	 * @return a Mono emitting the submission message
 	 */
-	public static Mono<MessageSpecTemplate> buildSubmissionMessage(Translator tr, Bot bot, User author, GDLevel level,
+	public Mono<MessageSpecTemplate> buildSubmissionMessage(Translator tr, User author, GDLevel level,
 			GDLevelRequestConfigData lvlReqSettings, GDLevelRequestSubmissionData submission, List<GDLevelRequestReviewData> reviews) {
-		Objects.requireNonNull(bot, "bot was null");
+		Objects.requireNonNull(tr, "tr was null");
 		Objects.requireNonNull(author, "author was null");
 		Objects.requireNonNull(level, "level was null");
+		Objects.requireNonNull(lvlReqSettings, "lvlReqSettings was null");
+		Objects.requireNonNull(submission, "submission was null");
 		Objects.requireNonNull(reviews, "reviews was null");
 		final var formatUser = author.getTag() + " (`" + author.getId().asLong() + "`)";
-		return Mono.zip(GDLevels.compactView(tr, bot, level, tr.translate("GDStrings", "submission_title"), "https://i.imgur.com/yC9P4sT.png"),
+		return Mono.zip(gdLevelService.compactView(tr, level, tr.translate("GDStrings", "submission_title"), "https://i.imgur.com/yC9P4sT.png"),
 				Flux.fromIterable(reviews)
 						.map(GDLevelRequestReviewData::reviewerId)
 						.flatMap(id -> bot.gateway()
@@ -99,7 +112,7 @@ public class GDLevelRequests {
 								.getUserById(id)
 								.onErrorResume(e -> Mono.empty()))
 						.collectList())
-				.map(TupleUtils.function((embedSpecConsumer, reviewers) -> {
+				.map(function((embedSpecConsumer, reviewers) -> {
 					var content = "**" + tr.translate("GDStrings", "label_submission_id") + "** `" + submission.submissionId() + "`\n"
 							+ "**" + tr.translate("GDStrings", "label_submission_author") + "** " + formatUser + "\n"
 							+ "**" + tr.translate("GDStrings", "label_submission_level_id") + "** `" + level.getId() + "`\n"
@@ -131,11 +144,11 @@ public class GDLevelRequests {
 	 * @param bot the bot
 	 * @return a Mono completing when the process is done.
 	 */
-	public static Mono<Void> cleanOrphanSubmissions(Bot bot) {
-		return bot.service(DatabaseService.class)
+	public Mono<Void> cleanOrphanSubmissions() {
+		return bot.database()
 				.withExtension(GDLevelRequestSubmissionDao.class, GDLevelRequestSubmissionDao::getAllQueuedSubmissions)
 				.flatMapMany(Flux::fromIterable)
-				.filterWhen(submission -> bot.rest()
+				.filterWhen(submission -> bot.gateway().rest()
 						.getMessageById(submission.messageChannelId().orElseThrow(), submission.messageId().orElseThrow())
 						.getData()
 						.hasElement()
@@ -143,11 +156,11 @@ public class GDLevelRequests {
 						.map(b -> !b))
 				.map(GDLevelRequestSubmissionData::submissionId)
 				.collectList()
-				.flatMap(submissionsToDelete -> submissionsToDelete.isEmpty() ? Mono.just(0) : bot.service(DatabaseService.class)
+				.flatMap(submissionsToDelete -> submissionsToDelete.isEmpty() ? Mono.just(0) : bot.database()
 						.withExtension(GDLevelRequestSubmissionDao.class, dao -> dao.deleteAllIn(submissionsToDelete)))
 				.doOnNext(count -> LOGGER.debug("Cleaned from database {} orphan level request submissions", count))
-				.flatMap(count -> bot.service(EmojiService.class).emoji("info")
-						.flatMap(info -> bot.log(info + ' ' + bot
+				.flatMap(count -> bot.emoji().get("info")
+						.flatMap(info -> bot.logging().log(info + ' ' + bot.localization()
 								.translate("GDStrings", "orphan_submissions_log", count))))
 				.then();
 	}
@@ -155,12 +168,9 @@ public class GDLevelRequests {
 	/**
 	 * Keep submission queue channels for level requests clean from messages that
 	 * aren't submissions.
-	 * 
-	 * @param bot the bot
 	 */
-	public static void listenAndCleanSubmissionQueueChannels(Bot bot) {
-		var cachedSubmissionChannelIds = bot.service(GDService.class).getCachedSubmissionChannelIds();
-		bot.service(DatabaseService.class).withExtension(GDLevelRequestConfigDao.class, GDLevelRequestConfigDao::getAll)
+	public void listenAndCleanSubmissionQueueChannels() {
+		bot.database().withExtension(GDLevelRequestConfigDao.class, GDLevelRequestConfigDao::getAll)
 				.flatMapMany(Flux::fromIterable)
 				.map(GDLevelRequestConfigData::channelSubmissionQueueId)
 				.flatMap(Mono::justOrEmpty)
@@ -185,15 +195,14 @@ public class GDLevelRequests {
 				.filter(event -> cachedSubmissionChannelIds.contains(event.getChannelId().asLong()))
 				.map(event -> event.getMessage().map(Message::getId).map(Snowflake::asLong).orElse(0L))
 				.filter(id -> id > 0)
-				.flatMap(id -> bot.service(DatabaseService.class).useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.deleteByMessageId(id)))
+				.flatMap(id -> bot.database().useExtension(GDLevelRequestSubmissionDao.class, dao -> dao.deleteByMessageId(id)))
 				.retryWhen(Retry.indefinitely()
 						.doBeforeRetry(retry -> LOGGER.error("Error while processing MessageDeleteEvent in submission queue channels", retry.failure())))
 				.subscribe();
 		
 		Flux.interval(Duration.ofHours(12), Duration.ofDays(1))
-				.flatMap(tick -> cleanOrphanSubmissions(bot)
+				.flatMap(tick -> cleanOrphanSubmissions()
 						.onErrorResume(e -> Mono.fromRunnable(() -> LOGGER.warn("Error while cleaning orphan level request submissions", e))))
 				.subscribe();
-		
 	}
 }
