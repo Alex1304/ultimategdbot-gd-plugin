@@ -28,7 +28,6 @@ import com.github.alex1304.jdashevents.scanner.GDEventScanner;
 import com.github.alex1304.jdashevents.scanner.WeeklyDemonScanner;
 import com.github.alex1304.ultimategdbot.api.BotConfig;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
-import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelDao;
