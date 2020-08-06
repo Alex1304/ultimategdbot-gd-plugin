@@ -7,13 +7,13 @@ import com.github.alex1304.jdashevents.event.GDEvent;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.scheduler.Scheduler;
 
-public final class GDEventSubscriber extends BaseSubscriber<GDEvent> {
+class GDEventSubscriber extends BaseSubscriber<GDEvent> {
 	
 	private volatile Subscription subscription;
 	private final GDEventService gdEventService;
 	private final Scheduler scheduler;
 	
-	public GDEventSubscriber(GDEventService gdEventService, Scheduler scheduler) {
+	GDEventSubscriber(GDEventService gdEventService, Scheduler scheduler) {
 		this.gdEventService = gdEventService;
 		this.scheduler = scheduler;
 	}

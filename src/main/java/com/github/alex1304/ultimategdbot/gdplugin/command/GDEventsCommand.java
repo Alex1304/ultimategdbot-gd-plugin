@@ -171,7 +171,7 @@ public final class GDEventsCommand {
 	private static MessageSpecTemplate paginateEvents(Translator tr, int page, int lastPage, List<AwardedLevelAddedEvent> events) {
 		PageNumberOutOfRangeException.check(page, 0, lastPage);
 		return new MessageSpecTemplate(tr.translate("GDStrings", "dispatch_list") + "\n\n"
-				+ tr.translate("CommonStrings", "pagination_page_count", page + 1, lastPage + 1) + '\n'
+				+ tr.translate("CommonStrings", "pagination_page_counter", page + 1, lastPage + 1) + '\n'
 				+ events.stream()
 						.skip(page * 10)
 						.limit(10)

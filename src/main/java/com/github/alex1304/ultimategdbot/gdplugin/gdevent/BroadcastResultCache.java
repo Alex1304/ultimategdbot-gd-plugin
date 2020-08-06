@@ -11,18 +11,18 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 
 import discord4j.core.object.entity.Message;
 
-public final class BroadcastResultCache {
+class BroadcastResultCache {
 	
 	private Cache<Long, List<Message>> results = Caffeine.newBuilder()
 			.maximumSize(50)
 			.build();
 	
-	public void put(long levelId, List<Message> messages) {
+	void put(long levelId, List<Message> messages) {
 		requireNonNull(messages);
 		results.put(levelId, messages);
 	}
 	
-	public Optional<List<Message>> get(long levelId) {
+	Optional<List<Message>> get(long levelId) {
 		return Optional.ofNullable(results.getIfPresent(levelId))
 				.map(Collections::unmodifiableList);
 	}

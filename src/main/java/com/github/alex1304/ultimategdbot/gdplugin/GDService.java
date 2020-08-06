@@ -29,8 +29,6 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.Pa
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.service.RootServiceSetupHelper;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigDao;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDEventConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
@@ -78,7 +76,6 @@ public final class GDService {
 		bot.database().configureJdbi(jdbi -> {
 			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
 					GDAwardedLevelData.class,
-					GDEventConfigData.class,
 					GDLeaderboardBanData.class,
 					GDLeaderboardData.class,
 					GDLevelRequestConfigData.class,
@@ -87,8 +84,6 @@ public final class GDService {
 					GDLinkedUserData.class,
 					GDModData.class);
 		});
-		bot.database().addGuildConfigurator(GDEventConfigDao.class,
-				(data, tr) -> GDEventConfigData.configurator(data, tr, bot.gateway()));
 		bot.database().addGuildConfigurator(GDLevelRequestConfigDao.class,
 				(data, tr) -> GDLevelRequestConfigData.configurator(data, tr, bot.gateway()));
 		return RootServiceSetupHelper.create(() -> {
