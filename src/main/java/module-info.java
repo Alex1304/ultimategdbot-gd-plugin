@@ -18,6 +18,7 @@ open module ultimategdbot.gd {
 	requires static org.immutables.value;
 	requires org.jdbi.v3.core;
 	requires discord4j.core;
+	requires discord4j.rest;
 	
 	provides Plugin with GDPlugin;
 	provides ServiceDeclarator with GDServices;

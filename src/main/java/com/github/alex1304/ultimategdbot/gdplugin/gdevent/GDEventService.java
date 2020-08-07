@@ -1,7 +1,6 @@
 package com.github.alex1304.ultimategdbot.gdplugin.gdevent;
 
 import static com.github.alex1304.ultimategdbot.api.util.Markdown.bold;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static reactor.function.TupleUtils.function;
 
 import java.time.Duration;
@@ -39,6 +38,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.util.GDEvents;
 import discord4j.common.util.Snowflake;
 import discord4j.core.object.Embed.Author;
 import discord4j.core.object.entity.Message;
+import discord4j.rest.entity.RestChannel;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -62,12 +62,18 @@ public final class GDEventService {
 	private final Scheduler gdEventScheduler = Schedulers.boundedElastic();
 	private final CrosspostQueue crosspostQueue;
 	
-	private final List<Snowflake> ratesChannelIds;
-	private final Snowflake unratesChannelId;
-	private final Snowflake dailiesChannelId;
-	private final Snowflake weekliesChannelId;
-	private final Snowflake modPromotionsChannelId;
-	private final Snowflake modDemotionsChannelId;
+	private final RestChannel ratesChannel1_3;
+	private final RestChannel ratesChannel4;
+	private final RestChannel ratesChannel5;
+	private final RestChannel ratesChannel6;
+	private final RestChannel ratesChannel7;
+	private final RestChannel ratesChannel8_9;
+	private final RestChannel ratesChannel10;
+	private final RestChannel unratesChannel;
+	private final RestChannel dailiesChannel;
+	private final RestChannel weekliesChannel;
+	private final RestChannel modPromotionsChannel;
+	private final RestChannel modDemotionsChannel;
 
 	public GDEventService(
 			BotConfig botConfig,
@@ -86,15 +92,18 @@ public final class GDEventService {
 				.orElse(10));
 		this.gdEventLoop = new GDEventScannerLoop(gdClient, gdEventDispatcher, initScanners(),
 				eventLoopInterval);
-		this.ratesChannelIds = gdConfig.readAsStream("gdplugin.event.rates_channel_ids", ",")
-				.map(Snowflake::of)
-				.collect(toUnmodifiableList());
-		System.err.println(gdConfig);
-		this.unratesChannelId = gdConfig.readAs("gdplugin.event.unrates_channel_id", Snowflake::of);
-		this.dailiesChannelId = gdConfig.readAs("gdplugin.event.dailies_channel_id", Snowflake::of);
-		this.weekliesChannelId = gdConfig.readAs("gdplugin.event.weeklies_channel_id", Snowflake::of);
-		this.modPromotionsChannelId = gdConfig.readAs("gdplugin.event.mod_promotions_channel_id", Snowflake::of);
-		this.modDemotionsChannelId = gdConfig.readAs("gdplugin.event.mod_demotions_channel_id", Snowflake::of);
+		this.ratesChannel1_3 = gdConfig.readAs("gdplugin.event.rates_channel_1_3_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel4 = gdConfig.readAs("gdplugin.event.rates_channel_4_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel5 = gdConfig.readAs("gdplugin.event.rates_channel_5_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel6 = gdConfig.readAs("gdplugin.event.rates_channel_6_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel7 = gdConfig.readAs("gdplugin.event.rates_channel_7_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel8_9 = gdConfig.readAs("gdplugin.event.rates_channel_8_9_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.ratesChannel10 = gdConfig.readAs("gdplugin.event.rates_channel_10_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.unratesChannel = gdConfig.readAs("gdplugin.event.unrates_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.dailiesChannel = gdConfig.readAs("gdplugin.event.dailies_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.weekliesChannel = gdConfig.readAs("gdplugin.event.weeklies_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.modPromotionsChannel = gdConfig.readAs("gdplugin.event.mod_promotions_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.modDemotionsChannel = gdConfig.readAs("gdplugin.event.mod_demotions_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
 		this.crosspostQueue = new CrosspostQueue(bot);
 		// Activate dispatcher and loop
 		var autostartEventLoop = gdConfig.readOptional("gdplugin.autostart_event_loop")
@@ -153,7 +162,7 @@ public final class GDEventService {
 		var tr = bot.localization();
 		var logText = eventProps.logText(tr, event);
 		var guildBroadcast = eventProps.createMessageTemplate(event, null)
-						.flatMap(msg -> bot.gateway().rest().getChannelById(eventProps.channelId(event))
+						.flatMap(msg -> eventProps.channel(event)
 								.createMessage(GDEvents.specToRequest(msg.toMessageCreateSpec()))
 								.map(data -> new Message(bot.gateway(), data)))
 						.doOnNext(msg -> crosspostQueue.submit(msg, event, eventProps));
@@ -184,7 +193,18 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_awarded_event_log",
 								bold(event.getClass().getSimpleName()), GDLevelService.toString(event.getAddedLevel())),
 						"awarded_levels",
-						event -> ratesChannelIds.get(event.getAddedLevel().getStars() - 1),
+						event -> {
+							switch (event.getAddedLevel().getStars()) {
+								case 1: case 2: case 3: return ratesChannel1_3;
+								case 4: return ratesChannel4;
+								case 5: return ratesChannel5;
+								case 6: return ratesChannel6;
+								case 7: return ratesChannel7;
+								case 8: case 9: return ratesChannel8_9;
+								case 10: return ratesChannel10;
+								default: throw new IllegalStateException("Unusual amount of stars for new rated level: " + event.getAddedLevel());
+							}
+						},
 						event -> Optional.of(event.getAddedLevel().getId()),
 						event -> bot.database().useExtension(GDAwardedLevelDao.class, dao -> dao.insertOrUpdate(
 										ImmutableGDAwardedLevelData.builder()
@@ -209,7 +229,7 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_awarded_event_log",
 								bold(event.getClass().getSimpleName()), GDLevelService.toString(event.getRemovedLevel())),
 						"awarded_levels",
-						event -> unratesChannelId,
+						event -> unratesChannel,
 						event -> Optional.empty(),
 						event -> gdClient.searchUser("" + event.getRemovedLevel().getCreatorID()).map(GDUser::getAccountId),
 						(event, old) -> gdLevelService
@@ -242,7 +262,7 @@ public final class GDEventService {
 										? "gdevproc_daily_event_log" : "gdevproc_weekly_event_log",
 								bold(event.getClass().getSimpleName()), event.getTimelyLevel().getId()),
 						"timely_levels",
-						event -> event.getTimelyLevel().getType() == TimelyType.DAILY ? dailiesChannelId : weekliesChannelId,
+						event -> event.getTimelyLevel().getType() == TimelyType.DAILY ? dailiesChannel : weekliesChannel,
 						event -> Optional.empty(),
 						event -> event.getTimelyLevel().getLevel()
 								.flatMap(level -> gdClient.searchUser("" + level.getCreatorID()))
@@ -268,7 +288,7 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
-						event -> modPromotionsChannelId,
+						event -> modPromotionsChannel,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, old) -> gdUserService
@@ -285,7 +305,7 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
-						event -> modPromotionsChannelId,
+						event -> modPromotionsChannel,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, old) -> gdUserService
@@ -303,7 +323,7 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
-						event -> modDemotionsChannelId,
+						event -> modDemotionsChannel,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, old) -> gdUserService
@@ -321,7 +341,7 @@ public final class GDEventService {
 						(tr, event) -> tr.translate("GDStrings", "gdevproc_mod_event_log",
 								bold(event.getClass().getSimpleName()), bold(event.getUser().getName())),
 						"gd_moderators",
-						event -> modDemotionsChannelId,
+						event -> modDemotionsChannel,
 						event -> Optional.empty(),
 						event -> Mono.just(event.getUser().getAccountId()),
 						(event, old) -> gdUserService

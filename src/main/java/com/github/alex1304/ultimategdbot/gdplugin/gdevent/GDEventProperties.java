@@ -8,15 +8,15 @@ import com.github.alex1304.jdashevents.event.GDEvent;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 
-import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Message;
+import discord4j.rest.entity.RestChannel;
 import reactor.core.publisher.Mono;
 
 class GDEventProperties<E extends GDEvent> {
 	
 	private final BiFunction<Translator, E, String> logText;
 	private final String databaseField;
-	private final Function<E, Snowflake> channelId;
+	private final Function<E, RestChannel> channel;
 	private final Function<E, Optional<Long>> levelIdGetter;
 	private final Function<E, Mono<Long>> recipientAccountId;
 	private final BiFunction<E, Message, Mono<MessageSpecTemplate>> messageTemplateFactory;
@@ -24,13 +24,13 @@ class GDEventProperties<E extends GDEvent> {
 	private final boolean isUpdate;
 
 	GDEventProperties(BiFunction<Translator, E, String> logText, String databaseField,
-			Function<E, Snowflake> channelId, Function<E, Optional<Long>> levelIdGetter,
+			Function<E, RestChannel> channel, Function<E, Optional<Long>> levelIdGetter,
 			Function<E, Mono<Long>> recipientAccountId,
 			BiFunction<E, Message, Mono<MessageSpecTemplate>> messageTemplateFactory,
 			Function<E, String> congratMessage, boolean isUpdate) {
 		this.logText = logText;
 		this.databaseField = databaseField;
-		this.channelId = channelId;
+		this.channel = channel;
 		this.levelIdGetter = levelIdGetter;
 		this.recipientAccountId = recipientAccountId;
 		this.messageTemplateFactory = messageTemplateFactory;
@@ -68,8 +68,8 @@ class GDEventProperties<E extends GDEvent> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	Snowflake channelId(GDEvent event) {
-		return channelId.apply((E) event);
+	RestChannel channel(GDEvent event) {
+		return channel.apply((E) event);
 	}
 
 	boolean isUpdate() {
