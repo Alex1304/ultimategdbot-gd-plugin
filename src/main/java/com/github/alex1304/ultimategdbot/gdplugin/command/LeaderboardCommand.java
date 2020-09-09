@@ -140,7 +140,7 @@ public final class LeaderboardCommand {
 		var lastRefreshed = new AtomicReference<Instant>(now);
 		var emojiRef = new AtomicReference<String>();
 		return ctx.event().getGuild()
-				.flatMap(guild -> guild.getMembers()
+				.flatMap(guild -> gd.bot().gateway().requestMembers(guild.getId())
 						.collect(toMap(m -> m.getId().asLong(), User::getTag, (a, b) -> a))
 						.filter(not(Map::isEmpty))
 						.flatMap(members -> gd.bot().database()
@@ -360,7 +360,7 @@ public final class LeaderboardCommand {
 					tr.translate("GDStrings", "lb_account_notice", prefix), false);
 			if (maxPage > 0) {
 				embed.addField(tr.translate("CommonStrings", "pagination_page_counter", page + 1, maxPage + 1),
-						tr.translate("CommonStrings", "pagination_page_go_to") + '\n'
+						tr.translate("CommonStrings", "pagination_go_to") + '\n'
 						+ tr.translate("GDStrings", "lb_jump_to_user"), false);
 			}
 		};
