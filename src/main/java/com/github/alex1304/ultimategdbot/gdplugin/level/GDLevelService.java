@@ -234,7 +234,7 @@ public final class GDLevelService {
 									});
 								})))
 				.onErrorMap(NoTimelyAvailableException.class, e -> new CommandFailedException(
-						ctx.translate("GDStrings", "error_no_timely_set")));
+						ctx.translate("GDStrings", "error_no_timely_set", headerTitle)));
 	}
 	
 	public static String toString(GDLevel level) {

@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -51,9 +52,7 @@ import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
 import discord4j.core.spec.EmbedCreateSpec;
-import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -234,14 +233,13 @@ public final class LeaderboardCommand {
 								+ gd.bot().localization().translate("GDStrings", "refresh_log", ctx.author().getTag())))
 						.then(ctx.reply(ctx.translate("GDStrings", "refreshing")))
 						.flatMapMany(message -> {
-							var processor = EmitterProcessor.<Long>create();
-							var sink = processor.sink(FluxSink.OverflowStrategy.BUFFER);
+							var processed = new AtomicInteger();
 							var done = new AtomicBoolean();
-							processor.take(Duration.ofSeconds(2))
+							Flux.interval(Duration.ofSeconds(2))
 									.takeLast(1)
-									.flatMap(i -> message
+									.flatMap(__ -> message
 											.edit(spec -> spec.setContent(
-													ctx.translate("GDStrings", "refreshing_progress", i, list.size())))
+													ctx.translate("GDStrings", "refreshing_progress", processed.get(), list.size())))
 											.onErrorResume(e -> Mono.empty()))
 									.repeat(() -> !done.get())
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
@@ -252,7 +250,7 @@ public final class LeaderboardCommand {
 													+ linkedUser.gdUserId(), e))), gd.getLeaderboardRefreshParallelism())
 									.index()
 									.map(function((i, gdUser) -> {
-										sink.next(i);
+										processed.incrementAndGet();
 										return ImmutableGDLeaderboardData.builder()
 												.accountId(gdUser.getAccountId())
 												.name(gdUser.getName())
