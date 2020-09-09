@@ -1,6 +1,5 @@
 package com.github.alex1304.ultimategdbot.gdplugin.command;
 
-import static discord4j.core.retriever.EntityRetrievalStrategy.STORE_FALLBACK_REST;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.time.Instant;
@@ -236,7 +235,6 @@ public final class LevelRequestCommand {
 						.getMessageById(s.messageChannelId().orElseThrow(), s.messageId().orElseThrow()))
 						.doOnNext(submissionMsg::set)
 						.flatMap(__ -> gd.bot().gateway()
-								.withRetrievalStrategy(STORE_FALLBACK_REST)
 								.getUserById(s.submitterId())
 								.doOnNext(submitter::set))
 						.flatMap(__ -> ctx.event().getGuild())

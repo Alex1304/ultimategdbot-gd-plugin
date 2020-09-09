@@ -95,8 +95,8 @@ public final class GDEventService {
 		this.demonsChannels = gdConfig.readAsStream("gdplugin.event.demons_channels_id", ",")
 				.map(v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)))
 				.collect(toUnmodifiableList());
-		this.timelyChannel = gdConfig.readAs("gdplugin.event.timely_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
-		this.modsChannel = gdConfig.readAs("gdplugin.event.mods_channel_id", v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v)));
+		this.timelyChannel = gdConfig.readOptional("gdplugin.event.timely_channel_id").map(v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v))).orElse(null);
+		this.modsChannel = gdConfig.readOptional("gdplugin.event.mods_channel_id").map(v -> RestChannel.create(bot.gateway().rest(), Snowflake.of(v))).orElse(null);
 		this.crosspostQueue = new CrosspostQueue(bot);
 		// Activate dispatcher and loop
 		var autostartEventLoop = gdConfig.readOptional("gdplugin.autostart_event_loop")
@@ -155,9 +155,11 @@ public final class GDEventService {
 		var tr = bot.localization();
 		var logText = eventProps.logText(tr, event);
 		var guildBroadcast = eventProps.createMessageTemplate(event, null)
-						.flatMap(msg -> eventProps.channel(event)
-								.createMessage(GDEvents.specToRequest(msg.toMessageCreateSpec()))
-								.map(data -> new Message(bot.gateway(), data)))
+						.flatMap(msg -> Optional.ofNullable(eventProps.channel(event))
+								.map(channel -> channel
+										.createMessage(GDEvents.specToRequest(msg.toMessageCreateSpec()))
+										.map(data -> new Message(bot.gateway(), data)))
+								.orElse(Mono.empty()))
 						.doOnNext(msg -> crosspostQueue.submit(msg, event, eventProps));
 		var dmBroadcast = eventProps.recipientAccountId(event)
 				.flatMapMany(gdUserService::getDiscordAccountsForGDUser)

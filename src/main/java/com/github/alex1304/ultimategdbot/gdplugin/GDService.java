@@ -23,7 +23,6 @@ import com.github.alex1304.ultimategdbot.api.command.CommandErrorHandler;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.command.CommandProvider;
 import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.command.PermissionChecker;
 import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
@@ -42,6 +41,7 @@ import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.GDLevelRequestService;
 import com.github.alex1304.ultimategdbot.gdplugin.user.GDUserService;
 
+import discord4j.rest.request.DiscardedRequestException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -123,7 +123,7 @@ public final class GDService {
 			AuthenticatedGDClient gdClient,
 			GDLevelRequestService gdLevelRequestService,
 			GDUserService gdUserService) {
-		var cmdProvider = new CommandProvider(GDPlugin.PLUGIN_NAME);
+		var cmdProvider = new CommandProvider(GDPlugin.PLUGIN_NAME, bot.command().getPermissionChecker());
 		// Param converters
 		cmdProvider.addParamConverter(new ParamConverter<GDUser>() {
 			@Override
@@ -148,8 +148,7 @@ public final class GDService {
 			}
 		});
 		// Permission checker
-		var permChecker = new PermissionChecker();
-		permChecker.register("LEVEL_REQUEST_REVIEWER", ctx -> bot.command()
+		bot.command().getPermissionChecker().register("LEVEL_REQUEST_REVIEWER", ctx -> bot.command()
 				.getPermissionChecker()
 				.isGranted(PermissionLevel.GUILD_ADMIN, ctx)
 				.flatMap(isGuildAdmin -> isGuildAdmin ? Mono.just(true) : ctx.event().getMessage()
@@ -158,7 +157,6 @@ public final class GDService {
 								.map(GDLevelRequestConfigData::roleReviewerId)
 								.flatMap(Mono::justOrEmpty)
 								.map(member.getRoleIds()::contains))));
-		cmdProvider.setPermissionChecker(permChecker);
 		// Error handlers
 		var cmdErrorHandler = new CommandErrorHandler();
 		cmdErrorHandler.addHandler(CommandFailedException.class, (e, ctx) -> bot.emoji().get("cross")
@@ -190,6 +188,7 @@ public final class GDService {
 									+ (e.getCause().getMessage() != null ? ": " + e.getCause().getMessage() : "") + "`"),
 					Mono.fromRunnable(() -> LOGGER.warn("Geometry Dash server returned corrupted data", e))).then();
 		});
+		cmdErrorHandler.addHandler(DiscardedRequestException.class, (e, ctx) -> Mono.fromRunnable(() -> LOGGER.warn(e.toString())));
 		cmdErrorHandler.addHandler(TimeoutException.class, (e, ctx) -> bot.emoji().get("cross")
 				.flatMap(cross -> ctx.reply(cross + " Geometry Dash server took too long to respond. Try again later."))
 				.then());
