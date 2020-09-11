@@ -2,6 +2,7 @@ package com.github.alex1304.ultimategdbot.gdplugin;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
@@ -34,7 +35,9 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigD
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventService;
 import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
@@ -157,6 +160,16 @@ public final class GDService {
 								.map(GDLevelRequestConfigData::roleReviewerId)
 								.flatMap(Mono::justOrEmpty)
 								.map(member.getRoleIds()::contains))));
+		bot.command().getPermissionChecker().register("ELDER_MOD", ctx -> bot.command().getPermissionChecker()
+				.isGranted(PermissionLevel.BOT_OWNER, ctx)
+				.flatMap(isGranted -> isGranted ? Mono.just(true) : bot.database()
+						.withExtension(GDLinkedUserDao.class, dao -> dao.getAllIn(List.of(ctx.author().getId().asLong()))
+								.stream()
+								.findAny())
+						.flatMap(Mono::justOrEmpty)
+						.flatMap(linkedUser -> bot.database().withExtension(GDModDao.class, dao -> dao.get(linkedUser.gdUserId()))
+								.flatMap(Mono::justOrEmpty)
+								.map(GDModData::isElder))));
 		// Error handlers
 		var cmdErrorHandler = new CommandErrorHandler();
 		cmdErrorHandler.addHandler(CommandFailedException.class, (e, ctx) -> bot.emoji().get("cross")
