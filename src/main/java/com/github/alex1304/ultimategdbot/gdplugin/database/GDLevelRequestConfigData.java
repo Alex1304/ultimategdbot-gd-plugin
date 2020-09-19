@@ -3,6 +3,7 @@ package com.github.alex1304.ultimategdbot.gdplugin.database;
 import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildChannel;
 import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forOptionalGuildRole;
 import static com.github.alex1304.ultimategdbot.api.database.guildconfig.ValueGetters.forSimpleValue;
+import static java.util.Objects.requireNonNullElse;
 
 import java.util.Optional;
 
@@ -65,7 +66,7 @@ public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequest
 						.setValueGetter(forSimpleValue(GDLevelRequestConfigData::maxQueuedSubmissionsPerUser))
 						.setValueSetter((data, value) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
-								.maxQueuedSubmissionsPerUser(value)
+								.maxQueuedSubmissionsPerUser(requireNonNullElse(value, 0))
 								.build())
 						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 20, tr.translate("GDStrings", "validate_range", 1, 20))))
 				.addEntry(IntegerConfigEntry.<GDLevelRequestConfigData>builder("min_reviews_required")
@@ -73,7 +74,7 @@ public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequest
 						.setValueGetter(forSimpleValue(GDLevelRequestConfigData::minReviewsRequired))
 						.setValueSetter((data, value) -> ImmutableGDLevelRequestConfigData.builder()
 								.from(data)
-								.minReviewsRequired(value)
+								.minReviewsRequired(requireNonNullElse(value, 0))
 								.build())
 						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 5, tr.translate("GDStrings", "validate_range", 1, 5))))
 				.build();

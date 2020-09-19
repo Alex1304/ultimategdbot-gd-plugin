@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.jdbi.v3.core.result.LinkedHashMapRowReducer;
 import org.jdbi.v3.core.result.RowView;
+import org.jdbi.v3.sqlobject.customizer.BindList;
 import org.jdbi.v3.sqlobject.customizer.BindPojo;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
@@ -30,7 +31,7 @@ public interface GDLevelRequestSubmissionDao {
 	List<GDLevelRequestSubmissionData> getAllQueuedSubmissions();
 	
 	@SqlUpdate("DELETE FROM " + TABLE + " WHERE submission_id IN (<submissionIds>)")
-	int deleteAllIn(List<Long> submissionIds);
+	int deleteAllIn(@BindList List<Long> submissionIds);
 	
 	@SqlUpdate("DELETE FROM " + TABLE + " WHERE message_id = ?")
 	void deleteByMessageId(long messageId);

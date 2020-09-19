@@ -119,7 +119,7 @@ public final class LevelRequestCommand {
 				.doOnNext(lvlReqCfg::set)
 				.doOnNext(System.err::println)
 				.filter(lrs -> ctx.event().getMessage().getChannelId().equals(lrs.channelSubmissionQueueId().orElseThrow()))
-				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("GDStrings", "submission_updated",
+				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("GDStrings", "error_outside_of_queue",
 						"<#" + lvlReqCfg.get().channelSubmissionQueueId().orElseThrow().asString() + ">"))))
 				.filter(GDLevelRequestConfigData::isOpen)
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_reqs_closed"))))
@@ -135,7 +135,7 @@ public final class LevelRequestCommand {
 								.onErrorReturn(true))
 						.count()
 						.map(n -> n < lrs.maxQueuedSubmissionsPerUser()))
-				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("cmdtext_gd_lvlreq",
+				.switchIfEmpty(Mono.error(() -> new CommandFailedException(ctx.translate("GDStrings",
 						"error_max_submissions_reached", lvlReqCfg.get().maxQueuedSubmissionsPerUser()))))
 				.then(gd.client()
 						.getLevelById(levelId)
@@ -285,7 +285,7 @@ public final class LevelRequestCommand {
 														message.getChannelId().asLong(),
 														message.getId().asLong())))
 								).and(Mono.defer(() -> submitter.get().getPrivateChannel()
-										.zipWith(updatedMessage.map(m -> new MessageSpecTemplate(ctx.translate("cmdtext_gd_lvlreq",
+										.zipWith(updatedMessage.map(m -> new MessageSpecTemplate(ctx.translate("GDStrings",
 												"dm_title", guild.get().getName()), m.getEmbed()).toMessageCreateSpec()))
 										.flatMap(TupleUtils.function(PrivateChannel::createMessage))
 										.onErrorResume(e -> Mono.empty())));
