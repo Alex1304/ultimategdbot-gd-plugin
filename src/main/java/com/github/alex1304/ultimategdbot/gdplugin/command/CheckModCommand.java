@@ -33,7 +33,7 @@ public final class CheckModCommand {
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
 						.switchIfEmpty(Mono.error(new CommandFailedException(
-								ctx.translate("GDStrings", "error_user_not_specified", ctx.prefixUsed(), "checkmod"))))
+								ctx.translate("GDStrings", "error_checkmod_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(gd.client()::getUserByAccountId))
 				.flatMap(user -> Mono.zip(

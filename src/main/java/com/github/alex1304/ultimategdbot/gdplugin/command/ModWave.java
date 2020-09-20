@@ -31,6 +31,7 @@ public final class ModWave {
 	@CommandAction
 	@CommandDoc("tr:GDStrings/checkmod_run")
 	public Mono<Void> run(Context ctx, String args) {
+		gd.client().clearCache();
 		return Flux.fromIterable(ctx.args().getTokens().subList(1, ctx.args().tokenCount()))
 				.flatMap(username -> gd.user().stringToUser(ctx, username))
 				.flatMap(user -> Mono.zip(

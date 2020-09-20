@@ -265,7 +265,7 @@ public final class LevelRequestCommand {
 				.flatMap(r -> gd.bot().database().useExtension(GDLevelRequestReviewDao.class, dao -> dao.insert(r)))
 				.then(Mono.defer(() -> gd.client().getLevelById(submission.get().levelId())
 						.doOnNext(level::set)
-						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(ctx.translate("GDStrings", "error_level_deleted")))))
+						.onErrorMap(MissingAccessException.class, e -> new CommandFailedException(ctx.translate("GDStrings", "error_level_deleted", ctx.prefixUsed())))))
 				.thenMany(Flux.defer(() -> Flux.fromIterable(submission.get().reviews())))
 				.collectList()
 				.flatMap(reviewList -> {

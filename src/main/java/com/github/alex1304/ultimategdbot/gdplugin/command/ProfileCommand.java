@@ -32,10 +32,8 @@ public final class ProfileCommand {
 						.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(ctx.author().getId().asLong()))
 						.flatMap(Mono::justOrEmpty)
 						.filter(GDLinkedUserData::isLinkActivated)
-						.switchIfEmpty(Mono.error(new CommandFailedException("No user specified. If you want to "
-								+ "show your own profile, link your Geometry Dash account using `"
-								+ ctx.prefixUsed() + "account` and retry this command. Otherwise, you "
-								+ "need to specify a user like so: `" + ctx.prefixUsed() + "profile <gd_username>`.")))
+						.switchIfEmpty(Mono.error(new CommandFailedException(
+								ctx.translate("GDStrings", "error_profile_user_not_specified", ctx.prefixUsed(), "profile"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(Mono::justOrEmpty)
 						.flatMap(gd.client()::getUserByAccountId))
