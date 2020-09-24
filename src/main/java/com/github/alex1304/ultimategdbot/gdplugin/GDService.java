@@ -5,8 +5,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
-
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
 import com.github.alex1304.jdash.client.GDClientBuilder.Credentials;
@@ -28,15 +26,9 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.service.RootServiceSetupHelper;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestReviewData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestSubmissionData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
 import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventService;
@@ -76,19 +68,6 @@ public final class GDService {
 			GDLevelRequestService gdLevelRequestService,
 			GDLevelService gdLevelService,
 			GDUserService gdUserService) {
-		bot.database().configureJdbi(jdbi -> {
-			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
-					GDAwardedLevelData.class,
-					GDLeaderboardBanData.class,
-					GDLeaderboardData.class,
-					GDLevelRequestConfigData.class,
-					GDLevelRequestReviewData.class,
-					GDLevelRequestSubmissionData.class,
-					GDLinkedUserData.class,
-					GDModData.class);
-		});
-		bot.database().addGuildConfigurator(GDLevelRequestConfigDao.class,
-				(data, tr) -> GDLevelRequestConfigData.configurator(data, tr, bot.gateway()));
 		return RootServiceSetupHelper.create(() -> {
 					var gdConfig = botConfig.resource("gd");
 					var leaderboardRefreshParallelism = gdConfig.readOptional("gdplugin.max_connections")

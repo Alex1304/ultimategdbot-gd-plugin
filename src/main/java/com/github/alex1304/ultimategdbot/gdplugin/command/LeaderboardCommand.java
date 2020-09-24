@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -54,6 +53,7 @@ import discord4j.core.object.entity.User;
 import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.MonoProcessor;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 import reactor.util.annotation.Nullable;
@@ -234,14 +234,13 @@ public final class LeaderboardCommand {
 						.then(ctx.reply(ctx.translate("GDStrings", "refreshing")))
 						.flatMapMany(message -> {
 							var processed = new AtomicInteger();
-							var done = new AtomicBoolean();
-							Flux.interval(Duration.ofSeconds(2))
-									.takeLast(1)
-									.flatMap(__ -> message
-											.edit(spec -> spec.setContent(
-													ctx.translate("GDStrings", "refreshing_progress", processed.get(), list.size())))
-											.onErrorResume(e -> Mono.empty()))
-									.repeat(() -> !done.get())
+							var onDone = MonoProcessor.create();
+							Mono.first(onDone, Flux.interval(Duration.ofSeconds(2))
+											.flatMap(__ -> message
+													.edit(spec -> spec.setContent(
+															ctx.translate("GDStrings", "refreshing_progress", processed.get(), list.size())))
+													.onErrorResume(e -> Mono.empty()))
+											.then())
 									.then(message.delete().onErrorResume(e -> Mono.empty()))
 									.subscribe();
 							return Flux.fromIterable(list)
@@ -263,16 +262,16 @@ public final class LeaderboardCommand {
 												.creatorPoints(gdUser.getCreatorPoints())
 												.build();
 									}))
-									.doFinally(__ -> done.set(true));
+									.doFinally(__ -> onDone.onComplete());
 						})
 						.collectList())
 				.flatMap(stats -> ctx.reply(ctx.translate("GDStrings", "saving_to_db"))
-						.onErrorResume(e -> Mono.empty())
 						.flatMap(message -> gd.bot().database()
 								.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsertAll(stats))
 								.then(message.delete())
 								.then(gd.bot().emoji().get("success")
-										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("GDStrings", "refresh_success")))
+										.flatMap(success -> ctx.reply(success + ' ' + ctx.translate("GDStrings", "refresh_success"))
+												.and(gd.bot().logging().log(success + ' ' + ctx.translate("GDStrings", "refresh_success"))))
 										.then())))
 				.doFinally(signal -> {
 					isLocked = false;

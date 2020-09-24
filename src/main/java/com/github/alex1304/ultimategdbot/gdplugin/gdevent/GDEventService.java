@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
+import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
+
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDTimelyLevel.TimelyType;
 import com.github.alex1304.jdash.entity.GDUser;
@@ -31,6 +33,7 @@ import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.util.Markdown;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelDao;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDAwardedLevelData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDAwardedLevelData;
 import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 import com.github.alex1304.ultimategdbot.gdplugin.user.GDUserService;
@@ -79,6 +82,9 @@ public final class GDEventService {
 			GDLevelService gdLevelService,
 			GDUserService gdUserService) {
 		this.bot = bot;
+		bot.database().configureJdbi(jdbi -> {
+			jdbi.getConfig(JdbiImmutables.class).registerImmutable(GDAwardedLevelData.class);
+		});
 		this.gdClient = gdClient;
 		this.gdLevelService = gdLevelService;
 		this.gdUserService = gdUserService;

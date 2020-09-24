@@ -32,7 +32,7 @@ public final class ModListCommand {
 						sb.append(" **").append(gdMod.name()).append("**\n");
 					}
 					return gd.bot().interactiveMenu()
-							.createPaginated(sb.toString(), 800)
+							.createPaginated(sb.toString(), 1000)
 							.open(ctx);
 				})).then();
 	}

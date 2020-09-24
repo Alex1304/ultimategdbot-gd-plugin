@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
+import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
+
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.entity.IconType;
@@ -29,8 +31,11 @@ import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -58,6 +63,13 @@ public final class GDUserService {
 			AuthenticatedGDClient gdClient,
 			SpriteFactory spriteFactory) {
 		this.bot = bot;
+		bot.database().configureJdbi(jdbi -> {
+			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
+					GDLeaderboardBanData.class,
+					GDLeaderboardData.class,
+					GDLinkedUserData.class,
+					GDModData.class);
+		});
 		this.gdClient = gdClient;
 		this.spriteFactory = spriteFactory;
 		var gdConfig = botConfig.resource("gd");

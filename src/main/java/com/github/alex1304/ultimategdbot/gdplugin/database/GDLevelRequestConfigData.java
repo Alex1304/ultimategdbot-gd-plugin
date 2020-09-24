@@ -16,6 +16,7 @@ import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildConfigura
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.GuildRoleConfigEntry;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.IntegerConfigEntry;
 import com.github.alex1304.ultimategdbot.api.database.guildconfig.Validator;
+import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.GDLevelRequestService;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.GatewayDiscordClient;
@@ -37,16 +38,16 @@ public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequest
 	
 	int minReviewsRequired();
 	
-	static GuildConfigurator<GDLevelRequestConfigData> configurator(GDLevelRequestConfigData initialData, Translator tr, GatewayDiscordClient gateway) {
+	static GuildConfigurator<GDLevelRequestConfigData> configurator(GDLevelRequestConfigData initialData, Translator tr, GatewayDiscordClient gateway, GDLevelRequestService lvlReqService) {
 		return GuildConfigurator.builder(tr.translate("GDStrings", "lvlreq_guildconfig_title"), initialData, GDLevelRequestConfigDao.class)
 				.setDescription(tr.translate("GDStrings", "lvlreq_guildconfig_desc"))
 				.addEntry(GuildChannelConfigEntry.<GDLevelRequestConfigData>builder("channel_submission_queue")
 						.setDisplayName(tr.translate("GDStrings", "display_channel_submission_queue"))
 						.setValueGetter(forOptionalGuildChannel(gateway, GDLevelRequestConfigData::channelSubmissionQueueId))
 						.setValueSetter((data, channel) -> ImmutableGDLevelRequestConfigData.builder()
-								.from(data)
-								.channelSubmissionQueueId(Optional.ofNullable(channel).map(Channel::getId))
-								.build()))
+									.from(data)
+									.channelSubmissionQueueId(Optional.ofNullable(channel).map(Channel::getId))
+									.build()))
 				.addEntry(GuildChannelConfigEntry.<GDLevelRequestConfigData>builder("channel_archived_submissions")
 						.setDisplayName(tr.translate("GDStrings", "display_channel_archived_submissions"))
 						.setValueGetter(forOptionalGuildChannel(gateway, GDLevelRequestConfigData::channelArchivedSubmissionsId))
@@ -77,6 +78,14 @@ public interface GDLevelRequestConfigData extends GuildConfigData<GDLevelRequest
 								.minReviewsRequired(requireNonNullElse(value, 0))
 								.build())
 						.setValidator(Validator.allowingIf(x -> x >= 1 && x <= 5, tr.translate("GDStrings", "validate_range", 1, 5))))
+				.onSave(data -> {
+					initialData.channelSubmissionQueueId()
+							.map(Snowflake::asLong)
+							.ifPresent(lvlReqService.getCachedSubmissionChannelIds()::remove);
+					data.channelSubmissionQueueId()
+							.map(Snowflake::asLong)
+							.ifPresent(lvlReqService.getCachedSubmissionChannelIds()::add);
+				})
 				.build();
 	}
 }

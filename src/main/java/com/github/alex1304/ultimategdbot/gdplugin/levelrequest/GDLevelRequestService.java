@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import org.jdbi.v3.core.mapper.immutables.JdbiImmutables;
+
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.ultimategdbot.api.Translator;
 import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
@@ -48,8 +50,20 @@ public final class GDLevelRequestService {
 			BotService bot,
 			GDLevelService gdLevelService) {
 		this.bot = bot;
+		bot.database().configureJdbi(jdbi -> {
+			jdbi.getConfig(JdbiImmutables.class).registerImmutable(
+					GDLevelRequestConfigData.class,
+					GDLevelRequestReviewData.class,
+					GDLevelRequestSubmissionData.class);
+		});
+		bot.database().addGuildConfigurator(GDLevelRequestConfigDao.class,
+				(data, tr) -> GDLevelRequestConfigData.configurator(data, tr, bot.gateway(), this));
 		this.gdLevelService = gdLevelService;
 		listenAndCleanSubmissionQueueChannels();
+	}
+
+	public final Set<Long> getCachedSubmissionChannelIds() {
+		return cachedSubmissionChannelIds;
 	}
 
 	/**
@@ -169,14 +183,13 @@ public final class GDLevelRequestService {
 	 * Keep submission queue channels for level requests clean from messages that
 	 * aren't submissions.
 	 */
-	public void listenAndCleanSubmissionQueueChannels() {
+	private void listenAndCleanSubmissionQueueChannels() {
 		bot.database().withExtension(GDLevelRequestConfigDao.class, GDLevelRequestConfigDao::getAll)
 				.flatMapMany(Flux::fromIterable)
 				.map(GDLevelRequestConfigData::channelSubmissionQueueId)
 				.flatMap(Mono::justOrEmpty)
 				.map(Snowflake::asLong)
 				.collect(() -> cachedSubmissionChannelIds, Set::add)
-				.onErrorResume(e -> Mono.empty())
 				.thenMany(bot.gateway().on(MessageCreateEvent.class))
 				.filter(event -> cachedSubmissionChannelIds.contains(event.getMessage().getChannelId().asLong()))
 				.filter(event -> !event.getMessage().getAuthor().map(User::getId).map(event.getClient().getSelfId()::equals).orElse(false)
