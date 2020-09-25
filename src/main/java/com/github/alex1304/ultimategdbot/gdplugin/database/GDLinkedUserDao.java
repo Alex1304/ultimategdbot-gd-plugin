@@ -22,7 +22,8 @@ public interface GDLinkedUserDao {
 	
 	@SqlUpdate("UPDATE " + TABLE + " SET "
 			+ "gd_user_id = :gdUserId, "
-			+ "confirmation_token = :confirmationToken "
+			+ "confirmation_token = :confirmationToken, "
+			+ "link_activated = 0 "
 			+ "WHERE discord_user_id = :discordUserId")
 	void setUnconfirmedLink(@BindPojo GDLinkedUserData data);
 	

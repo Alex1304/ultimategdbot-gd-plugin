@@ -10,6 +10,7 @@ import com.github.alex1304.ultimategdbot.api.command.Context;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandAction;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDescriptor;
 import com.github.alex1304.ultimategdbot.api.command.annotated.CommandDoc;
+import com.github.alex1304.ultimategdbot.api.command.menu.UnexpectedReplyException;
 import com.github.alex1304.ultimategdbot.api.service.Root;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
@@ -53,19 +54,23 @@ public final class AccountCommand {
 	
 	@CommandAction("link")
 	@CommandDoc("tr:GDStrings/account_run_link")
-	public Mono<Void> runLink(Context ctx, GDUser gdUsername) {
+	public Mono<Void> runLink(Context ctx, GDUser gdUser) {
+		if (gdUser.getAccountId() == 0) {
+			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_unregistered_user")));
+		}
 		final var authorId = ctx.author().getId().asLong();
 		return gd.bot().database()
-				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUsername.getAccountId()))
+				.withExtension(GDLinkedUserDao.class, dao -> dao.getOrCreate(authorId, gdUser.getAccountId()))
 				.filter(not(GDLinkedUserData::isLinkActivated))
 				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_already_linked"))))
 				.flatMap(linkedUser -> gd.client().getUserByAccountId(gd.client().getAccountID())
-						.filter(gdUser -> gdUser.getAccountId() > 0)
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_unregistered_user"))))
 						.flatMap(botUser -> {
-							var token = linkedUser.confirmationToken().orElse(GDUserService.generateAlphanumericToken(TOKEN_LENGTH));
+							var token = linkedUser.confirmationToken()
+									.filter(ct -> linkedUser.gdUserId() == gdUser.getAccountId())
+									.orElse(GDUserService.generateAlphanumericToken(TOKEN_LENGTH));
 							var data = ImmutableGDLinkedUserData.builder()
 									.from(linkedUser)
+									.gdUserId(gdUser.getAccountId())
 									.confirmationToken(token)
 									.build();
 							return gd.bot().database()
@@ -81,16 +86,16 @@ public final class AccountCommand {
 							menuEmbedContent.append(ctx.translate("GDStrings", "link_step_5", token)).append('\n');
 							menuEmbedContent.append(ctx.translate("GDStrings", "link_step_6")).append('\n');
 							return gd.bot().interactiveMenu().create(message -> {
-										message.setContent(ctx.translate("GDStrings", "link_request", gdUsername.getName()) + '\n');
+										message.setContent(ctx.translate("GDStrings", "link_request", gdUser.getName()) + '\n');
 										message.setEmbed(embed -> {
 											embed.setTitle(ctx.translate("GDStrings", "link_steps"));
 											embed.setDescription(menuEmbedContent.toString());
 										});
 									})
 									.addReactionItem("success", interaction -> interaction.getEvent().isAddEvent() 
-											? handleDone(ctx, token, gdUsername, botUser)
+											? handleDone(ctx, token, gdUser, botUser)
 													.then(Mono.<Void>fromRunnable(interaction::closeMenu))
-													.onErrorResume(CommandFailedException.class, e -> gd.bot().emoji().get("cross")
+													.onErrorResume(UnexpectedReplyException.class, e -> gd.bot().emoji().get("cross")
 															.flatMap(cross -> ctx.reply(cross + " " + e.getMessage()))
 															.and(interaction.getMenuMessage()
 																	.removeReaction(interaction.getEvent().getEmoji(), ctx.author().getId())
@@ -126,19 +131,27 @@ public final class AccountCommand {
 	}
 	
 	private Mono<Void> handleDone(Context ctx, String token, GDUser user, GDUser botUser) {
-		return ctx.reply(ctx.translate("GDStrings", "checking_messages"))
+		final var authorId = ctx.author().getId().asLong();
+		return gd.bot().database()
+				.withExtension(GDLinkedUserDao.class, dao -> dao.getByDiscordUserId(authorId))
+				.flatMap(Mono::justOrEmpty)
+				.filter(linkedUser -> !linkedUser.isLinkActivated()
+						&& linkedUser.gdUserId() == user.getAccountId()
+						&& linkedUser.confirmationToken().map(token::equals).orElse(false))
+				.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_link_check_failed"))))
+				.then(ctx.reply(ctx.translate("GDStrings", "checking_messages")))
 				.flatMap(waitMessage -> gd.client().getPrivateMessages(0)
 						.flatMapMany(Flux::fromIterable)
 						.filter(message -> message.getSenderID() == user.getAccountId() && message.getSubject().equalsIgnoreCase("confirm"))
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_confirmation_not_found"))))
+						.switchIfEmpty(Mono.error(new UnexpectedReplyException(ctx.translate("GDStrings", "error_confirmation_not_found"))))
 						.next()
 						.flatMap(GDMessage::getBody)
 						.filter(body -> body.equals(token))
-						.switchIfEmpty(Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_confirmation_mismatch"))))
+						.switchIfEmpty(Mono.error(new UnexpectedReplyException(ctx.translate("GDStrings", "error_confirmation_mismatch"))))
 						.then(gd.bot().database().useExtension(GDLinkedUserDao.class, dao -> dao.confirmLink(ctx.author().getId().asLong())))
 						.then(gd.bot().emoji().get("success").flatMap(successEmoji -> ctx.reply(successEmoji + ' '
 								+ ctx.translate("GDStrings", "link_success", user.getName()))))
-						.onErrorMap(GDClientException.class, e -> new CommandFailedException(ctx.translate("GDStrings", "error_pm_access")))
+						.onErrorMap(GDClientException.class, e -> new UnexpectedReplyException(ctx.translate("GDStrings", "error_pm_access")))
 						.doFinally(signal -> waitMessage.delete().subscribe())
 						.then());
 	}
