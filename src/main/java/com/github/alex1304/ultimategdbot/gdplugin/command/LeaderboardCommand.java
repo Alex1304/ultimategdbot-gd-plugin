@@ -139,7 +139,7 @@ public final class LeaderboardCommand {
 		var lastRefreshed = new AtomicReference<Instant>(now);
 		var emojiRef = new AtomicReference<String>();
 		return ctx.event().getGuild()
-				.flatMap(guild -> gd.bot().gateway().getGuildMembers(guild.getId())
+				.flatMap(guild -> ctx.event().getMessage().getAuthorAsMember(guild.getId()).flux()//gd.bot().gateway().getGuildMembers(guild.getId())
 						.collect(toMap(m -> m.getId().asLong(), User::getTag, (a, b) -> a))
 						.filter(not(Map::isEmpty))
 						.flatMap(members -> gd.bot().database()
