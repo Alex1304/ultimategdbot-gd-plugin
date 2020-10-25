@@ -26,7 +26,6 @@ import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.service.RootServiceSetupHelper;
-import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
