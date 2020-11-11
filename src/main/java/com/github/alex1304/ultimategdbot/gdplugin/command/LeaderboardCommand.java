@@ -6,14 +6,11 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static reactor.function.TupleUtils.function;
 
-import java.sql.Timestamp;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -34,7 +31,6 @@ import com.github.alex1304.ultimategdbot.api.command.annotated.CommandPermission
 import com.github.alex1304.ultimategdbot.api.command.menu.PageNumberOutOfRangeException;
 import com.github.alex1304.ultimategdbot.api.command.menu.UnexpectedReplyException;
 import com.github.alex1304.ultimategdbot.api.service.Root;
-import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.GDService;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanDao;
@@ -44,7 +40,6 @@ import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLeaderboardBanData;
-import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.util.GDFormatter;
 
 import discord4j.common.util.Snowflake;
@@ -53,9 +48,6 @@ import discord4j.core.object.entity.User;
 import discord4j.core.spec.EmbedCreateSpec;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 import reactor.util.annotation.Nullable;
 
 @CommandDescriptor(
@@ -65,10 +57,10 @@ import reactor.util.annotation.Nullable;
 )
 public final class LeaderboardCommand {
 
-	private static final Logger LOGGER = Loggers.getLogger(LeaderboardCommand.class);
+//	private static final Logger LOGGER = Loggers.getLogger(LeaderboardCommand.class);
 	private static final int ENTRIES_PER_PAGE = 20;
 	
-	private volatile boolean isLocked;
+//	private volatile boolean isLocked;
 
 	@Root
 	private GDService gd;
@@ -76,9 +68,9 @@ public final class LeaderboardCommand {
 	@CommandAction
 	@CommandDoc("tr:GDStrings/leaderboard_run")
 	public Mono<Void> run(Context ctx, @Nullable String statName) {
-		if (isLocked) {
-			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_lb_locked")));
-		}
+//		if (isLocked) {
+//			return Mono.error(new CommandFailedException(ctx.translate("GDStrings", "error_lb_locked")));
+//		}
 		var emojiService = gd.bot().emoji();
 		var starEmoji = emojiService.get("star");
 		var diamondEmoji = emojiService.get("diamond");
@@ -203,6 +195,7 @@ public final class LeaderboardCommand {
 						})).then();
 	}
 	
+	/*
 	@CommandAction("refresh")
 	@CommandDoc("tr:GDStrings/leaderboard_run_refresh")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
@@ -278,7 +271,7 @@ public final class LeaderboardCommand {
 					LOGGER.debug("Unlocked leaderboards");
 				});
 	}
-	
+	*/
 	@CommandAction("ban")
 	@CommandDoc("tr:GDStrings/leaderboard_run_ban")
 	@CommandPermission(level = PermissionLevel.BOT_ADMIN)
@@ -320,7 +313,7 @@ public final class LeaderboardCommand {
 		final var maxPage = (size - 1) / ENTRIES_PER_PAGE;
 		final var offset = page * ENTRIES_PER_PAGE;
 		final var subList = entryList.subList(offset, Math.min(offset + ENTRIES_PER_PAGE, size));
-		final var refreshed = Duration.between(lastRefreshed, Instant.now()).withNanos(0);
+//		final var refreshed = Duration.between(lastRefreshed, Instant.now()).withNanos(0);
 		return embed -> {
 			embed.setTitle(tr.translate("GDStrings", "lb_title", guild.getName()));
 			if (size == 0 || subList.isEmpty()) {
@@ -353,7 +346,7 @@ public final class LeaderboardCommand {
 				}
 			}
 			embed.setDescription("**" + tr.translate("GDStrings", "lb_total_players", size, emoji) + "**\n\n" + sb.toString());
-			embed.addField(tr.translate("GDStrings", "lb_last_refreshed", DurationUtils.format(refreshed)),
+			embed.addField(tr.translate("GDStrings", "lb_last_refreshed", "-"),
 					tr.translate("GDStrings", "lb_account_notice", prefix), false);
 			if (maxPage > 0) {
 				embed.addField(tr.translate("CommonStrings", "pagination_page_counter", page + 1, maxPage + 1),

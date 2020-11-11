@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.function.Consumer;
@@ -32,10 +33,12 @@ import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.util.MessageSpecTemplate;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardBanData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLeaderboardData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModData;
+import com.github.alex1304.ultimategdbot.gdplugin.database.ImmutableGDLeaderboardData;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -205,13 +208,29 @@ public final class GDUserService {
 							.getByDiscordUserId(user.getId().asLong())))
 					.flatMap(Mono::justOrEmpty)
 					.filter(GDLinkedUserData::isLinkActivated)
-					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()))
+					.flatMap(linkedUser -> gdClient.getUserByAccountId(linkedUser.gdUserId()).flatMap(this::saveUserStats))
 					.switchIfEmpty(Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_no_gd_account"))));
 		}
 		if (!str.matches("[a-zA-Z0-9 _-]+")) {
 			return Mono.error(new CommandFailedException(tr.translate("GDStrings", "error_invalid_characters")));
 		}
 		return gdClient.searchUser(str);
+	}
+	
+	public Mono<GDUser> saveUserStats(GDUser gdUser) {
+		return bot.database()
+				.useExtension(GDLeaderboardDao.class, dao -> dao.cleanInsert(ImmutableGDLeaderboardData.builder()
+						.accountId(gdUser.getAccountId())
+						.name(gdUser.getName())
+						.lastRefreshed(Instant.now())
+						.stars(gdUser.getStars())
+						.diamonds(gdUser.getDiamonds())
+						.userCoins(gdUser.getUserCoins())
+						.secretCoins(gdUser.getSecretCoins())
+						.demons(gdUser.getDemons())
+						.creatorPoints(gdUser.getCreatorPoints())
+						.build()))
+				.thenReturn(gdUser);
 	}
 	
 	/**

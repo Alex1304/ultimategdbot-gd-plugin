@@ -36,7 +36,8 @@ public final class ProfileCommand {
 								ctx.translate("GDStrings", "error_profile_user_not_specified", ctx.prefixUsed(), "profile"))))
 						.map(GDLinkedUserData::gdUserId)
 						.flatMap(Mono::justOrEmpty)
-						.flatMap(gd.client()::getUserByAccountId))
+						.flatMap(gd.client()::getUserByAccountId)
+						.flatMap(gd.user()::saveUserStats))
 				.flatMap(user -> gd.user().makeIconSet(ctx, user)
 						.onErrorResume(e -> Mono.just(e.getMessage()))
 						.flatMap(icons -> gd.user().userProfileView(ctx, ctx.author(), user,

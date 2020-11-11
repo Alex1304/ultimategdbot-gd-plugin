@@ -35,7 +35,8 @@ public final class CheckModCommand {
 						.switchIfEmpty(Mono.error(new CommandFailedException(
 								ctx.translate("GDStrings", "error_checkmod_user_not_specified", ctx.prefixUsed(), "checkmod"))))
 						.map(GDLinkedUserData::gdUserId)
-						.flatMap(gd.client()::getUserByAccountId))
+						.flatMap(gd.client()::getUserByAccountId)
+						.flatMap(gd.user()::saveUserStats))
 				.flatMap(user -> Mono.zip(
 								gd.bot().emoji().get("success"),
 								gd.bot().emoji().get("failed"),

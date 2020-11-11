@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jdbi.v3.sqlobject.customizer.BindList;
 import org.jdbi.v3.sqlobject.customizer.BindPojo;
-import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
@@ -22,16 +21,16 @@ public interface GDLeaderboardDao {
 	@SqlQuery("SELECT last_refreshed FROM " + TABLE + " ORDER BY last_refreshed DESC LIMIT 1")
 	Optional<Timestamp> getLastRefreshed();
 	
-	@SqlBatch("INSERT INTO " + TABLE + " VALUES (:accountId, :name, :stars, :diamonds, :userCoins, "
+	@SqlUpdate("INSERT INTO " + TABLE + " VALUES (:accountId, :name, :stars, :diamonds, :userCoins, "
 			+ ":secretCoins, :demons, :creatorPoints, :lastRefreshed)")
-	void insertAll(@BindPojo List<? extends GDLeaderboardData> data);
+	void insert(@BindPojo GDLeaderboardData data);
 	
-	@SqlUpdate("TRUNCATE TABLE " + TABLE)
-	void deleteAll();
+	@SqlUpdate("DELETE FROM " + TABLE + " WHERE account_id = ?")
+	void delete(long accountId);
 	
 	@Transaction(TransactionIsolationLevel.SERIALIZABLE)
-	default void cleanInsertAll(List<? extends GDLeaderboardData> data) {
-		deleteAll();
-		insertAll(data);
+	default void cleanInsert(GDLeaderboardData data) {
+		delete(data.accountId());
+		insert(data);
 	}
 }
