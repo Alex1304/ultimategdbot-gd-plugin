@@ -1,13 +1,10 @@
 package com.github.alex1304.ultimategdbot.gdplugin;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.TimeoutException;
-
 import com.github.alex1304.jdash.client.AuthenticatedGDClient;
 import com.github.alex1304.jdash.client.GDClientBuilder;
 import com.github.alex1304.jdash.client.GDClientBuilder.Credentials;
+import com.github.alex1304.jdash.cooldown.Cooldown;
+import com.github.alex1304.jdash.cooldown.CooldownException;
 import com.github.alex1304.jdash.entity.GDLevel;
 import com.github.alex1304.jdash.entity.GDUser;
 import com.github.alex1304.jdash.exception.BadResponseException;
@@ -18,14 +15,11 @@ import com.github.alex1304.jdash.graphics.SpriteFactory;
 import com.github.alex1304.jdash.util.LevelSearchFilters;
 import com.github.alex1304.jdash.util.Routes;
 import com.github.alex1304.ultimategdbot.api.BotConfig;
-import com.github.alex1304.ultimategdbot.api.command.CommandErrorHandler;
-import com.github.alex1304.ultimategdbot.api.command.CommandFailedException;
-import com.github.alex1304.ultimategdbot.api.command.CommandProvider;
-import com.github.alex1304.ultimategdbot.api.command.Context;
-import com.github.alex1304.ultimategdbot.api.command.PermissionLevel;
+import com.github.alex1304.ultimategdbot.api.command.*;
 import com.github.alex1304.ultimategdbot.api.command.annotated.paramconverter.ParamConverter;
 import com.github.alex1304.ultimategdbot.api.service.BotService;
 import com.github.alex1304.ultimategdbot.api.service.RootServiceSetupHelper;
+import com.github.alex1304.ultimategdbot.api.util.DurationUtils;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLevelRequestConfigData;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDLinkedUserDao;
 import com.github.alex1304.ultimategdbot.gdplugin.database.GDModDao;
@@ -34,13 +28,17 @@ import com.github.alex1304.ultimategdbot.gdplugin.gdevent.GDEventService;
 import com.github.alex1304.ultimategdbot.gdplugin.level.GDLevelService;
 import com.github.alex1304.ultimategdbot.gdplugin.levelrequest.GDLevelRequestService;
 import com.github.alex1304.ultimategdbot.gdplugin.user.GDUserService;
-
 import discord4j.rest.request.DiscardedRequestException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.Logger;
 import reactor.util.Loggers;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 public final class GDService {
 	
@@ -189,6 +187,9 @@ public final class GDService {
 		cmdErrorHandler.addHandler(NoTimelyAvailableException.class, (e, ctx) -> bot.emoji().get("cross")
 				.flatMap(cross -> ctx.reply(cross + " There is no Daily/Weekly available right now. Come back later!"))
 				.then());
+		cmdErrorHandler.addHandler(CooldownException.class, (e, ctx) -> bot.emoji().get("cross")
+                .flatMap(cross -> ctx.reply(cross + " GD servers rate limit reached. Retry in " + DurationUtils.format(e.getRetryAfter())))
+                .then());
 		cmdProvider.setErrorHandler(cmdErrorHandler);
 		return cmdProvider;
 	}
@@ -204,10 +205,14 @@ public final class GDService {
 		var requestTimeout = gdConfig.readOptional("gdplugin.request_timeout")
 				.map(v -> Duration.ofMillis(Long.parseLong(v)))
 				.orElse(GDClientBuilder.DEFAULT_REQUEST_TIMEOUT);
+		var cooldown = gdConfig.readOptional("gdplugin.cooldown")
+                .map(v -> Cooldown.of(Integer.parseInt(v), Duration.ofMinutes(1)))
+                .orElse(Cooldown.none());
 		return GDClientBuilder.create()
 				.withHost(host)
 				.withCacheTtl(cacheTtl)
 				.withRequestTimeout(requestTimeout)
+                .withCooldown(cooldown)
 				.buildAuthenticated(new Credentials(username, password))
 				.onErrorMap(e -> new RuntimeException("Failed to login with the given Geometry Dash credentials", e));
 	}
