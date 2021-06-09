@@ -1,16 +1,20 @@
 package com.github.alex1304.ultimategdbot.gdplugin.database;
 
-import java.util.Optional;
-
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jdbi.v3.sqlobject.customizer.BindPojo;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
 
+import java.util.List;
+import java.util.Optional;
+
 public interface GDAwardedLevelDao {
 
 	String TABLE = "gd_awarded_level";
+
+    @SqlQuery("SELECT * FROM " + TABLE)
+    List<GDAwardedLevelData> getAll();
 	
 	@SqlUpdate("INSERT INTO " + TABLE + " VALUES (:levelId, :insertDate, :downloads, :likes)")
 	void insert(@BindPojo GDAwardedLevelData data);

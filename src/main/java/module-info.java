@@ -11,11 +11,18 @@ open module ultimategdbot.gd {
 	requires jdash;
 	requires jdash.events;
 	requires jdk.unsupported;
+    requires org.mongodb.driver.reactivestreams;
+    requires org.immutables.criteria.common;
+    requires org.immutables.criteria.mongo;
+    requires org.immutables.criteria.reactor;
+    requires org.mongodb.bson;
 	requires reactor.extra;
 	requires ultimategdbot.api;
 
 	requires static com.google.errorprone.annotations;
 	requires static org.immutables.value;
+    requires com.fasterxml.jackson.databind;
+    requires com.fasterxml.jackson.datatype.jdk8;
 	requires org.jdbi.v3.core;
 	requires discord4j.core;
 	requires discord4j.rest;
